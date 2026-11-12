@@ -1,0 +1,13 @@
+# Rule 5 of §6.4: LF in the repository, no logic depends on CRLF.
+* text=auto eol=lf
+
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+*.onnx  binary
+*.gguf  binary
+*.dll   binary
+*.exe   binary
+*.ico   binary
+*.ttf   binary
+*.woff2 binary

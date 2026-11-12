@@ -1,0 +1,43 @@
+[workspace]
+resolver = "3"
+# Crates are added when first needed (plans/technical-structure.md §2).
+members = ["xtask"]
+
+[workspace.package]
+edition = "2024"
+license = "LicenseRef-Proprietary"
+publish = false
+
+# One version of every dependency, used with `dep.workspace = true`.
+[workspace.dependencies]
+anyhow = "1"
+cargo_metadata = "0.19"
+serde = { version = "1", features = ["derive"] }
+sha2 = "0.10"
+toml = "0.8"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+unused_must_use = "deny"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+dbg_macro = "deny"
+print_stderr = "allow"
+
+[profile.dev]
+debug = "line-tables-only"
+
+# Dependencies are compiled with some optimisation even in dev builds:
+# PDF and model code is unusably slow at opt-level 0.
+[profile.dev.package."*"]
+opt-level = 1
+debug = false
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

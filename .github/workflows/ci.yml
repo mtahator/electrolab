@@ -1,0 +1,56 @@
+# Pipeline of plans/technical-structure.md §10 (T1: Windows full, Linux and macOS check only).
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  windows:
+    name: windows (full)
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest,cargo-deny,cargo-machete
+      - name: format
+        run: cargo fmt --all --check
+      - name: lint
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: architecture
+        run: cargo xtask arch-check
+      - name: schemas
+        run: cargo xtask schema-check
+      - name: licences and advisories
+        run: cargo deny check
+      - name: unused dependencies
+        run: cargo machete
+      - name: tests
+        run: cargo nextest run --workspace --no-tests=warn
+
+  portability:
+    name: ${{ matrix.os }} (compile + core tests)
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: compile
+        run: cargo check --workspace --all-targets
+      # From Phase 1: `cargo test` limited to *-contract and *-core crates.
+      - name: tests (tooling)
+        run: cargo test --package xtask

@@ -1,0 +1,9 @@
+/target/
+/.natives/
+node_modules/
+dist/
+*.log
+.DS_Store
+Thumbs.db
+# spikes keep only their README and results; build output is never committed
+/spikes/*/target/

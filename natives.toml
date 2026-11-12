@@ -1,0 +1,14 @@
+# Pinned prebuilt native libraries, fetched by `cargo xtask fetch-natives`.
+# Never compiled locally (plans/phase-0 work package A).
+#
+# An entry is fetched only when it has both `url` and `sha256`.
+# Versions and hashes are filled in by the spikes that choose them
+# (P0.S2 PDFium, P0.S3 llama.cpp, P0.S5 ONNX Runtime) and recorded in their ADRs.
+#
+# [[native]]
+# name    = "pdfium"
+# version = ""
+# os      = "windows-x64"
+# url     = ""
+# sha256  = ""
+# extract = true          # unpack with the system `tar` into .natives/<name>/

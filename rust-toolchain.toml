@@ -1,0 +1,11 @@
+[toolchain]
+# Pinned stable compiler. Raise it deliberately, in its own commit.
+channel = "1.99.1"
+profile = "minimal"
+components = ["rustfmt", "clippy"]
+# Rule 3 of Draft 2.2 §6.4: compile on three, test and ship on one.
+targets = [
+    "x86_64-pc-windows-msvc",
+    "x86_64-unknown-linux-gnu",
+    "aarch64-apple-darwin",
+]
