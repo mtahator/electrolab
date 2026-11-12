@@ -1,0 +1,8 @@
+[
+  {"id": "lfm25-1.2b-q8", "repo": "LiquidAI/LFM2.5-1.2B-Instruct-GGUF", "rev": "8ed288026e23958ad9dfa92d53ed773a8eee7125",
+   "file": "LFM2.5-1.2B-Instruct-Q8_0.gguf", "sha256": "f6b981dcb86917fa463f78a362320bd5e2dc45445df147287eedb85e5a30d26a", "licence": "LFM Open License (see repo)"},
+  {"id": "lfm25-1.2b-q4", "repo": "LiquidAI/LFM2.5-1.2B-Instruct-GGUF", "rev": "8ed288026e23958ad9dfa92d53ed773a8eee7125",
+   "file": "LFM2.5-1.2B-Instruct-Q4_K_M.gguf", "sha256": "b1b3de114215d9507409a662a501a631095a479a419584e8a2ded6304b19b4f5", "licence": "LFM Open License (see repo)"},
+  {"id": "qwen3-4b-q4", "repo": "unsloth/Qwen3-4B-Instruct-2507-GGUF", "rev": "a06e946bb6b655725eafa393f4a9745d460374c9",
+   "file": "Qwen3-4B-Instruct-2507-Q4_K_M.gguf", "sha256": "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597", "licence": "Apache-2.0"}
+]

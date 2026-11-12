@@ -8,3 +8,5 @@ dist/
 Thumbs.db
 # spikes keep only their README and results; build output is never committed
 /spikes/*/target/
+__pycache__/
+*.pyc
