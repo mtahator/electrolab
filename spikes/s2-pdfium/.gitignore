@@ -1,0 +1,10 @@
+/target/
+/compare/node_modules/
+# Per-paper texts and character files are large (~90 MB) and derived from the fixtures:
+# regenerate them with the commands in README.md. Only the summaries are kept.
+/out/*
+!/out/report.md
+!/out/pdfium.jsonl
+!/out/pymupdf.jsonl
+!/out/compare_text.json
+!/out/compare_geometry.json

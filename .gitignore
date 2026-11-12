@@ -1,5 +1,6 @@
 /target/
 /.natives/
+/.fixtures/
 node_modules/
 dist/
 *.log

@@ -1,0 +1,163 @@
+# Fixture papers (task P0.C.1). Fetched by `cargo xtask fetch-fixtures` into .fixtures/papers/.
+# Every entry: exact versioned URL, SHA-256, licence. Entries with `committed = true` live in
+# fixtures/papers/ in Git instead (sources that regenerate the file, so a hash cannot be pinned).
+
+[[paper]]
+file    = "arxiv-2111.12066v2.pdf"
+url     = "https://arxiv.org/pdf/2111.12066v2"
+sha256  = "bb4373a3cfc0e0959be89cf8ff7336d8a0324b7b923dc3220ad46fa5f6ed5780"
+licence = "CC BY 4.0"
+source  = "arXiv:2111.12066v2 — Physics Informed Neural Networks for Control Oriented Thermal Modeling of Buildings"
+covers  = "two-column; PINN; IEEE-style conference layout"
+
+[[paper]]
+file    = "arxiv-2304.11247v3.pdf"
+url     = "https://arxiv.org/pdf/2304.11247v3"
+sha256  = "5e4144ceb499434f30661e2300549f701bc0cee53f730c2687bc3a36e7c1d011"
+licence = "CC BY 4.0"
+source  = "arXiv:2304.11247v3 — Hybrid quantum physics-informed neural networks for simulating computational fluid dynamics in complex shapes"
+covers  = "two-column; PINN; short"
+
+[[paper]]
+file    = "arxiv-2310.09367v1.pdf"
+url     = "https://arxiv.org/pdf/2310.09367v1"
+sha256  = "8d6a8ae9d62f96c11c78786af9aba7754c215f444d8df407f064f28c000a2717"
+licence = "CC BY 4.0"
+source  = "arXiv:2310.09367v1 — Large-eddy simulation of separated flows on unconventionally coarse grids"
+covers  = "two-column; CFD (LES); math-alphabet characters"
+
+[[paper]]
+file    = "arxiv-2601.12341v1.pdf"
+url     = "https://arxiv.org/pdf/2601.12341v1"
+sha256  = "9d44a442650b19d7ebc27d33ec89cfe65d194ca0c86f6dc92016940eaeefe8c9"
+licence = "CC BY 4.0"
+source  = "arXiv:2601.12341v1 — Time-Continuous Modeling for Temporal Affective Pattern Recognition in LLMs"
+covers  = "two-column; very short"
+
+[[paper]]
+file    = "arxiv-2207.11567v1.pdf"
+url     = "https://arxiv.org/pdf/2207.11567v1"
+sha256  = "0fdb855bbd0d010077abd0417b4a6ec3aaad3f01639f751654c5502263e1f4b0"
+licence = "CC BY 4.0"
+source  = "arXiv:2207.11567v1 — Low Mach number lattice Boltzmann model for turbulent combustion: flow in confined geometries"
+covers  = "two-column; no PDF outline; CFD (lattice Boltzmann)"
+
+[[paper]]
+file    = "arxiv-2406.19831v2.pdf"
+url     = "https://arxiv.org/pdf/2406.19831v2"
+sha256  = "a2517f71940b9cb2bf1be678cdcbae6a5407221a53f78dc480a4de92d81ea99a"
+licence = "CC BY 4.0"
+source  = "arXiv:2406.19831v2 — Meshfree Variational Physics Informed Neural Networks (MF-VPINN): an adaptive training strategy"
+covers  = "figure-heavy; slow pages; PINN"
+
+[[paper]]
+file    = "arxiv-2106.03711v2.pdf"
+url     = "https://arxiv.org/pdf/2106.03711v2"
+sha256  = "297c18ad3377d2cad7689af491802497734c6a3c5df91d13d9460ed393e1ea8d"
+licence = "CC BY 4.0"
+source  = "arXiv:2106.03711v2 — Optimal Eddy Viscosity in Closure Models for 2D Turbulent Flows"
+covers  = "slowest single page; private-use glyphs; CFD closure models"
+
+[[paper]]
+file    = "arxiv-2203.12634v2.pdf"
+url     = "https://arxiv.org/pdf/2203.12634v2"
+sha256  = "5b54fb3c1c3b2092c64f7210a0baad93e4ad88cf58501efb3ee6dd3658565b2f"
+licence = "CC BY 4.0"
+source  = "arXiv:2203.12634v2 — Applications of physics informed neural operators"
+covers  = "rich PDF outline (37 entries); neural operators"
+
+[[paper]]
+file    = "arxiv-2305.08757v3.pdf"
+url     = "https://arxiv.org/pdf/2305.08757v3"
+sha256  = "bd87b0e0c3dfd06584cc3f48068f600bb273d6fb03424fafd3fc6da0075b1264"
+licence = "CC BY 4.0"
+source  = "arXiv:2305.08757v3 — Physics Informed Token Transformer for Solving Partial Differential Equations"
+covers  = "no PDF outline; long single-column"
+
+[[paper]]
+file    = "arxiv-2410.21481v1.pdf"
+url     = "https://arxiv.org/pdf/2410.21481v1"
+sha256  = "7837ed20e6e2db9d389f2150dadaba07d165c144b66bb50bda2c91e2f77e0431"
+licence = "CC BY 4.0"
+source  = "arXiv:2410.21481v1 — A Mathematical Analysis of Neural Operator Behaviors"
+covers  = "equation-heavy; mathematical analysis"
+
+[[paper]]
+file    = "arxiv-2311.07440v2.pdf"
+url     = "https://arxiv.org/pdf/2311.07440v2"
+sha256  = "28fdf8a5cad10587ea252b5da6e92885cbcb8b9cc0f1dab5606a835c34e1e9e9"
+licence = "CC BY 4.0"
+source  = "arXiv:2311.07440v2 — Optimal finite element approximation of unique continuation"
+covers  = "mixed page sizes; finite-element numerical analysis"
+
+[[paper]]
+file    = "arxiv-2111.07691v2.pdf"
+url     = "https://arxiv.org/pdf/2111.07691v2"
+sha256  = "575e65dd7014a17b81399e656916f91a381a8e4a64b9c793e0270890a6005065"
+licence = "CC BY 4.0"
+source  = "arXiv:2111.07691v2 — Theoretical Guarantees for the Statistical Finite Element Method"
+covers  = "reading-order differences between extractors; statistical FEM"
+
+[[paper]]
+file    = "arxiv-2402.12652v3.pdf"
+url     = "https://arxiv.org/pdf/2402.12652v3"
+sha256  = "c08eb1af4f050fce18dd534db5f4da885c82688c06b3c915d0c0c7776a51a4a9"
+licence = "CC BY 4.0"
+source  = "arXiv:2402.12652v3 — PDEformer: Towards a Foundation Model for One-Dimensional Partial Differential Equations"
+covers  = "table-heavy; PDE foundation model"
+
+[[paper]]
+file    = "arxiv-2407.06664v2.pdf"
+url     = "https://arxiv.org/pdf/2407.06664v2"
+sha256  = "920c31b85c6b2b9026e7e43dc19c4945f0cf7e9d401b491a815aa21407ea02b5"
+licence = "CC BY 4.0"
+source  = "arXiv:2407.06664v2 — PDEformer-1: A Foundation Model for One-Dimensional Partial Differential Equations"
+covers  = "table-heavy; PDE foundation model"
+
+[[paper]]
+file    = "arxiv-2211.08985v1.pdf"
+url     = "https://arxiv.org/pdf/2211.08985v1"
+sha256  = "d41b732492f29b349608039685bade79d526fd4591eb639d7775adef99cd665c"
+licence = "CC BY 4.0"
+source  = "arXiv:2211.08985v1 — Predicting nonlinear dynamics of optical solitons in optical fiber via the SCPINN"
+covers  = "many private-use glyphs; no PDF outline"
+
+[[paper]]
+file    = "arxiv-2601.05155v2.pdf"
+url     = "https://arxiv.org/pdf/2601.05155v2"
+sha256  = "743a588e9fb24b01aea1ce0696cebc2c6cc34bc729b8e6f615467bab44de2a4a"
+licence = "CC BY 4.0"
+source  = "arXiv:2601.05155v2 — Machine learning for radiative hydrodynamics in astrophysics"
+covers  = "thesis, 212 pages; ~9.6k math-alphabet characters"
+
+[[paper]]
+file    = "arxiv-2511.21915v1.pdf"
+url     = "https://arxiv.org/pdf/2511.21915v1"
+sha256  = "71a12bc36fa0a4713f087a4a8ce4da8e7f180cc3753ae9f059bde94d4157479b"
+licence = "CC BY 4.0"
+source  = "arXiv:2511.21915v1 — Algorithms and Scientific Software for Quasi-Monte Carlo, Fast Gaussian Process Regression, and Scientific Machine Learning"
+covers  = "very long: thesis, 286 pages, 28 MB"
+
+[[paper]]
+file    = "naca-report-1135.pdf"
+url     = "https://ntrs.nasa.gov/api/citations/19930091059/downloads/19930091059.pdf"
+sha256  = "1971643025181d1216b0b0a359d2a5a3adf5d254d3e158e19ba880b368b86e53"
+licence = "Public domain (U.S. Government work; NTRS distribution PUBLIC)"
+source  = "NACA Report 1135 (1953), Equations, tables, and charts for compressible flow"
+covers  = "scanned pages with a hidden OCR text layer; two-column; table-heavy; equations"
+
+[[paper]]
+file    = "plos-pone-0232683.pdf"
+url     = "https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0232683&type=printable"
+sha256  = "6cf0b4be45fdedce3b4a8abf1c2e4b2bf7df578aa82962807222c8551085c76c"
+licence = "CC BY 4.0"
+source  = "PLOS ONE 15(5): e0232683 (2020), doi:10.1371/journal.pone.0232683"
+covers  = "journal layout; single-column; glyphs without Unicode mapping; PINN"
+
+[[paper]]
+file      = "fawiki-artificial-neural-network.pdf"
+committed = true
+sha256    = "7e383ea9ac98195630cb7baed490c15a1cadec10ef737f0424b29498a29bd609"
+licence   = "CC BY-SA 4.0 (text); images under their own free licences"
+source    = "Persian Wikipedia, article شبکه عصبی مصنوعی (artificial neural network), PDF export of 2026-11-12"
+covers    = "right-to-left Persian text; mixed Persian/English; zero-width non-joiner"

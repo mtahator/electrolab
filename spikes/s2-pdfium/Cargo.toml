@@ -1,0 +1,14 @@
+[package]
+name = "s2-pdfium"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Spike P0.S2: is PDFium text and geometry good enough? Throw-away code."
+
+# Its own workspace: spikes are never part of the product build or its checks.
+[workspace]
+
+[dependencies]
+pdfium-render = { version = "=0.9.5", default-features = false, features = ["pdfium_8125", "thread_safe"] }
+serde_json = "1"
+anyhow = "1"

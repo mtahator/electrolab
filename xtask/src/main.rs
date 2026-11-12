@@ -4,9 +4,12 @@
 //! cargo xtask arch-check      dependency rules + OS isolation (technical-structure.md §3.3)
 //! cargo xtask schema-check    committed JSON Schemas match the generated ones
 //! cargo xtask fetch-natives   download pinned native libraries and verify their hashes
+//! cargo xtask fetch-fixtures  download pinned fixture papers and verify their hashes
 //! ```
 
 mod arch;
+mod download;
+mod fixtures;
 mod layout;
 mod natives;
 mod os_scan;
@@ -22,8 +25,11 @@ fn main() -> ExitCode {
         Some("arch-check") => arch_check(&root),
         Some("schema-check") => schema::check(&root),
         Some("fetch-natives") => natives::fetch(&root),
+        Some("fetch-fixtures") => fixtures::fetch(&root),
         _ => {
-            eprintln!("usage: cargo xtask <arch-check | schema-check | fetch-natives>");
+            eprintln!(
+                "usage: cargo xtask <arch-check | schema-check | fetch-natives | fetch-fixtures>"
+            );
             return ExitCode::from(2);
         }
     };

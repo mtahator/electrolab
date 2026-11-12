@@ -1,0 +1,579 @@
+[
+ {
+  "file": "arxiv-2106.03711v2",
+  "f1_raw": 0.9015,
+  "f1_normalised": 0.9249,
+  "in_order": 0.9253,
+  "pdfium": {
+   "words": 10319,
+   "replacement": 0,
+   "private_use": 323,
+   "ligatures": 0,
+   "merged_words": 0,
+   "single_letters_pct": 4.71
+  },
+  "pymupdf": {
+   "words": 9922,
+   "replacement": 0,
+   "private_use": 323,
+   "ligatures": 247,
+   "merged_words": 1,
+   "single_letters_pct": 3.97
+  },
+  "diff_sample_page1": [
+   "replace: pdfium 'Matharu∗ and' | pymupdf 'Matharu∗and'",
+   "replace: pdfium 'cutoff wavenumber' | pymupdf 'cutoffwavenumber'",
+   "replace: pdfium '∗ Email:' | pymupdf '∗Email:'"
+  ]
+ },
+ {
+  "file": "arxiv-2111.07691v2",
+  "f1_raw": 0.8659,
+  "f1_normalised": 0.881,
+  "in_order": 0.7191,
+  "pdfium": {
+   "words": 13784,
+   "replacement": 0,
+   "private_use": 0,
+   "ligatures": 0,
+   "merged_words": 0,
+   "single_letters_pct": 5.9
+  },
+  "pymupdf": {
+   "words": 12753,
+   "replacement": 0,
+   "private_use": 0,
+   "ligatures": 203,
+   "merged_words": 0,
+   "single_letters_pct": 4.02
+  },
+  "diff_sample_page1": [
+   "replace: pdfium 'probabilis\\x02tic' | pymupdf 'probabilistic'",
+   "replace: pdfium 'demonstrat\\x02ing' | pymupdf 'demonstrating'",
+   "replace: pdfium 'dis\\x02tance' | pymupdf 'distance'",
+   "replace: pdfium 'numer\\x02ical' | pymupdf 'numerical'",
+   "replace: pdfium '† Imperial' | pymupdf '†Imperial'",
+   "replace: pdfium '¶ Imperial' | pymupdf '¶Imperial'"
+  ]
+ },
+ {
+  "file": "arxiv-2111.12066v2",
+  "f1_raw": 0.9212,
+  "f1_normalised": 0.9468,
+  "in_order": 0.9461,
+  "pdfium": {
+   "words": 9150,
+   "replacement": 0,
+   "private_use": 77,
+   "ligatures": 0,
+   "merged_words": 0,
+   "single_letters_pct": 1.83
+  },
+  "pymupdf": {
+   "words": 9022,
+   "replacement": 0,
+   "private_use": 77,
+   "ligatures": 138,
+   "merged_words": 0,
+   "single_letters_pct": 1.27
+  },
+  "diff_sample_page1": [
+   "replace: pdfium 'im\\x02portant' | pymupdf 'important'",
+   "replace: pdfium 'world\\x02wide' | pymupdf 'worldwide'",
+   "replace: pdfium 'con\\x02text' | pymupdf 'context'",
+   "replace: pdfium 'perfor\\x02mance' | pymupdf 'performance'",
+   "replace: pdfium 'de\\x02cisions.' | pymupdf 'decisions.'",
+   "replace: pdfium 're\\x02lated' | pymupdf 'related'"
+  ]
+ },
+ {
+  "file": "arxiv-2203.12634v2",
+  "f1_raw": 0.947,
+  "f1_normalised": 0.9719,
+  "in_order": 0.9739,
+  "pdfium": {
+   "words": 9357,
+   "replacement": 0,
+   "private_use": 0,
+   "ligatures": 0,
+   "merged_words": 0,
+   "single_letters_pct": 1.54
+  },
+  "pymupdf": {
+   "words": 9309,
+   "replacement": 0,
+   "private_use": 0,
+   "ligatures": 160,
+   "merged_words": 0,
+   "single_letters_pct": 1.37
+  },
+  "diff_sample_page1": [
+   "replace: pdfium 'pro\\x02duction,' | pymupdf 'production,'",
+   "replace: pdfium 'gravi\\x02tational,' | pymupdf 'gravitational,'",
+   "replace: pdfium 'mani\\x02fold,' | pymupdf 'manifold,'",
+   "replace: pdfium 'ini\\x02tial' | pymupdf 'initial'",
+   "replace: pdfium 'bound\\x02ary' | pymupdf 'boundary'",
+   "replace: pdfium 'ac\\x02curately' | pymupdf 'accurately'",
+   "replace: pdfium 'com\\x02puting,' | pymupdf 'computing,'",
+   "replace: pdfium 'dif\\x02ficult' | pymupdf 'difficult'"
+  ]
+ },
+ {
+  "file": "arxiv-2207.11567v1",
+  "f1_raw": 0.9042,
+  "f1_normalised": 0.9482,
+  "in_order": 0.9475,
+  "pdfium": {
+   "words": 4493,
+   "replacement": 0,
+   "private_use": 0,
+   "ligatures": 0,
+   "merged_words": 0,
+   "single_letters_pct": 2.68
+  },
+  "pymupdf": {
+   "words": 4446,
+   "replacement": 0,
+   "private_use": 0,
+   "ligatures": 159,
+   "merged_words": 0,
+   "single_letters_pct": 2.0
+  },
+  "diff_sample_page1": [
+   "replace: pdfium 'Thevenin ́ a' | pymupdf 'Th ́evenina'",
+   "replace: pdfium 'Zurich,' | pymupdf 'Z ̈urich,'",
+   "replace: pdfium '̈ urich,' | pymupdf '̈urich,'",
+   "delete: pdfium '̈' | pymupdf ''",
+   "replace: pdfium 'CentraleSupelec,' | pymupdf 'CentraleSup ́elec,'",
+   "replace: pdfium '́ e' | pymupdf '́e'",
+   "delete: pdfium '́' | pymupdf ''",
+   "replace: pdfium 'ap\\x02proach' | pymupdf 'approach'"
+  ]
+ },
+ {
+  "file": "arxiv-2211.08985v1",
+  "f1_raw": 0.9896,
+  "f1_normalised": 0.9896,
+  "in_order": 0.9776,
+  "pdfium": {
+   "words": 8428,
+   "replacement": 0,
+   "private_use": 412,
+   "ligatures": 0,
+   "merged_words": 0,
+   "single_letters_pct": 8.03
+  },
+  "pymupdf": {
+   "words": 8427,
+   "replacement": 0,
+   "private_use": 412,
+   "ligatures": 0,
+   "merged_words": 0,
+   "single_letters_pct": 8.43
+  },
+  "diff_sample_page1": []
+ },
+ {
+  "file": "arxiv-2304.11247v3",
+  "f1_raw": 0.9567,
+  "f1_normalised": 0.9685,
+  "in_order": 0.9704,
+  "pdfium": {
+   "words": 7226,
+   "replacement": 0,
+   "private_use": 0,
+   "ligatures": 0,
+   "merged_words": 0,
+   "single_letters_pct": 1.7
+  },
+  "pymupdf": {
+   "words": 7202,
+   "replacement": 0,
+   "private_use": 0,
+   "ligatures": 0,
+   "merged_words": 0,
+   "single_letters_pct": 1.48
+  },
+  "diff_sample_page1": [
+   "replace: pdfium 'me\\x02chanical' | pymupdf 'mechanical'",
+   "replace: pdfium 'com\\x02plex' | pymupdf 'complex'",
+   "replace: pdfium 'par\\x02ticular' | pymupdf 'particular'",
+   "replace: pdfium 'geome\\x02tries,' | pymupdf 'geometries,'",
+   "replace: pdfium 'pri\\x02marily' | pymupdf 'primarily'",
+   "replace: pdfium 'ge\\x02ometrical' | pymupdf 'geometrical'",
+   "replace: pdfium 'equa\\x02tions' | pymupdf 'equations'",
+   "replace: pdfium 'Open\\x02FOAM' | pymupdf 'OpenFOAM'"
+  ]
+ },
+ {
+  "file": "arxiv-2305.08757v3",
+  "f1_raw": 0.9797,
+  "f1_normalised": 0.9814,
+  "in_order": 0.9839,
+  "pdfium": {
+   "words": 11436,
+   "replacement": 0,
+   "private_use": 0,
+   "ligatures": 0,
+   "merged_words": 0,
+   "single_letters_pct": 1.79
+  },
+  "pymupdf": {
+   "words": 11393,
+   "replacement": 0,
+   "private_use": 0,
+   "ligatures": 0,
+   "merged_words": 0,
+   "single_letters_pct": 1.6
+  },
+  "diff_sample_page1": [
+   "replace: pdfium 'Li,†and' | pymupdf 'Li,† and'",
+   "replace: pdfium 'sci\\x02ence' | pymupdf 'science'",
+   "replace: pdfium 'In\\x02telligence' | pymupdf 'Intelligence'",
+   "replace: pdfium 'par\\x02tial' | pymupdf 'partial'",
+   "replace: pdfium 'ex\\x021' | pymupdf 'ex1'"
+  ]
+ },
+ {
+  "file": "arxiv-2310.09367v1",
+  "f1_raw": 0.9536,
+  "f1_normalised": 0.9582,
+  "in_order": 0.9611,
+  "pdfium": {
+   "words": 8039,
+   "replacement": 0,
+   "private_use": 0,
+   "ligatures": 0,
+   "merged_words": 0,
+   "single_letters_pct": 2.33
+  },
+  "pymupdf": {
+   "words": 7857,
+   "replacement": 0,
+   "private_use": 0,
+   "ligatures": 0,
+   "merged_words": 0,
+   "single_letters_pct": 1.1
+  },
+  "diff_sample_page1": [
+   "replace: pdfium 'very-large-eddy\\x02simulation' | pymupdf 'very-large-eddysimulation'",
+   "replace: pdfium 'backward\\x02facing' | pymupdf 'backwardfacing'",
+   "replace: pdfium 'RANS\\x02quality' | pymupdf 'RANSquality'",
+   "replace: pdfium 'Ri j' | pymupdf 'Rij'",
+   "replace: pdfium 'Si j' | pymupdf 'Sij'",
+   "replace: pdfium 'uiinstantaneous' | pymupdf 'ui instantaneous'",
+   "replace: pdfium 'ap\\x02plies' | pymupdf 'applies'",
+   "replace: pdfium 'ob\\x02tainable' | pymupdf 'obtainable'"
+  ]
+ },
+ {
+  "file": "arxiv-2311.07440v2",
+  "f1_raw": 0.8821,
+  "f1_normalised": 0.8988,
+  "in_order": 0.8872,
+  "pdfium": {
+   "words": 8107,
+   "replacement": 0,
+   "private_use": 0,
+   "ligatures": 0,
+   "merged_words": 0,
+   "single_letters_pct": 6.02
+  },
+  "pymupdf": {
+   "words": 7654,
+   "replacement": 0,
+   "private_use": 0,
+   "ligatures": 134,
+   "merged_words": 0,
+   "single_letters_pct": 3.92
+  },
+  "diff_sample_page1": [
+   "replace: pdfium 'Burman1·' | pymupdf 'Burman1 ·'",
+   "replace: pdfium 'Nechita2,3·' | pymupdf 'Nechita2,3 ·'",
+   "replace: pdfium 'in\\x02cluding' | pymupdf 'including'",
+   "replace: pdfium 'pertur\\x02bations,' | pymupdf 'perturbations,'",
+   "replace: pdfium 'Applica\\x02tive' | pymupdf 'Applicative'",
+   "replace: pdfium 'Pro\\x02gramme' | pymupdf 'Programme'",
+   "replace: pdfium 'Babes, -Bolyai' | pymupdf 'Babes,-Bolyai'",
+   "replace: pdfium 'Univer\\x02sity' | pymupdf 'University'"
+  ]
+ },
+ {
+  "file": "arxiv-2402.12652v3",
+  "f1_raw": 0.9605,
+  "f1_normalised": 0.9636,
+  "in_order": 0.9687,
+  "pdfium": {
+   "words": 9059,
+   "replacement": 0,
+   "private_use": 0,
+   "ligatures": 0,
+   "merged_words": 0,
+   "single_letters_pct": 2.63
+  },
+  "pymupdf": {
+   "words": 8886,
+   "replacement": 0,
+   "private_use": 0,
+   "ligatures": 0,
+   "merged_words": 0,
+   "single_letters_pct": 1.57
+  },
+  "diff_sample_page1": [
+   "replace: pdfium 'EQUA\\x02TIONS' | pymupdf 'EQUATIONS'",
+   "replace: pdfium 'seam\\x02less' | pymupdf 'seamless'",
+   "replace: pdfium 'Ad\\x02ditionally,' | pymupdf 'Additionally,'",
+   "replace: pdfium 'oper\\x02ators' | pymupdf 'operators'",
+   "replace: pdfium 'net\\x02work' | pymupdf 'network'",
+   "replace: pdfium 'vi\\x02sion,' | pymupdf 'vision,'",
+   "replace: pdfium 'high\\x02quality' | pymupdf 'highquality'"
+  ]
+ },
+ {
+  "file": "arxiv-2406.19831v2",
+  "f1_raw": 0.9239,
+  "f1_normalised": 0.9327,
+  "in_order": 0.9319,
+  "pdfium": {
+   "words": 13662,
+   "replacement": 0,
+   "private_use": 4,
+   "ligatures": 0,
+   "merged_words": 0,
+   "single_letters_pct": 6.72
+  },
+  "pymupdf": {
+   "words": 13323,
+   "replacement": 0,
+   "private_use": 4,
+   "ligatures": 110,
+   "merged_words": 0,
+   "single_letters_pct": 4.57
+  },
+  "diff_sample_page1": [
+   "replace: pdfium 'triangu\\x02lation' | pymupdf 'triangulation'",
+   "replace: pdfium 'Differ\\x02ential' | pymupdf 'Differential'",
+   "replace: pdfium 'implemen\\x02tation,' | pymupdf 'implementation,'",
+   "replace: pdfium 'general\\x02izations' | pymupdf 'generalizations'",
+   "replace: pdfium 'L 2' | pymupdf 'L2'",
+   "replace: pdfium 'ste\\x02fano.berrone@polito.it' | pymupdf 'stefano.berrone@polito.it'"
+  ]
+ },
+ {
+  "file": "arxiv-2407.06664v2",
+  "f1_raw": 0.9744,
+  "f1_normalised": 0.975,
+  "in_order": 0.9759,
+  "pdfium": {
+   "words": 12415,
+   "replacement": 0,
+   "private_use": 8,
+   "ligatures": 0,
+   "merged_words": 0,
+   "single_letters_pct": 2.06
+  },
+  "pymupdf": {
+   "words": 12231,
+   "replacement": 0,
+   "private_use": 8,
+   "ligatures": 0,
+   "merged_words": 0,
+   "single_letters_pct": 1.37
+  },
+  "diff_sample_page1": [
+   "replace: pdfium 'simulta\\x02neously' | pymupdf 'simultaneously'",
+   "replace: pdfium 'chal\\x02lenging' | pymupdf 'challenging'"
+  ]
+ },
+ {
+  "file": "arxiv-2410.21481v1",
+  "f1_raw": 0.9175,
+  "f1_normalised": 0.9353,
+  "in_order": 0.9324,
+  "pdfium": {
+   "words": 12702,
+   "replacement": 0,
+   "private_use": 4,
+   "ligatures": 0,
+   "merged_words": 0,
+   "single_letters_pct": 6.32
+  },
+  "pymupdf": {
+   "words": 12177,
+   "replacement": 0,
+   "private_use": 4,
+   "ligatures": 202,
+   "merged_words": 0,
+   "single_letters_pct": 4.56
+  },
+  "diff_sample_page1": [
+   "replace: pdfium 'infinite\\x02dimensional' | pymupdf 'infinitedimensional'",
+   "replace: pdfium 'equa\\x02tions' | pymupdf 'equations'"
+  ]
+ },
+ {
+  "file": "arxiv-2511.21915v1",
+  "f1_raw": 0.884,
+  "f1_normalised": 0.8866,
+  "in_order": 0.8506,
+  "pdfium": {
+   "words": 80367,
+   "replacement": 0,
+   "private_use": 1697,
+   "ligatures": 0,
+   "merged_words": 2,
+   "single_letters_pct": 8.17
+  },
+  "pymupdf": {
+   "words": 76075,
+   "replacement": 0,
+   "private_use": 1697,
+   "ligatures": 0,
+   "merged_words": 2,
+   "single_letters_pct": 5.36
+  },
+  "diff_sample_page1": []
+ },
+ {
+  "file": "arxiv-2601.05155v2",
+  "f1_raw": 0.8968,
+  "f1_normalised": 0.8968,
+  "in_order": 0.856,
+  "pdfium": {
+   "words": 64972,
+   "replacement": 0,
+   "private_use": 553,
+   "ligatures": 0,
+   "merged_words": 0,
+   "single_letters_pct": 5.67
+  },
+  "pymupdf": {
+   "words": 59927,
+   "replacement": 0,
+   "private_use": 553,
+   "ligatures": 0,
+   "merged_words": 1,
+   "single_letters_pct": 1.79
+  },
+  "diff_sample_page1": []
+ },
+ {
+  "file": "arxiv-2601.12341v1",
+  "f1_raw": 0.9268,
+  "f1_normalised": 0.9284,
+  "in_order": 0.9267,
+  "pdfium": {
+   "words": 3841,
+   "replacement": 0,
+   "private_use": 0,
+   "ligatures": 0,
+   "merged_words": 0,
+   "single_letters_pct": 4.15
+  },
+  "pymupdf": {
+   "words": 3684,
+   "replacement": 0,
+   "private_use": 0,
+   "ligatures": 0,
+   "merged_words": 0,
+   "single_letters_pct": 3.0
+  },
+  "diff_sample_page1": [
+   "replace: pdfium 'backpropaga\\x02tion.' | pymupdf 'backpropagation.'",
+   "replace: pdfium 'time\\x02aware' | pymupdf 'timeaware'",
+   "replace: pdfium 'se\\x02mantic' | pymupdf 'semantic'",
+   "replace: pdfium 'prompt\\x02based' | pymupdf 'promptbased'",
+   "replace: pdfium '{ei:' | pymupdf '{ei :'",
+   "replace: pdfium '∈ [0,' | pymupdf '∈[0,'",
+   "replace: pdfium '− 1]}' | pymupdf '−1]}'",
+   "replace: pdfium '̃zj )' | pymupdf '̃zj)'"
+  ]
+ },
+ {
+  "file": "fawiki-artificial-neural-network",
+  "f1_raw": 0.4066,
+  "f1_normalised": 0.4063,
+  "in_order": 0.451,
+  "pdfium": {
+   "words": 1949,
+   "replacement": 0,
+   "private_use": 0,
+   "ligatures": 0,
+   "merged_words": 1,
+   "single_letters_pct": 3.57
+  },
+  "pymupdf": {
+   "words": 1920,
+   "replacement": 0,
+   "private_use": 0,
+   "ligatures": 0,
+   "merged_words": 1,
+   "single_letters_pct": 3.89
+  },
+  "diff_sample_page1": [
+   "replace: pdfium 'هکبش یبصع یعونصم شبکههای یبصع یعونصم) ANN' | pymupdf 'شبکه عصبی مصنوعی شبکه\\u200cهای عصبی یا به زبان ساده\\u200cتر)Artificial Neural Networks'",
+   "replace: pdfium 'Networks Neural Artificial )ای هب زبان رتهداس شبکههای یبصع اهمتسیس و روشهای یتاب' | pymupdf 'ANN( شبکه\\u200cهای عصبی مصنوعی نمایش دانش'",
+   "replace: pdfium 'اهتنا' | pymupdf 'انتها'",
+   "replace: pdfium 'شناد هب تسد' | pymupdf 'دانش به دست ،یادگیری ماشینی سیستم\\u200cها و روش\\u200cهای محاسباتی نوین برای سامانه\\u200cهای پیچ'",
+   "replace: pdfium 'تهج ینیبشیب پاسخهای یجورخ' | pymupdf 'جهت بیش\\u200cبینی پاسخ\\u200cهای خروجی'",
+   "replace: pdfium 'سامانههای پیچیده دنتسه. هدیأ یلصا نیا هنوگ اههکبش ات حدودی هتفرگماهلا از هویشٔ ک' | pymupdf 'اطالعات به'",
+   "replace: pdfium 'شناد دشابیم. رصنع' | pymupdf 'پردازش داده\\u200cها و سیستم عصبی زیستی برای الهام\\u200cگرفته از شیؤه کارکرد .پردازش اطالعا'",
+   "replace: pdfium 'نیا' | pymupdf 'این'"
+  ]
+ },
+ {
+  "file": "naca-report-1135",
+  "f1_raw": 0.9771,
+  "f1_normalised": 0.9763,
+  "in_order": 0.97,
+  "pdfium": {
+   "words": 39931,
+   "replacement": 0,
+   "private_use": 0,
+   "ligatures": 0,
+   "merged_words": 2,
+   "single_letters_pct": 7.63
+  },
+  "pymupdf": {
+   "words": 40367,
+   "replacement": 0,
+   "private_use": 0,
+   "ligatures": 0,
+   "merged_words": 2,
+   "single_letters_pct": 8.12
+  },
+  "diff_sample_page1": []
+ },
+ {
+  "file": "plos-pone-0232683",
+  "f1_raw": 0.9612,
+  "f1_normalised": 0.9652,
+  "in_order": 0.9626,
+  "pdfium": {
+   "words": 12114,
+   "replacement": 107,
+   "private_use": 0,
+   "ligatures": 0,
+   "merged_words": 0,
+   "single_letters_pct": 4.02
+  },
+  "pymupdf": {
+   "words": 12076,
+   "replacement": 0,
+   "private_use": 0,
+   "ligatures": 0,
+   "merged_words": 0,
+   "single_letters_pct": 3.37
+  },
+  "diff_sample_page1": [
+   "replace: pdfium 'equa\\x02tions.' | pymupdf 'equations.'",
+   "replace: pdfium 'train\\x02ing' | pymupdf 'training'",
+   "replace: pdfium 'select\\x02ing' | pymupdf 'selecting'",
+   "replace: pdfium 'under\\x02ground' | pymupdf 'underground'",
+   "replace: pdfium 'engineer\\x02ing' | pymupdf 'engineering'",
+   "replace: pdfium 'applica\\x02tion' | pymupdf 'application'",
+   "replace: pdfium 'numeri\\x02cal' | pymupdf 'numerical'",
+   "replace: pdfium 'geome\\x02tries' | pymupdf 'geometries'"
+  ]
+ }
+]

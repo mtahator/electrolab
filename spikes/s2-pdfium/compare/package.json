@@ -1,0 +1,8 @@
+{
+  "name": "s2-pdfium-compare",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "pdfjs-dist": "6.4.299"
+  }
+}

@@ -12,3 +12,13 @@
 # url     = ""
 # sha256  = ""
 # extract = true          # unpack with the system `tar` into .natives/<name>/
+
+# P0.S2 — PDFium for the Document engine (pdfium-render 0.9.5 binds API build 8125).
+# Source: bblanchon/pdfium-binaries, BSD-3-Clause / Apache-2.0 (LICENSE inside the archive).
+[[native]]
+name    = "pdfium"
+version = "chromium/8125"
+os      = "windows-x64"
+url     = "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/8125/pdfium-win-x64.tgz"
+sha256  = "9a964261760cff52570aabf038ab346d3a5034dd8b30d0d5fe8861235d356b8b"
+extract = true
