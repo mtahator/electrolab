@@ -1,0 +1,41 @@
+{
+  "double_click": {
+    "selected": "nonlinear ",
+    "trusted": true
+  },
+  "dpr": 1.75,
+  "drag": {
+    "selected": "\nbetween various training realizations are also investigated. In the inverse case, we also\nstudy the effects of noisy measurements. Furthermore, we address the challenge of select-\ning the hyperparameters of the inverse model and illustrate how this challenge is linked to\nthe hyperparameters selection performed for the forward one.\nIntroduction\nThe volumetric displacement of a porous medium caused by the changes in fluid pressure\ninside the pore spaces is essential for many applications, including groundwater flow, under-\nground heat mining, fossil fuel production, earthquake mechanics, and biomedical engineer-\ning [1–5]. Such volumetric deformation may impact the hydraulic storability and permeability\nof porous material, which influences the fluid flow behavior. This multiphysics problem, i.e.,\nthe coupling between fluid flow and solid deformation, can be captured through the applica-\ntion of Biot’s equations of poroelasticity [6, 7]. The Biot’s equations can be solved by analytical\nsolutions for simple cases [8, 9]. In complex cases, the finite difference approximation [10, 11],\nfinite volume discretization [12, 13], or more commonly finite element methods such as the\nmixed formulation or discontinuous/enriched Galerkin, [14–21], can be used. These numeri-\ncal methods, however, require significant computational resources, and the accuracy of the\nsolution depends heavily on the quality of the generated mesh. Hence, these methods may not\nbe suitable to handle an inverse problem [22, 23] or a forward problem with complex geome-\ntries [24–26].\nRecent proposals have speculated that neural-network-based approaches such as deep\nlearning might be an appealing alternative in solving physical problems, which are governedPLOS ONE\nPLOS ONE | https://doi.org/10.1371/journal.pone.0232683 May 6, 2020 1 / 28\na1111111111\na1111111111\na1111111111\na1111111111\na1111111111\nOPEN ACCESS\nCitation: Kadeethum T, Jørgensen TM, Nick HM\n",
+    "trusted": true
+  },
+  "events": [
+    {
+      "detail": 1,
+      "trusted": true,
+      "type": "mouseup"
+    },
+    {
+      "detail": 2,
+      "trusted": true,
+      "type": "mouseup"
+    },
+    {
+      "detail": 1,
+      "trusted": true,
+      "type": "mouseup"
+    }
+  ],
+  "line_expected": "(2020) Physics-informed neural networks for ing example sizes and choices of hyperparameters. The impacts of the stochastic variations",
+  "line_ok": false,
+  "line_pieces": 2,
+  "line_pieces_selected": 0,
+  "mode": "select",
+  "pdf": "plos-pone-0232683.pdf",
+  "scale": 2,
+  "viewport": [
+    1265,
+    871
+  ],
+  "word_expected": "nonlinear",
+  "word_ok": true
+}

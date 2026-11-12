@@ -1,0 +1,128 @@
+{
+  "dpr": 1.75,
+  "fast": {
+    "duration_s": 15.97,
+    "fps": 53.2,
+    "frame_ms_median": 16.7,
+    "frame_ms_p95": 17,
+    "frame_ms_p99": 33.4,
+    "frames": 849,
+    "frames_over_16_7ms_pct": 1.3,
+    "frames_over_33ms_pct": 0.94,
+    "frames_with_blank_page_pct": 5.88,
+    "js_heap_mb": 12.8,
+    "live_canvases_at_end": 8,
+    "long_task_blame": [
+      {
+        "ms": 355,
+        "page": 22,
+        "phase": "canvas"
+      },
+      {
+        "ms": 594,
+        "page": 22,
+        "phase": "text"
+      },
+      {
+        "ms": 571,
+        "page": 22,
+        "phase": "text"
+      },
+      {
+        "ms": 202,
+        "page": 21,
+        "phase": "canvas"
+      }
+    ],
+    "long_task_ms_max": 594,
+    "long_tasks": 5,
+    "pages_scrolled": 31,
+    "slowest_pages": [
+      {
+        "canvas_ms": 2409,
+        "page": 21,
+        "spans": 81,
+        "text_ms": 497
+      },
+      {
+        "canvas_ms": 539,
+        "page": 23,
+        "spans": 180,
+        "text_ms": 22
+      },
+      {
+        "canvas_ms": 510,
+        "page": 25,
+        "spans": 81,
+        "text_ms": 232
+      }
+    ],
+    "speed_px_s": 3000
+  },
+  "mode": "scroll",
+  "pdf": "arxiv-2106.03711v2.pdf",
+  "scale": 2,
+  "slow": {
+    "duration_s": 39.92,
+    "fps": 57.3,
+    "frame_ms_median": 16.7,
+    "frame_ms_p95": 17,
+    "frame_ms_p99": 17.2,
+    "frames": 2289,
+    "frames_over_16_7ms_pct": 0.52,
+    "frames_over_33ms_pct": 0.22,
+    "frames_with_blank_page_pct": 0,
+    "js_heap_mb": 6.1,
+    "live_canvases_at_end": 8,
+    "long_task_blame": [
+      {
+        "ms": 327,
+        "page": 21,
+        "phase": "canvas"
+      },
+      {
+        "ms": 600,
+        "page": 21,
+        "phase": "canvas"
+      },
+      {
+        "ms": 540,
+        "page": 21,
+        "phase": "canvas"
+      },
+      {
+        "ms": 213,
+        "page": 21,
+        "phase": "canvas"
+      }
+    ],
+    "long_task_ms_max": 600,
+    "long_tasks": 5,
+    "pages_scrolled": 31,
+    "slowest_pages": [
+      {
+        "canvas_ms": 2353,
+        "page": 21,
+        "spans": 81,
+        "text_ms": 498
+      },
+      {
+        "canvas_ms": 473,
+        "page": 25,
+        "spans": 81,
+        "text_ms": 240
+      },
+      {
+        "canvas_ms": 48,
+        "page": 15,
+        "spans": 201,
+        "text_ms": 21
+      }
+    ],
+    "speed_px_s": 1200
+  },
+  "viewport": [
+    1265,
+    871
+  ]
+}

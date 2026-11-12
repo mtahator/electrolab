@@ -1,0 +1,41 @@
+{
+  "double_click": {
+    "selected": "Gargya",
+    "trusted": true
+  },
+  "dpr": 1.75,
+  "drag": {
+    "selected": "state, i.e., the temperature of building thermal mass. The main research contributions of this work are: (1) we propose",
+    "trusted": true
+  },
+  "events": [
+    {
+      "detail": 1,
+      "trusted": true,
+      "type": "mouseup"
+    },
+    {
+      "detail": 2,
+      "trusted": true,
+      "type": "mouseup"
+    },
+    {
+      "detail": 1,
+      "trusted": true,
+      "type": "mouseup"
+    }
+  ],
+  "line_expected": "state, i.e., the temperature of building thermal mass. The main research contributions of this work are: (1) we propose",
+  "line_ok": true,
+  "line_pieces": 1,
+  "line_pieces_selected": 1,
+  "mode": "select",
+  "pdf": "arxiv-2111.12066v2.pdf",
+  "scale": 2,
+  "viewport": [
+    1265,
+    871
+  ],
+  "word_expected": "Gargya",
+  "word_ok": true
+}

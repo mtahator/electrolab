@@ -1,6 +1,6 @@
 # ADR-003: PDFium for extraction and writing, PDF.js for display, one coordinate system
 
-Status: **extraction part accepted** (spike S2) · display part proposed, pending spike S1
+Status: **accepted** — extraction (spike S2), display with a hybrid rule for heavy pages (spike S1)
 Date: 2026-11-12
 Plan reference: Draft 2.2 §14.2, §21, §28.7; technical-structure.md §7.4, §7.6; tasks P0.S1, P0.S2
 
@@ -9,7 +9,9 @@ The Document engine needs text with exact positions for search, evidence, highli
 
 ## Decision
 1. **PDFium** (via `pdfium-render`, prebuilt binaries pinned in `natives.toml`) is the only extractor in the Document engine: text, character geometry, links, outline, and later annotation writing. It runs on one owning thread.
-2. **PDF.js** displays pages and provides the selectable text layer in the Reader UI (to be confirmed by spike S1).
+2. **PDF.js** displays pages and provides the selectable text layer in the Reader UI. Spike S1: 100-page papers scroll at 59–60 fps, first page in 138–204 ms, range loading through our protocol works, and real double-clicks select the right word.
+   **Hybrid rule:** when PDF.js takes longer than a threshold (start: 150 ms) to draw a page, the viewer shows a PDFium bitmap rendered on the Document engine's thread instead, keeping the PDF.js text layer on top, and remembers the page as heavy. (Heaviest fixture page: PDF.js 2.4 s on the UI thread, with freezes up to 0.6 s; PDFium 0.38 s in the background.)
+   **Text comes from the Document engine.** The browser selection only says *where* the user selected; the text for copy, Explain, notes and evidence is taken from PDFium quads (PDF.js gives Persian in visual order and presentation forms, and selects in file order across columns).
 3. **One coordinate system** for everything that crosses a boundary: page space in points (technical-structure.md §7.4). Spike S2 measured PDFium and PDF.js text origins agreeing within 1 pt for 100% of matched items on 19/20 papers (97.6% on Persian), so geometry from PDFium lines up with the text the user selects in PDF.js.
 
 ## Alternatives considered
@@ -18,6 +20,7 @@ The Document engine needs text with exact positions for search, evidence, highli
 | Keep PyMuPDF (as in ElectroChat) | AGPL; not better on text (median agreement 0.95, more unexpanded ligatures, raw control codes for unmapped glyphs); similar speed |
 | MuPDF via Rust bindings | AGPL, same problem |
 | Pure-Rust PDF parsers | Text extraction quality and font handling far behind PDFium on real papers |
+| PDFium page tiles for all display (the plan's fall-back) | Not needed: PDF.js meets every budget on normal pages; PDFium is used only for heavy pages |
 | PDF.js for extraction too | Would tie extraction to a JavaScript runtime; CLI, Python and MCP hosts need it without a web view |
 
 ## Consequences
@@ -28,3 +31,4 @@ The Document engine needs text with exact positions for search, evidence, highli
 
 ## Evidence
 `spikes/s2-pdfium/RESULTS.md`, `spikes/s2-pdfium/out/report.md` — 20 fixture papers, 915 pages, minimum hardware.
+`spikes/s1-tauri-pdfjs/RESULTS.md`, `spikes/s1-tauri-pdfjs/out/report.md` — display, scrolling, range loading, real mouse input.

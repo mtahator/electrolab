@@ -1,0 +1,86 @@
+{
+  "dpr": 1.75,
+  "fast": {
+    "duration_s": 55.95,
+    "fps": 59.8,
+    "frame_ms_median": 16.7,
+    "frame_ms_p95": 17,
+    "frame_ms_p99": 17.2,
+    "frames": 3348,
+    "frames_over_16_7ms_pct": 0.18,
+    "frames_over_33ms_pct": 0.06,
+    "frames_with_blank_page_pct": 0,
+    "js_heap_mb": 9.9,
+    "live_canvases_at_end": 10,
+    "long_task_blame": [],
+    "long_task_ms_max": 50,
+    "long_tasks": 1,
+    "pages_scrolled": 100,
+    "slowest_pages": [
+      {
+        "canvas_ms": 70,
+        "page": 56,
+        "spans": 641,
+        "text_ms": 28
+      },
+      {
+        "canvas_ms": 52,
+        "page": 79,
+        "spans": 68,
+        "text_ms": 6
+      },
+      {
+        "canvas_ms": 43,
+        "page": 69,
+        "spans": 203,
+        "text_ms": 33
+      }
+    ],
+    "speed_px_s": 3000
+  },
+  "mode": "scroll",
+  "pdf": "arxiv-2601.05155v2.pdf",
+  "scale": 2,
+  "slow": {
+    "duration_s": 139.85,
+    "fps": 59.9,
+    "frame_ms_median": 16.7,
+    "frame_ms_p95": 17,
+    "frame_ms_p99": 17.2,
+    "frames": 8381,
+    "frames_over_16_7ms_pct": 0.12,
+    "frames_over_33ms_pct": 0.04,
+    "frames_with_blank_page_pct": 0,
+    "js_heap_mb": 8.9,
+    "live_canvases_at_end": 10,
+    "long_task_blame": [],
+    "long_task_ms_max": 60,
+    "long_tasks": 1,
+    "pages_scrolled": 100,
+    "slowest_pages": [
+      {
+        "canvas_ms": 80,
+        "page": 56,
+        "spans": 641,
+        "text_ms": 54
+      },
+      {
+        "canvas_ms": 55,
+        "page": 69,
+        "spans": 203,
+        "text_ms": 37
+      },
+      {
+        "canvas_ms": 44,
+        "page": 58,
+        "spans": 220,
+        "text_ms": 31
+      }
+    ],
+    "speed_px_s": 1200
+  },
+  "viewport": [
+    1265,
+    871
+  ]
+}

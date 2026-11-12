@@ -1,0 +1,69 @@
+{
+  "cold": {
+    "first_canvas_ms": 177.2,
+    "first_text_layer_ms": 248.8,
+    "layout_ms": 9.9,
+    "parsed_ms": 93.9,
+    "sizes_ms": 3.9
+  },
+  "cold_bytes_fetched": 267317,
+  "cold_bytes_share": 0.038,
+  "cold_requests": 5,
+  "dpr": 1.75,
+  "file_bytes": 6951989,
+  "idle_fps": 59.9,
+  "idle_frame_ms_median": 16.7,
+  "mode": "open",
+  "pages": 24,
+  "pdf": "arxiv-2406.19831v2.pdf",
+  "pdfium_sizes_ms": 1.1,
+  "scale": 2,
+  "selection": {
+    "fails": [],
+    "picked_correctly": 12,
+    "words": 12
+  },
+  "viewport": [
+    1265,
+    871
+  ],
+  "warm": [
+    {
+      "first_canvas_ms": 155.2,
+      "first_text_layer_ms": 187.6,
+      "layout_ms": 9.2,
+      "parsed_ms": 86.2,
+      "sizes_ms": 4.6
+    },
+    {
+      "first_canvas_ms": 138.6,
+      "first_text_layer_ms": 153.6,
+      "layout_ms": 8.2,
+      "parsed_ms": 80.1,
+      "sizes_ms": 4.4
+    },
+    {
+      "first_canvas_ms": 137.8,
+      "first_text_layer_ms": 154.4,
+      "layout_ms": 6.2,
+      "parsed_ms": 78,
+      "sizes_ms": 3.3
+    },
+    {
+      "first_canvas_ms": 138.4,
+      "first_text_layer_ms": 154.6,
+      "layout_ms": 8.1,
+      "parsed_ms": 79.9,
+      "sizes_ms": 4.4
+    },
+    {
+      "first_canvas_ms": 137.9,
+      "first_text_layer_ms": 154.6,
+      "layout_ms": 8.9,
+      "parsed_ms": 80.5,
+      "sizes_ms": 4.9
+    }
+  ],
+  "warm_first_canvas_ms_median": 138.4,
+  "warm_first_text_layer_ms_median": 154.6
+}

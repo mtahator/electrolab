@@ -1,0 +1,22 @@
+[package]
+name = "s1-tauri-pdfjs"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Spike P0.S1: Tauri + PDF.js on WebView2 — smooth enough? Throw-away code."
+
+# Its own workspace: spikes are never part of the product build or its checks.
+[workspace]
+
+[build-dependencies]
+tauri-build = { version = "=2.7.4", features = [] }
+
+[dependencies]
+tauri = { version = "=2.12.5", features = [] }
+pdfium-render = { version = "=0.9.5", default-features = false, features = ["pdfium_8125", "thread_safe"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+
+[profile.release]
+lto = "thin"

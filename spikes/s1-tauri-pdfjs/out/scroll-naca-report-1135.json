@@ -1,0 +1,86 @@
+{
+  "dpr": 1.75,
+  "fast": {
+    "duration_s": 36.72,
+    "fps": 57.5,
+    "frame_ms_median": 16.7,
+    "frame_ms_p95": 17.2,
+    "frame_ms_p99": 33.4,
+    "frames": 2112,
+    "frames_over_16_7ms_pct": 4.07,
+    "frames_over_33ms_pct": 1.23,
+    "frames_with_blank_page_pct": 0,
+    "js_heap_mb": 10.6,
+    "live_canvases_at_end": 8,
+    "long_task_blame": [],
+    "long_task_ms_max": 0,
+    "long_tasks": 0,
+    "pages_scrolled": 70,
+    "slowest_pages": [
+      {
+        "canvas_ms": 256,
+        "page": 35,
+        "spans": 1945,
+        "text_ms": 310
+      },
+      {
+        "canvas_ms": 237,
+        "page": 32,
+        "spans": 4415,
+        "text_ms": 805
+      },
+      {
+        "canvas_ms": 199,
+        "page": 28,
+        "spans": 113,
+        "text_ms": 71
+      }
+    ],
+    "speed_px_s": 3000
+  },
+  "mode": "scroll",
+  "pdf": "naca-report-1135.pdf",
+  "scale": 2,
+  "slow": {
+    "duration_s": 91.79,
+    "fps": 58,
+    "frame_ms_median": 16.7,
+    "frame_ms_p95": 17.1,
+    "frame_ms_p99": 33.4,
+    "frames": 5327,
+    "frames_over_16_7ms_pct": 3.12,
+    "frames_over_33ms_pct": 0.96,
+    "frames_with_blank_page_pct": 0,
+    "js_heap_mb": 10.8,
+    "live_canvases_at_end": 8,
+    "long_task_blame": [],
+    "long_task_ms_max": 68,
+    "long_tasks": 3,
+    "pages_scrolled": 70,
+    "slowest_pages": [
+      {
+        "canvas_ms": 73,
+        "page": 8,
+        "spans": 969,
+        "text_ms": 79
+      },
+      {
+        "canvas_ms": 68,
+        "page": 25,
+        "spans": 4579,
+        "text_ms": 1039
+      },
+      {
+        "canvas_ms": 60,
+        "page": 6,
+        "spans": 637,
+        "text_ms": 59
+      }
+    ],
+    "speed_px_s": 1200
+  },
+  "viewport": [
+    1265,
+    871
+  ]
+}

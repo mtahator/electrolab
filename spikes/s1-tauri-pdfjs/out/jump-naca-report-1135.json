@@ -1,0 +1,14 @@
+{
+  "dpr": 1.75,
+  "jump_ms_max": 659,
+  "jump_to_rendered_ms_median": 54,
+  "jump_to_rendered_ms_p95": 659,
+  "jumps": 10,
+  "mode": "jump",
+  "pdf": "naca-report-1135.pdf",
+  "scale": 2,
+  "viewport": [
+    1265,
+    871
+  ]
+}

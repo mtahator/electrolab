@@ -1,0 +1,15 @@
+{
+  "name": "s1-tauri-pdfjs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "vendor": "node copy-vendor.mjs",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "pdfjs-dist": "6.4.299"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.12.4"
+  }
+}

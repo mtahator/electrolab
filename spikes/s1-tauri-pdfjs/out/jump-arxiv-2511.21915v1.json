@@ -1,0 +1,14 @@
+{
+  "dpr": 1.75,
+  "jump_ms_max": 247.7,
+  "jump_to_rendered_ms_median": 76.4,
+  "jump_to_rendered_ms_p95": 247.7,
+  "jumps": 10,
+  "mode": "jump",
+  "pdf": "arxiv-2511.21915v1.pdf",
+  "scale": 2,
+  "viewport": [
+    1265,
+    871
+  ]
+}

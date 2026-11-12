@@ -1,0 +1,18 @@
+:root { --gap: 12px; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #525659; font: 13px system-ui, sans-serif; }
+body { display: flex; flex-direction: column; }
+header { display: flex; gap: 12px; align-items: center; padding: 6px 10px; background: #2b2b2b; color: #ddd; }
+header select { max-width: 60vw; }
+#scroller { flex: 1; overflow: auto; position: relative; }
+#viewer { position: relative; margin: 0 auto; padding: var(--gap) 0; }
+/* pdf_viewer.css styles .pdfViewer .page; we set the size and --scale-factor per page. */
+#viewer .page {
+  position: relative;
+  margin: 0 auto var(--gap);
+  border: 0;
+  background: #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
+}
+#viewer .page.empty { background: #f2f2f2; }
+#viewer .page canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
