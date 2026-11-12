@@ -1,0 +1,141 @@
+{
+ "file": "annotated.pdf",
+ "mupdf_warnings": "",
+ "page1_annotations": [
+  {
+   "type": "Highlight",
+   "nm": "ep-highlight-1",
+   "author": "ElectroPaper spike",
+   "subject": "definition",
+   "contents": "Definition: linear",
+   "has_AP": true,
+   "in_reply_to": null,
+   "state": null,
+   "line_ends": null,
+   "quads": 1,
+   "changed_pixels": 612
+  },
+  {
+   "type": "Underline",
+   "nm": "ep-underline-2",
+   "author": "ElectroPaper spike",
+   "subject": "method",
+   "contents": "",
+   "has_AP": true,
+   "in_reply_to": null,
+   "state": null,
+   "line_ends": null,
+   "quads": 1,
+   "changed_pixels": 204
+  },
+  {
+   "type": "StrikeOut",
+   "nm": "ep-strikeout-3",
+   "author": "ElectroPaper spike",
+   "subject": "to check",
+   "contents": "",
+   "has_AP": true,
+   "in_reply_to": null,
+   "state": null,
+   "line_ends": null,
+   "quads": 1,
+   "changed_pixels": 182
+  },
+  {
+   "type": "Text",
+   "nm": "Comment",
+   "author": "ElectroPaper spike",
+   "subject": "question",
+   "contents": "Is this term defined earlier? — آیا این اصطلاح قبلاً تعریف شده است؟",
+   "has_AP": true,
+   "in_reply_to": null,
+   "state": null,
+   "line_ends": null,
+   "quads": null,
+   "changed_pixels": 685
+  },
+  {
+   "type": "Text",
+   "nm": "Comment",
+   "author": "ElectroPaper spike",
+   "subject": "",
+   "contents": "Yes: defined in Section II.",
+   "has_AP": false,
+   "in_reply_to": "1351 0 R",
+   "state": null,
+   "line_ends": null,
+   "quads": null,
+   "changed_pixels": 685
+  },
+  {
+   "type": "Text",
+   "nm": "Comment",
+   "author": "ElectroPaper spike",
+   "subject": "",
+   "contents": "ElectroPaper spike set the status to Completed",
+   "has_AP": false,
+   "in_reply_to": "1351 0 R",
+   "state": "Completed",
+   "line_ends": null,
+   "quads": null,
+   "changed_pixels": 685
+  },
+  {
+   "type": "FreeText",
+   "nm": "ep-freetext-7",
+   "author": "ElectroPaper spike",
+   "subject": "to check",
+   "contents": "Check this assumption on page 3",
+   "has_AP": true,
+   "in_reply_to": null,
+   "state": null,
+   "line_ends": null,
+   "quads": null,
+   "changed_pixels": 16720
+  },
+  {
+   "type": "Ink",
+   "nm": "ep-ink-8",
+   "author": "ElectroPaper spike",
+   "subject": "",
+   "contents": "",
+   "has_AP": true,
+   "in_reply_to": null,
+   "state": null,
+   "line_ends": null,
+   "quads": null,
+   "changed_pixels": 891
+  },
+  {
+   "type": "Square",
+   "nm": "ep-square-9",
+   "author": "ElectroPaper spike",
+   "subject": "result",
+   "contents": "Title block",
+   "has_AP": true,
+   "in_reply_to": null,
+   "state": null,
+   "line_ends": null,
+   "quads": null,
+   "changed_pixels": 6636
+  },
+  {
+   "type": "Line",
+   "nm": "ep-line-10",
+   "author": "ElectroPaper spike",
+   "subject": "",
+   "contents": "See this word",
+   "has_AP": true,
+   "in_reply_to": null,
+   "state": null,
+   "line_ends": [
+    0,
+    4
+   ],
+   "quads": null,
+   "changed_pixels": 767
+  }
+ ],
+ "is_repaired": false,
+ "pages": 14
+}

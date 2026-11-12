@@ -1,0 +1,116 @@
+[
+  {
+    "area_px": 594,
+    "changed_pixels": 135,
+    "nm": null,
+    "type": "Link"
+  },
+  {
+    "area_px": 616,
+    "changed_pixels": 0,
+    "nm": null,
+    "type": "Link"
+  },
+  {
+    "area_px": 221,
+    "changed_pixels": 53,
+    "nm": null,
+    "type": "Link"
+  },
+  {
+    "area_px": 238,
+    "changed_pixels": 37,
+    "nm": null,
+    "type": "Link"
+  },
+  {
+    "area_px": 238,
+    "changed_pixels": 81,
+    "nm": null,
+    "type": "Link"
+  },
+  {
+    "area_px": 238,
+    "changed_pixels": 82,
+    "nm": null,
+    "type": "Link"
+  },
+  {
+    "area_px": 252,
+    "changed_pixels": 0,
+    "nm": null,
+    "type": "Link"
+  },
+  {
+    "area_px": 252,
+    "changed_pixels": 58,
+    "nm": null,
+    "type": "Link"
+  },
+  {
+    "area_px": 882,
+    "changed_pixels": 597,
+    "nm": "ep-highlight-1",
+    "type": "Highlight"
+  },
+  {
+    "area_px": 1575,
+    "changed_pixels": 331,
+    "nm": "ep-underline-2",
+    "type": "Underline"
+  },
+  {
+    "area_px": 1152,
+    "changed_pixels": 475,
+    "nm": "ep-strikeout-3",
+    "type": "Strikeout"
+  },
+  {
+    "area_px": 1296,
+    "changed_pixels": 1265,
+    "nm": "ep-text-4",
+    "type": "Text"
+  },
+  {
+    "area_px": 96000,
+    "changed_pixels": 11455,
+    "nm": null,
+    "type": "Popup"
+  },
+  {
+    "area_px": 1600,
+    "changed_pixels": 1544,
+    "nm": "ep-text-5",
+    "type": "Text"
+  },
+  {
+    "area_px": 1600,
+    "changed_pixels": 1544,
+    "nm": "ep-text-6",
+    "type": "Text"
+  },
+  {
+    "area_px": 16720,
+    "changed_pixels": 16340,
+    "nm": "ep-freetext-7",
+    "type": "FreeText"
+  },
+  {
+    "area_px": 9408,
+    "changed_pixels": 901,
+    "nm": "ep-ink-8",
+    "type": "Ink"
+  },
+  {
+    "area_px": 152320,
+    "changed_pixels": 9003,
+    "nm": "ep-square-9",
+    "type": "Square"
+  },
+  {
+    "area_px": 12096,
+    "changed_pixels": 1411,
+    "nm": "ep-line-10",
+    "type": "Line"
+  }
+]

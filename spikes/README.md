@@ -7,7 +7,7 @@ Throw-away programs that answer one risky question each. Spike code is **never**
 | P0.S1 | Tauri + PDF.js on WebView2: smooth enough? | `s1-tauri-pdfjs/` | **pass** — see [RESULTS](s1-tauri-pdfjs/RESULTS.md); PDFium bitmap for heavy pages; selection text from the Document engine | ADR-003 |
 | P0.S2 | PDFium text and geometry good enough? | `s2-pdfium/` | **pass** — see [RESULTS](s2-pdfium/RESULTS.md); RTL re-ordering and surrogate pairing required | ADR-003 |
 | P0.S3 | llama.cpp on Windows: fast start, structured output? | `s3-llamacpp/` | **pass** — see [RESULTS](s3-llamacpp/RESULTS.md); ready in 1.4–3.3 s (vLLM 77.6 s); Qwen3-4B default proposed; checked Explain 2.8 s vs 2 s budget open | ADR-005 |
-| P0.S4 | Annotations accepted by Acrobat, Edge, Chrome? | `s4-annotations/` | — | ADR-006 |
+| P0.S4 | Annotations accepted by Acrobat, Edge, Chrome? | `s4-annotations/` | **pass** with our own incremental writer (lopdf) — see [RESULTS](s4-annotations/RESULTS.md); Acrobat desktop check open | ADR-006 |
 | P0.S5 | Layout, formula, OCR models on CPU within budget? | `s5-page-models/` | — | ADR-007 |
 | P0.S6 | Vector index size vs installer budget | `s6-vector-index/` | — | ADR-008 |
 | P0.S7 | Bus over local IPC < 2 ms | `s7-ipc/` | — | ADR-009 |

@@ -1,0 +1,130 @@
+{
+  "words": [
+    "linear",
+    "combine",
+    "thermal",
+    "compared"
+  ],
+  "written": [
+    {
+      "category": "definition",
+      "contents": "Definition: linear",
+      "kind": "Highlight",
+      "nm": "ep-highlight-1",
+      "rect": [
+        189.85769653320312,
+        553.25732421875,
+        214.3731689453125,
+        562.1514282226562
+      ]
+    },
+    {
+      "category": "method",
+      "contents": "",
+      "kind": "Underline",
+      "nm": "ep-underline-2",
+      "rect": [
+        268.03045654296875,
+        516.3912963867188,
+        305.893310546875,
+        527.285400390625
+      ]
+    },
+    {
+      "category": "to check",
+      "contents": "",
+      "kind": "StrikeOut",
+      "nm": "ep-strikeout-3",
+      "rect": [
+        214.06680297851562,
+        469.5703430175781,
+        246.163818359375,
+        478.4644470214844
+      ]
+    },
+    {
+      "category": "question",
+      "contents": "Is this term defined earlier? — آیا این اصطلاح قبلاً تعریف شده است؟",
+      "kind": "Text",
+      "nm": "ep-text-4",
+      "rect": [
+        523.8079833984375,
+        435.5544738769531,
+        541.8079833984375,
+        453.5544738769531
+      ]
+    },
+    {
+      "category": "",
+      "contents": "Yes: defined in Section II.",
+      "kind": "Text",
+      "nm": "ep-text-5",
+      "rect": [
+        523.8079833984375,
+        435.5544738769531,
+        541.8079833984375,
+        453.5544738769531
+      ]
+    },
+    {
+      "category": "",
+      "contents": "ElectroPaper spike set the status to Completed",
+      "kind": "Text",
+      "nm": "ep-text-6",
+      "rect": [
+        523.8079833984375,
+        435.5544738769531,
+        541.8079833984375,
+        453.5544738769531
+      ]
+    },
+    {
+      "category": "to check",
+      "contents": "Check this assumption on page 3",
+      "kind": "FreeText",
+      "nm": "ep-freetext-7",
+      "rect": [
+        40.0,
+        40.0,
+        230.0,
+        62.0
+      ]
+    },
+    {
+      "category": "",
+      "contents": "",
+      "kind": "Ink",
+      "nm": "ep-ink-8",
+      "rect": [
+        256.0,
+        38.0,
+        354.0,
+        62.0
+      ]
+    },
+    {
+      "category": "result",
+      "contents": "Title block",
+      "kind": "Square",
+      "nm": "ep-square-9",
+      "rect": [
+        59.5275993347168,
+        701.8900146484375,
+        535.7484130859375,
+        781.8900146484375
+      ]
+    },
+    {
+      "category": "",
+      "contents": "See this word",
+      "kind": "Line",
+      "nm": "ep-line-10",
+      "rect": [
+        122.85769653320312,
+        521.704345703125,
+        194.85769653320312,
+        563.704345703125
+      ]
+    }
+  ]
+}
