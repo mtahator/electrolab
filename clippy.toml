@@ -1,0 +1,4 @@
+# Library code may not unwrap, expect or panic (workspace lints); tests may stop loudly.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true

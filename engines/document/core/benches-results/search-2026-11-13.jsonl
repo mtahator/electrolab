@@ -1,0 +1,28 @@
+{"index_build_ms":3.68,"pages":31,"paper":"arxiv-2106.03711v2","vocabulary":1697,"words":10069}
+{"index_build_ms":7.07,"pages":38,"paper":"arxiv-2111.07691v2","vocabulary":1940,"words":13903}
+{"index_build_ms":5.29,"pages":14,"paper":"arxiv-2111.12066v2","vocabulary":1794,"words":9522}
+{"index_build_ms":3.99,"pages":15,"paper":"arxiv-2203.12634v2","vocabulary":1862,"words":9461}
+{"index_build_ms":2.05,"pages":8,"paper":"arxiv-2207.11567v1","vocabulary":1156,"words":4669}
+{"index_build_ms":3.34,"pages":21,"paper":"arxiv-2211.08985v1","vocabulary":1472,"words":8367}
+{"index_build_ms":5.67,"pages":11,"paper":"arxiv-2304.11247v3","vocabulary":2106,"words":7516}
+{"index_build_ms":4.34,"pages":43,"paper":"arxiv-2305.08757v3","vocabulary":1675,"words":12573}
+{"index_build_ms":3.24,"pages":12,"paper":"arxiv-2310.09367v1","vocabulary":1875,"words":8384}
+{"index_build_ms":3.22,"pages":21,"paper":"arxiv-2311.07440v2","vocabulary":1568,"words":8672}
+{"index_build_ms":3.73,"pages":19,"paper":"arxiv-2402.12652v3","vocabulary":2294,"words":9315}
+{"index_build_ms":5.4,"pages":24,"paper":"arxiv-2406.19831v2","vocabulary":1891,"words":14289}
+{"index_build_ms":7.3,"pages":26,"paper":"arxiv-2407.06664v2","vocabulary":2299,"words":12988}
+{"index_build_ms":5.87,"pages":24,"paper":"arxiv-2410.21481v1","vocabulary":1504,"words":12497}
+{"index_build_ms":27.12,"pages":286,"paper":"arxiv-2511.21915v1","vocabulary":5712,"words":79223}
+{"index_build_ms":29.27,"pages":212,"paper":"arxiv-2601.05155v2","vocabulary":5314,"words":61572}
+{"index_build_ms":2.1,"pages":6,"paper":"arxiv-2601.12341v1","vocabulary":1464,"words":4243}
+{"index_build_ms":1.61,"pages":6,"paper":"fawiki-artificial-neural-network","vocabulary":806,"words":2049}
+{"index_build_ms":20.37,"pages":70,"paper":"naca-report-1135","vocabulary":8697,"words":41978}
+{"index_build_ms":6.45,"pages":28,"paper":"plos-pone-0232683","vocabulary":2382,"words":13636}
+{"all_papers":20,"all_papers_occurrences":524,"all_papers_us":223.0,"largest_paper":"arxiv-2511.21915v1","largest_paper_occurrences":22,"largest_paper_us":35.0,"query":"exact word","terms":["network"]}
+{"all_papers":20,"all_papers_occurrences":1143,"all_papers_us":352.0,"largest_paper":"arxiv-2511.21915v1","largest_paper_occurrences":56,"largest_paper_us":82.0,"query":"word forms (default)","terms":["equation"]}
+{"all_papers":20,"all_papers_occurrences":23,"all_papers_us":136.0,"largest_paper":"arxiv-2511.21915v1","largest_paper_occurrences":4,"largest_paper_us":20.0,"query":"notation symbol","terms":["C_p"]}
+{"all_papers":20,"all_papers_occurrences":722,"all_papers_us":337.0,"largest_paper":"arxiv-2511.21915v1","largest_paper_occurrences":30,"largest_paper_us":48.0,"query":"phrase","terms":["neural network"]}
+{"all_papers":20,"all_papers_occurrences":465,"all_papers_us":1267.0,"largest_paper":"arxiv-2511.21915v1","largest_paper_occurrences":41,"largest_paper_us":114.0,"query":"several terms","terms":["loss","boundary condition","Reynolds"]}
+{"all_papers":20,"all_papers_occurrences":56,"all_papers_us":2690.0,"largest_paper":"arxiv-2511.21915v1","largest_paper_occurrences":0,"largest_paper_us":181.0,"query":"fuzzy 0.8","terms":["Navier"]}
+{"all_papers":20,"all_papers_occurrences":161,"all_papers_us":708.0,"largest_paper":"arxiv-2511.21915v1","largest_paper_occurrences":1,"largest_paper_us":40.0,"query":"prefix","terms":["therm"]}
+{"example_hit":{"after":"k i as follows: cP k i = (x k i , yk i ) ← \u0012 max \u001a min \u001a xe k i , 1 − h k i 2 \u001b , h k i","before":"that some patches are outside Ω. In order to avoid this risk, we move the centers ceP k i to obtain the actual patches centers","kind":"notation","matched":"cP","page":9,"paper":"arxiv-2406.19831v2","rects":1}}
