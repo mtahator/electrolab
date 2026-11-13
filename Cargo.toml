@@ -10,6 +10,7 @@ members = [
     "foundation/policy",
     "foundation/config",
     "foundation/telemetry",
+    "foundation/bus",
     "engines/document/contract",
     "engines/document/core",
 ]

@@ -1,0 +1,29 @@
+[package]
+name = "ep-bus"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Command bus: envelopes, registry, middleware (policy, deadline, span, provenance), cancellation, streaming, events"
+
+[dependencies]
+ep-types = { path = "../types" }
+ep-policy = { path = "../policy" }
+ep-events = { path = "../events" }
+serde.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+uuid.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+futures.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+parking_lot.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
+
+[lints]
+workspace = true
