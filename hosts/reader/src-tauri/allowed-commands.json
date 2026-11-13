@@ -1,0 +1,14 @@
+{
+  "description": "Bus commands the Reader window may call. A command not listed here cannot be called from the window (an allow-list, phase-1 plan: Best practices — foundation).",
+  "main": [
+    "document.metadata",
+    "workspace.add_file",
+    "workspace.classify",
+    "workspace.current",
+    "workspace.get_paper",
+    "workspace.list_papers",
+    "workspace.open_default_library",
+    "workspace.open_project",
+    "workspace.set_paper_metadata"
+  ]
+}

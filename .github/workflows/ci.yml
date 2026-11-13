@@ -24,13 +24,25 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-nextest,cargo-deny,cargo-machete
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      # The Reader host embeds the built UI, so the UI is built before any Rust check.
+      - name: ui install
+        run: pnpm install --frozen-lockfile
+      - name: ui typecheck
+        run: pnpm -r typecheck
+      - name: ui build
+        run: pnpm --filter @electropaper/reader-ui build
       - name: format
         run: cargo fmt --all --check
       - name: lint
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: architecture
         run: cargo xtask arch-check
-      - name: schemas
+      - name: schemas and bindings
         run: cargo xtask schema-check
       - name: licences and advisories
         run: cargo deny check
@@ -38,6 +50,13 @@ jobs:
         run: cargo machete
       - name: tests
         run: cargo nextest run --workspace --no-tests=warn
+      - name: installer (NSIS, unsigned)
+        run: pnpm --filter @electropaper/reader-host bundle
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reader-installer
+          path: target/release/bundle/nsis/*.exe
+          if-no-files-found: error
 
   portability:
     name: ${{ matrix.os }} (compile + core tests)
@@ -49,8 +68,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
+      # The Reader host is Windows-only until the port stage (ADR-002); everything else must compile.
       - name: compile
-        run: cargo check --workspace --all-targets
-      # From Phase 1: `cargo test` limited to *-contract and *-core crates.
-      - name: tests (tooling)
-        run: cargo test --package xtask
+        run: cargo check --workspace --all-targets --exclude ep-reader
+      - name: tests (contracts, cores, tooling)
+        run: cargo test --package xtask --package ep-types --package ep-policy --package ep-document-contract --package ep-document-core --package ep-workspace-contract --package ep-workspace-core

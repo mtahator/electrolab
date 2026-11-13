@@ -1,0 +1,142 @@
+/* Design tokens. Components use only these variables, never raw colours. */
+
+:root {
+  --font-ui: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", Consolas, monospace;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --radius: 6px;
+  --text-sm: 12px;
+  --text-md: 14px;
+  --text-lg: 16px;
+
+  --bg: #ffffff;
+  --bg-panel: #f5f6f8;
+  --bg-sunken: #e9ebef;
+  --fg: #1d2129;
+  --fg-muted: #5c6370;
+  --border: #d9dce2;
+  --accent: #2f6fdf;
+  --accent-fg: #ffffff;
+  --danger: #c4372b;
+  --page-bg: #ffffff;
+  --page-shadow: 0 1px 4px rgb(0 0 0 / 18%);
+  --viewer-bg: #e3e5e9;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #1b1d22;
+  --bg-panel: #23262d;
+  --bg-sunken: #15171b;
+  --fg: #e6e8ec;
+  --fg-muted: #a0a6b1;
+  --border: #353942;
+  --accent: #6b9cf5;
+  --accent-fg: #0d1117;
+  --danger: #ef6b5f;
+  --page-bg: #ffffff;
+  --page-shadow: 0 1px 6px rgb(0 0 0 / 55%);
+  --viewer-bg: #111316;
+  color-scheme: dark;
+}
+
+/* Night: low light. Dark, warm UI and dimmed warm pages (less glare than white pages). */
+:root[data-theme="night"] {
+  --bg: #17130f;
+  --bg-panel: #1e1913;
+  --bg-sunken: #110e0b;
+  --fg: #d9cbb4;
+  --fg-muted: #9c8d77;
+  --border: #33291f;
+  --accent: #d39a4f;
+  --accent-fg: #17130f;
+  --danger: #e07a5f;
+  --page-bg: #d8ccb6;
+  --page-shadow: 0 1px 6px rgb(0 0 0 / 60%);
+  --viewer-bg: #0d0b08;
+  color-scheme: dark;
+}
+
+/* Pages are dimmed in night mode (the canvas keeps its colours, only brightness drops). */
+:root[data-theme="night"] canvas.page {
+  filter: brightness(0.82) sepia(0.25);
+}
+
+:root[data-theme="sepia"] {
+  --bg: #f6efe2;
+  --bg-panel: #efe5d2;
+  --bg-sunken: #e6d9c0;
+  --fg: #3b3024;
+  --fg-muted: #6d5d49;
+  --border: #d8c8aa;
+  --accent: #8a5a24;
+  --accent-fg: #fffaf0;
+  --danger: #a33a24;
+  --page-bg: #fbf6ea;
+  --page-shadow: 0 1px 4px rgb(60 40 10 / 22%);
+  --viewer-bg: #e9dfcb;
+  color-scheme: light;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.ep-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ep-button:hover {
+  background: var(--bg-sunken);
+}
+
+.ep-button[data-variant="primary"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+
+.ep-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ep-select {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+}

@@ -1,3 +1,6 @@
 packages:
   - "ui/*"
   - "hosts/*"
+
+# Only install releases that are at least two weeks old (minutes).
+minimumReleaseAge: 20160

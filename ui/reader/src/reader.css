@@ -1,0 +1,128 @@
+.app {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  grid-template-rows: auto auto 1fr;
+  grid-template-areas:
+    "top top"
+    "banner banner"
+    "library viewer";
+  height: 100vh;
+}
+
+.topbar {
+  grid-area: top;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+
+.banner {
+  grid-area: banner;
+  padding: var(--space-2) var(--space-4);
+  background: color-mix(in srgb, var(--danger) 14%, var(--bg));
+  color: var(--fg);
+  border-bottom: 1px solid var(--danger);
+}
+
+.library {
+  grid-area: library;
+  overflow: auto;
+  border-inline-end: 1px solid var(--border);
+  background: var(--bg-panel);
+  padding: var(--space-3);
+}
+
+.library h2 {
+  font-size: var(--text-lg);
+  margin: 0 0 var(--space-3);
+}
+
+.library ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.paper {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: start;
+  padding: var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.paper:hover {
+  background: var(--bg-sunken);
+}
+
+.paper.active {
+  border-color: var(--accent);
+  background: var(--bg);
+}
+
+.paper-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.muted {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+
+.center {
+  text-align: center;
+  margin-top: 30vh;
+}
+
+.viewer {
+  grid-area: viewer;
+  overflow: auto;
+  background: var(--viewer-bg);
+}
+
+.page-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  min-height: 100%;
+}
+
+.page-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+canvas.page {
+  background: var(--page-bg);
+  box-shadow: var(--page-shadow);
+}
+
+.error {
+  color: var(--danger);
+}

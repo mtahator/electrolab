@@ -1,0 +1,21 @@
+{
+  "name": "@electropaper/kit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Design tokens, themes, primitives, English string table and keymap shared by every UI",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tokens.css": "./src/tokens.css"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "peerDependencies": {
+    "solid-js": "^1.9.0"
+  },
+  "devDependencies": {
+    "solid-js": "^1.9.0",
+    "typescript": "^5.9.3"
+  }
+}

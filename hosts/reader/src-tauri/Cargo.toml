@@ -1,0 +1,33 @@
+[package]
+name = "ep-reader"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "ElectroPaper Reader: the Tauri host (engine builder, bus bridge, blob protocol)"
+
+[[bin]]
+name = "electropaper-reader"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "=2.7.4", features = [] }
+
+[dependencies]
+ep-bus = { path = "../../../foundation/bus" }
+ep-os = { path = "../../../foundation/os" }
+ep-telemetry = { path = "../../../foundation/telemetry" }
+ep-types = { path = "../../../foundation/types" }
+ep-workspace = { path = "../../../engines/workspace/facade" }
+ep-document = { path = "../../../engines/document/facade" }
+tauri = { version = "=2.12.5", features = [] }
+tauri-plugin-dialog = "=2.8.4"
+serde_json.workspace = true
+uuid.workspace = true
+anyhow.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+ep-os-windows = { path = "../../../foundation/os-windows" }
+
+[lints]
+workspace = true

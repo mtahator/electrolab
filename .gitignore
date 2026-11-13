@@ -10,3 +10,7 @@ Thumbs.db
 /spikes/*/target/
 __pycache__/
 *.pyc
+# Tauri generated capability schemas
+/hosts/*/src-tauri/gen/
+# PDF.js run-time data, copied at build time
+/ui/reader/public/pdfjs/

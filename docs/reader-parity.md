@@ -101,7 +101,7 @@ Legend: **P** = parity with today's reader · **+** = improvement or new in T1
 - [ ] P `explain.pages` Page buttons in the popup
 - [ ] P `explain.to-chat` "Ask more in the PDF chat"
 - [ ] + `explain.fast` First token < 500 ms (warm); checked < 2 s
-- [ ] + `explain.language` Explain in Persian or English
+- [ ] + `explain.language` Explain in Persian or English — **moved to Phase 3** (English-only until then)
 - [ ] + `explain.depth` "Explain simpler / deeper"
 - [ ] + `explain.save-note` Save the explanation as a note
 
@@ -182,7 +182,7 @@ Legend: **P** = parity with today's reader · **+** = improvement or new in T1
 
 ### Reading — M2
 - [ ] `read.themes` Dark, sepia and high-contrast page rendering
-- [ ] `read.rtl` RTL-friendly UI; English and Persian
+- [ ] `read.rtl` RTL-friendly UI; English and Persian — **moved to Phase 3** (English-only until then)
 - [ ] `read.stats` Reading statistics: time spent, pages read, last position
 - [ ] `read.bookmarks` Named bookmarks
 
@@ -190,7 +190,7 @@ Legend: **P** = parity with today's reader · **+** = improvement or new in T1
 - [ ] `und.paper-card` Paper card with every line linked to its page (M7)
 - [ ] `und.glossary` Glossary of abbreviations and terms, linked to definitions (M7)
 - [ ] `und.method-panel` Method panel — **Phase 2** (slot exists, hidden in 1.0)
-- [ ] `und.translate` Translate selection English ↔ Persian, equations intact (M5)
+- [ ] `und.translate` Translate selection English ↔ Persian, equations intact (M5) — **moved to Phase 3** (English-only until then)
 - [ ] `und.multi-paper` Ask about several papers (M7)
 
 ### References — M6

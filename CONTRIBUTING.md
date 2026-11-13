@@ -29,19 +29,33 @@ Read before changing anything:
 - Commands are small, typed, idempotent, cancellable, and stream when long.
 - Keep tasks small: one task, one session, one commit.
 - Record any decision as an ADR in `docs/adr/`.
-- Write UI text only in translation files (English and Persian).
+- Write UI text only in the English string table (`ui/kit/src/i18n.ts`). The app is English-only until Phase 3; do not add other languages or right-to-left UI before then.
 
 ## Check your work
 
 ```
+pnpm install                                   # once, and after UI dependency changes
+pnpm -r typecheck
+pnpm --filter @electropaper/reader-ui build    # the Reader host embeds the built UI
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo nextest run --workspace
 cargo xtask arch-check
-cargo xtask schema-check
+cargo xtask schema-check                       # regenerates spec/schemas and ui/bindings, then compares
 cargo deny check
-cargo check --workspace --target x86_64-unknown-linux-gnu      # portability (cores and contracts)
+cargo check --target x86_64-unknown-linux-gnu -p ep-types -p ep-policy -p ep-document-core -p ep-workspace-core   # portability (pure crates)
 ```
+
+After changing a command's input or output: `cargo xtask gen`, review the diff in `spec/schemas/` and `ui/bindings/src/`, and commit both.
+
+## Run the Reader
+
+```
+pnpm --filter @electropaper/reader-host dev       # development, with the UI dev server
+pnpm --filter @electropaper/reader-host bundle    # NSIS installer in target/release/bundle/nsis/
+```
+
+The CLI works on the same engines: `cargo run -p ep-cli -- commands`, `cargo run -p ep-cli -- import paper.pdf`.
 
 ## Environment notes (this PC)
 
@@ -51,4 +65,5 @@ cargo check --workspace --target x86_64-unknown-linux-gnu      # portability (co
 
 ## Known pitfalls
 
+- **`gen` is a reserved word in Rust 2024**; name functions `generate`.
 - **Crates that compile C code break the local Linux/macOS checks.** From Windows, `cargo check --target x86_64-unknown-linux-gnu` fails as soon as any dependency's build script needs a C compiler for that target (seen with `ring`, pulled in by `rustls` through `ureq`; `xtask` now downloads with the system `curl` instead). Contract and core crates must never depend on such crates. Adapters may; from the first adapter on, the local cross-check runs on contract and core crates only, and the CI jobs on native Linux and macOS runners check everything.
