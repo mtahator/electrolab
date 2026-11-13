@@ -137,7 +137,7 @@ pub struct SaveReadingState {
 
 /// Input naming one paper.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct PaperRef {
+pub struct PaperInput {
     /// The paper.
     pub paper: PaperId,
 }

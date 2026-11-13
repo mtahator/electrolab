@@ -1,13 +1,13 @@
 import { createSignal } from "solid-js";
 
-export type Theme = "light" | "dark" | "night" | "sepia";
-export const THEMES: readonly Theme[] = ["light", "dark", "night", "sepia"];
+export type Theme = "light" | "dark" | "night" | "sepia" | "contrast";
+export const THEMES: readonly Theme[] = ["light", "dark", "night", "sepia", "contrast"];
 
 const KEY = "ep.theme";
 
 function initial(): Theme {
   const saved = globalThis.localStorage?.getItem(KEY);
-  if (saved === "light" || saved === "dark" || saved === "night" || saved === "sepia") return saved;
+  if (saved === "light" || saved === "dark" || saved === "night" || saved === "sepia" || saved === "contrast") return saved;
   return globalThis.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 

@@ -9,7 +9,7 @@ use ep_store::rusqlite::{self, OptionalExtension, params, params_from_iter};
 use ep_types::{CollectionId, Location, ObjectId, PaperId, ZoomSpec};
 use ep_workspace_contract::{
     AddBookmark, Bookmark, BookmarkRef, Collection, CollectionPapers, CollectionRef,
-    CreateCollection, ListPapers, Paper, PaperRef, PaperSort, ReadingState, ReadingStats,
+    CreateCollection, ListPapers, Paper, PaperInput, PaperSort, ReadingState, ReadingStats,
     RecordReading, RenameCollection, SaveReadingState, SetTags, TagCount, ViewMode, errors,
 };
 use ep_workspace_core::{MAX_READING_REPORT_S, clean_name, clean_tags, like_patterns};
@@ -336,7 +336,7 @@ impl Workspace {
     pub(crate) async fn get_reading_state(
         self: Arc<Self>,
         _cx: Cx,
-        i: PaperRef,
+        i: PaperInput,
     ) -> Result<ReadingState, CommandError> {
         let o = self.require()?;
         let paper = o
@@ -516,7 +516,7 @@ impl Workspace {
     pub(crate) async fn reading_stats(
         self: Arc<Self>,
         _cx: Cx,
-        i: PaperRef,
+        i: PaperInput,
     ) -> Result<ReadingStats, CommandError> {
         self.stats(i.paper)
     }

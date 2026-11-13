@@ -139,7 +139,15 @@ async fn run(cli: Cli) -> anyhow::Result<ExitCode> {
                 anyhow::bail!("usage: ep <engine> <verb> [--key value ...]");
             };
             let command = format!("{engine}.{}", verb.replace('-', "_"));
-            let input = flags_to_json(rest)?;
+            let mut input = flags_to_json(rest)?;
+            // No flags for a command whose input is an object (all fields optional): send `{}`.
+            let takes_object = app.bus.commands().iter().any(|c| {
+                c.name == command
+                    && c.input_schema.get("type").and_then(Value::as_str) == Some("object")
+            });
+            if input.is_null() && takes_object {
+                input = json!({});
+            }
             if let Err(e) = app.open(cli.project.as_deref(), &command).await {
                 return Ok(report(&e));
             }

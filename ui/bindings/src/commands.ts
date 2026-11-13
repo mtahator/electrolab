@@ -38,7 +38,7 @@ export interface Commands {
   /** One paper */
   "workspace.get_paper": { input: T.GetPaper; output: T.Paper };
   /** Where the reader was in a paper, its zoom, layout and bookmarks */
-  "workspace.get_reading_state": { input: T.PaperRef; output: T.ReadingState };
+  "workspace.get_reading_state": { input: T.PaperInput; output: T.ReadingState };
   /** Collections, by name */
   "workspace.list_collections": { input: null; output: T.Collection[] };
   /** Papers: filter by collection, tag or words; sort by added, opened or title */
@@ -50,7 +50,7 @@ export interface Commands {
   /** Open a library or project folder */
   "workspace.open_project": { input: T.OpenProject; output: T.ProjectInfo };
   /** Reading time and pages read for a paper */
-  "workspace.reading_stats": { input: T.PaperRef; output: T.ReadingStats };
+  "workspace.reading_stats": { input: T.PaperInput; output: T.ReadingStats };
   /** Count active reading time on a visible page */
   "workspace.record_reading": { input: T.RecordReading; output: T.ReadingStats };
   /** Remove a named place */

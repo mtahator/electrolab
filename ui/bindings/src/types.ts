@@ -498,10 +498,13 @@ export type Paper = {
 export type PaperId = string;
 
 /** Input naming one paper. */
-export interface PaperRef {
+export interface PaperInput {
   /** The paper. */
   paper: PaperId;
 }
+
+/** A paper the caller wants searched. Placeholder for `Ref<Paper>` (Phase 1 M1.TYP). */
+export type PaperRef = string;
 
 /** Order of `workspace.list_papers`. */
 export type PaperSort = "added" | "opened" | "title";

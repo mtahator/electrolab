@@ -62,9 +62,33 @@
   color-scheme: dark;
 }
 
-/* Pages are dimmed in night mode (the canvas keeps its colours, only brightness drops). */
-:root[data-theme="night"] canvas.page {
-  filter: brightness(0.82) sepia(0.25);
+/* Page ink: when set, the viewer redraws text and lines in --page-ink on --page-bg (PDF.js page
+   colours); images keep their own colours, so figures stay readable. */
+:root[data-theme="dark"] {
+  --page-bg: #1f2126;
+  --page-ink: #e2e4e8;
+}
+
+:root[data-theme="night"] {
+  --page-bg: #1c1712;
+  --page-ink: #cdb99a;
+}
+
+:root[data-theme="contrast"] {
+  --bg: #000000;
+  --bg-panel: #0a0a0a;
+  --bg-sunken: #1a1a1a;
+  --fg: #ffffff;
+  --fg-muted: #e0e0e0;
+  --border: #ffffff;
+  --accent: #ffd400;
+  --accent-fg: #000000;
+  --danger: #ff6b6b;
+  --page-bg: #000000;
+  --page-ink: #ffffff;
+  --page-shadow: 0 0 0 1px #ffffff;
+  --viewer-bg: #000000;
+  color-scheme: dark;
 }
 
 :root[data-theme="sepia"] {

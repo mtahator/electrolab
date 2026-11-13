@@ -200,7 +200,7 @@ fn strip(s: &Value) -> Value {
     body
 }
 
-fn named_root(s: &Value, types: &mut BTreeMap<String, Value>) -> String {
+fn named_root(s: &Value, types: &mut BTreeMap<String, Value>) -> anyhow::Result<String> {
     let title = s.get("title").and_then(Value::as_str).unwrap_or_default();
     let is_named = is_ident(title)
         && s.get("type")
@@ -209,10 +209,17 @@ fn named_root(s: &Value, types: &mut BTreeMap<String, Value>) -> String {
         || s.get("oneOf").is_some();
     let body = strip(s);
     if is_named && is_ident(title) {
+        if let Some(old) = types.get(title)
+            && old != &body
+        {
+            anyhow::bail!(
+                "type {title} has two different definitions; rename one of the Rust types"
+            );
+        }
         types.insert(title.to_string(), body);
-        title.to_string()
+        Ok(title.to_string())
     } else {
-        ts_type(&body, 0)
+        Ok(ts_type(&body, 0))
     }
 }
 
@@ -250,8 +257,8 @@ fn collect(dir: &Path) -> anyhow::Result<Collected> {
             let (input, output) = (&v["input"], &v["output"]);
             add_defs(input, &mut c)?;
             add_defs(output, &mut c)?;
-            let i = named_root(input, &mut c.types);
-            let o = named_root(output, &mut c.types);
+            let i = named_root(input, &mut c.types)?;
+            let o = named_root(output, &mut c.types)?;
             c.commands.push((
                 name.to_string(),
                 i,
@@ -261,7 +268,7 @@ fn collect(dir: &Path) -> anyhow::Result<Collected> {
         } else if let Some(defs) = v.get("types").and_then(Value::as_object) {
             for s in defs.values() {
                 add_defs(s, &mut c)?;
-                named_root(s, &mut c.types);
+                named_root(s, &mut c.types)?;
             }
         }
     }
