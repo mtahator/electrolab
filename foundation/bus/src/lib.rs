@@ -10,6 +10,7 @@
 #![deny(missing_docs)]
 
 mod bus;
+pub mod cache;
 mod command;
 mod cx;
 mod hub;

@@ -214,3 +214,39 @@ async fn dropping_the_client_closes_the_connection() {
         "server did not see the close: {r:?}"
     );
 }
+
+#[tokio::test]
+async fn second_identical_call_is_a_cache_hit() {
+    let d = tempfile::tempdir().expect("tmp");
+    let b = bus();
+    b.set_result_cache(Some(Arc::new(
+        ep_bus::cache::ResultCache::open(d.path()).expect("cache"),
+    )));
+    let runs = Arc::new(Mutex::new(0u32));
+    let r = runs.clone();
+    b.register_cached(
+        spec("t.expensive", Permission::read()),
+        "1",
+        move |_cx, n: u32| {
+            let r = r.clone();
+            async move {
+                *r.lock() += 1;
+                Ok::<_, CommandError>(n * 2)
+            }
+        },
+    )
+    .expect("register");
+    for _ in 0..3 {
+        assert_eq!(
+            b.call(Envelope::new("t.expensive", json!(21)))
+                .await
+                .expect("call"),
+            json!(42)
+        );
+    }
+    assert_eq!(*runs.lock(), 1, "later calls come from the cache");
+    b.call(Envelope::new("t.expensive", json!(5)))
+        .await
+        .expect("other input");
+    assert_eq!(*runs.lock(), 2);
+}

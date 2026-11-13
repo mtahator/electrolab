@@ -1,7 +1,7 @@
 //! The in-process bus: registry + middleware chain (P1.M1.BUS.1/3/5/7).
 //!
 //! Middleware order is part of the contract and tested:
-//! lookup → decode input → **policy** → deadline + cancellation → span → handler →
+//! lookup → decode input → **policy** → result cache → deadline + cancellation → span → handler →
 //! **provenance event** (for anything that is not a plain read) → finished event on the hub.
 
 use std::collections::{BTreeMap, HashMap};
@@ -22,6 +22,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::Instrument;
 use uuid::Uuid;
 
+use crate::cache::{ResultCache, cache_key};
 use crate::command::{CommandError, CommandInfo, Envelope, Permission, Stability};
 use crate::cx::{Clock, Cx, IdSource, RandomIds, SystemClock};
 use crate::hub::EventHub;
@@ -32,6 +33,8 @@ type Handler =
 struct Entry {
     info: CommandInfo,
     handler: Handler,
+    /// Implementation version, for commands whose results are cached.
+    cached: Option<String>,
 }
 
 /// Registration problems (programming errors found at start-up).
@@ -82,6 +85,7 @@ pub struct Bus {
     clock: Arc<dyn Clock>,
     ids: Arc<dyn IdSource>,
     provenance: RwLock<Option<Arc<EventLog>>>,
+    results: RwLock<Option<Arc<ResultCache>>>,
     hub: EventHub,
 }
 
@@ -110,8 +114,14 @@ impl Bus {
             clock,
             ids,
             provenance: RwLock::new(None),
+            results: RwLock::new(None),
             hub: EventHub::new(1024),
         }
+    }
+
+    /// Store results of cached commands here (the app cache folder).
+    pub fn set_result_cache(&self, cache: Option<Arc<ResultCache>>) {
+        *self.results.write() = cache;
     }
 
     /// Record provenance of every non-read command into this log (the open library's).
@@ -141,7 +151,27 @@ impl Bus {
         F: Fn(Cx, I) -> Fut + Send + Sync + 'static,
         Fut: Future<Output = Result<O, CommandError>> + Send + 'static,
     {
-        self.insert::<I, O, F, Fut>(spec, false, f)
+        self.insert::<I, O, F, Fut>(spec, false, None, f)
+    }
+
+    /// Register a deterministic, expensive command whose results are cached (ADR-011).
+    /// Bump `implementation` whenever the output for the same input may change.
+    ///
+    /// # Errors
+    /// Bad name or duplicate.
+    pub fn register_cached<I, O, F, Fut>(
+        &self,
+        spec: Spec,
+        implementation: &str,
+        f: F,
+    ) -> Result<(), RegisterError>
+    where
+        I: DeserializeOwned + JsonSchema + Send + 'static,
+        O: Serialize + JsonSchema + 'static,
+        F: Fn(Cx, I) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<O, CommandError>> + Send + 'static,
+    {
+        self.insert::<I, O, F, Fut>(spec, false, Some(implementation.to_string()), f)
     }
 
     /// Register a command that sends progress items through [`Cx::progress`].
@@ -155,10 +185,16 @@ impl Bus {
         F: Fn(Cx, I) -> Fut + Send + Sync + 'static,
         Fut: Future<Output = Result<O, CommandError>> + Send + 'static,
     {
-        self.insert::<I, O, F, Fut>(spec, true, f)
+        self.insert::<I, O, F, Fut>(spec, true, None, f)
     }
 
-    fn insert<I, O, F, Fut>(&self, spec: Spec, streaming: bool, f: F) -> Result<(), RegisterError>
+    fn insert<I, O, F, Fut>(
+        &self,
+        spec: Spec,
+        streaming: bool,
+        cached: Option<String>,
+        f: F,
+    ) -> Result<(), RegisterError>
     where
         I: DeserializeOwned + JsonSchema + Send + 'static,
         O: Serialize + JsonSchema + 'static,
@@ -193,7 +229,14 @@ impl Bus {
             input_schema: schema_of::<I>(),
             output_schema: schema_of::<O>(),
         };
-        cmds.insert(spec.name.into(), Entry { info, handler });
+        cmds.insert(
+            spec.name.into(),
+            Entry {
+                info,
+                handler,
+                cached,
+            },
+        );
         Ok(())
     }
 
@@ -241,14 +284,14 @@ impl Bus {
         progress: Option<mpsc::UnboundedSender<Value>>,
     ) -> Result<Value, CommandError> {
         // 1. lookup
-        let (handler, info) = {
+        let (handler, info, cached) = {
             let cmds = self.commands.read();
             let e = cmds
                 .get(&env.command)
                 .ok_or_else(|| CommandError::UnknownCommand {
                     command: env.command.clone(),
                 })?;
-            (e.handler.clone(), e.info.clone())
+            (e.handler.clone(), e.info.clone(), e.cached.clone())
         };
         // 2. policy, before anything runs
         let req = Request {
@@ -265,7 +308,20 @@ impl Bus {
             }
             Decision::Deny { rule, reason } => return Err(CommandError::Denied { rule, reason }),
         }
-        // 3. cancellation + deadline
+        // 3. result cache: an identical earlier call answers immediately
+        let cache = cached.and_then(|imp| {
+            self.results
+                .read()
+                .clone()
+                .map(|c| (c, cache_key(&env.command, &imp, &env.input)))
+        });
+        if let Some((c, key)) = &cache
+            && let Some(v) = c.get(key)
+        {
+            self.hub.publish("command.finished", json!({ "command": env.command, "id": env.id, "outcome": "cached", "elapsed_ms": 0 }), self.clock.now_ms());
+            return Ok(v);
+        }
+        // 4. cancellation + deadline
         let mut cx = Cx::new(
             env.actor.clone(),
             env.id,
@@ -279,7 +335,7 @@ impl Bus {
         self.inflight.lock().insert(env.id, token.clone());
         let deadline = env.deadline_ms.map(Duration::from_millis);
         let started = Instant::now();
-        // 4. span + handler
+        // 5. span + handler
         let span = tracing::info_span!("command", name = %env.command, id = %env.id);
         let run = handler(cx, env.input.clone()).instrument(span);
         let result = tokio::select! {
@@ -291,7 +347,12 @@ impl Bus {
             }
         };
         self.inflight.lock().remove(&env.id);
-        // 5. provenance, after the handler
+        if let (Some((c, key)), Ok(v)) = (&cache, &result)
+            && let Err(e) = c.put(key, v)
+        {
+            tracing::warn!(command = %env.command, %e, "result could not be cached");
+        }
+        // 6. provenance, after the handler
         let outcome = match &result {
             Ok(_) => json!("ok"),
             Err(e) => serde_json::to_value(e).unwrap_or(Value::Null),
@@ -313,7 +374,7 @@ impl Bus {
                 }
             }
         }
-        // 6. finished event (publisher never waits)
+        // 7. finished event (publisher never waits)
         self.hub.publish("command.finished", json!({ "command": env.command, "id": env.id, "outcome": outcome, "elapsed_ms": elapsed_ms }), self.clock.now_ms());
         result
     }

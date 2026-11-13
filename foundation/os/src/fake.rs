@@ -8,28 +8,12 @@ use futures::future::BoxFuture;
 use parking_lot::Mutex;
 
 use crate::{
-    Accelerators, AppDirs, ChildProcess, FileDialog, FileWatcher, Filter, KeyStore, LocalIpc,
-    Notifier, OsError, ProcessSpawner, ProcessSpec, Result, Sandbox, ShellOpen, Stream, Updater,
+    Accelerators, ChildProcess, FileDialog, FileWatcher, Filter, KeyStore, LocalIpc, Notifier,
+    OsError, ProcessSpawner, ProcessSpec, Result, Sandbox, ShellOpen, Stream, Updater,
 };
 
 /// App folders under one root (e.g. a temporary folder).
-#[derive(Clone, Debug)]
-pub struct FakeDirs(pub PathBuf);
-
-impl AppDirs for FakeDirs {
-    fn data(&self) -> PathBuf {
-        self.0.join("data")
-    }
-    fn config(&self) -> PathBuf {
-        self.0.join("config")
-    }
-    fn cache(&self) -> PathBuf {
-        self.0.join("cache")
-    }
-    fn logs(&self) -> PathBuf {
-        self.0.join("logs")
-    }
-}
+pub use crate::RootDirs as FakeDirs;
 
 /// Secrets in memory.
 #[derive(Debug, Default)]

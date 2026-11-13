@@ -46,6 +46,26 @@ pub trait AppDirs: Send + Sync {
     fn logs(&self) -> PathBuf;
 }
 
+/// All app folders under one root: `data/`, `config/`, `cache/`, `logs/`. Used for portable
+/// installs, tests, and the `EP_DATA_DIR` override of the hosts.
+#[derive(Clone, Debug)]
+pub struct RootDirs(pub PathBuf);
+
+impl AppDirs for RootDirs {
+    fn data(&self) -> PathBuf {
+        self.0.join("data")
+    }
+    fn config(&self) -> PathBuf {
+        self.0.join("config")
+    }
+    fn cache(&self) -> PathBuf {
+        self.0.join("cache")
+    }
+    fn logs(&self) -> PathBuf {
+        self.0.join("logs")
+    }
+}
+
 /// Secrets (API keys, tokens) in the OS key store — never in files or settings.
 pub trait KeyStore: Send + Sync {
     /// Read a secret.
