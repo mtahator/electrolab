@@ -1,0 +1,117 @@
+{
+ "load_s": 17.05,
+ "formulas": [
+  {
+   "image": "arxiv-2111.12066v2-p4-00.png",
+   "ms": 1564,
+   "latex": "\\operatorname*{min}_{\\theta}\\frac{1}{N}\\sum_{i=1}^{N}({\\bf x}_{i+1}-f_{\\theta}({\\bf x}_{i},{\\bf u}_{i},{\\bf w}_{i}))^{2}.\\qquad\\qquad(2)",
+   "w": 711,
+   "h": 132
+  },
+  {
+   "image": "arxiv-2111.12066v2-p4-01.png",
+   "ms": 736,
+   "latex": "{\\bf X}_{i+1}=f({\\bf x}_{i},{\\bf u}_{i},{\\bf w}_{i}),\\quad\\quad\\quad\\quad\\quad\\quad\\quad\\quad\\quad\\quad\\quad(1)",
+   "w": 608,
+   "h": 51
+  },
+  {
+   "image": "arxiv-2111.12066v2-p5-02.png",
+   "ms": 5238,
+   "latex": "\\begin{array}{l l}{{\\hat{\\mathbf{x}}_{i+1}^{\\mathrm{obs}}=f_{\\theta}(\\mathbf{x}_{i},\\mathbf{u}_{i},\\mathbf{w}_{i}),}}&{{}}\\\\ {{\\mathrm{min}\\frac{1}{N}\\sum_{i=1}^{N}(\\mathbf{x}_{i+1}^{\\mathrm{obs}}-f_{\\theta}(\\mathbf{x}_{i},\\mathbf{u}_{i},\\mathbf{w}_{i}))^{2}.}}\\end{array}\\qquad(3)",
+   "w": 715,
+   "h": 201
+  },
+  {
+   "image": "arxiv-2111.12066v2-p5-03.png",
+   "ms": 4650,
+   "latex": "\\begin{array}{l l}{{\\mathrm{{{Loss}}=\\mathcal{L_{r e g}+\\lambda\\mathcal{L}_{p h y s}}}}}\\\\ {{\\mathrm{{Z_{reg}={\\frac{1}{N}}\\sum_{i=1}^{N}\\left({\\bf{x}}_{i+1}^{\\mathrm{obs}}-\\hat{{\\bf{x}}}_{i+1}^{\\mathrm{obs}}\\right)^{2}}}}&{{\\mathrm{{(6)}}}}\\end{array}",
+   "w": 775,
+   "h": 331
+  },
+  {
+   "image": "arxiv-2111.12066v2-p5-04.png",
+   "ms": 879,
+   "latex": "\\mathcal{D}_{\\Omega}({\\bf x}_{i},{\\bf u}_{i},{\\bf z}_{i},{\\bf z}_{i+1},{\\bf w}_{i})=0.\\qquad\\qquad\\qquad(4)",
+   "w": 662,
+   "h": 52
+  },
+  {
+   "image": "arxiv-2111.12066v2-p5-05.png",
+   "ms": 30729,
+   "latex": "\\begin{array}{l l}{{\\displaystyle\\mathrm{min}\\ \\ \\displaystyle\\frac{1}{N}\\sum_{i=1}^{N}\\Big({\\bf x}_{i+1}^{\\scriptstyle u b s}-\\hat{{\\bf x}}_{i+1}^{\\scriptstyle o b s}\\Big)^{2}\\nonumber\\qquad\\qquad(5)}}\\\\ {{\\displaystyle\\mathrm{st.}\\ \\left.{\\mathcal D}_{\\Omega}({\\bf x}_{i},{\\bf u}_{i},\\hat{{\\bf x}}_{i+1},{\\bf w}_{i})=0,}}&{{\\qquad\\qquad(5)}}\\\\ {{\\displaystyle\\langle{\\bf x}_{i},{\\bf w}_{i},{\\bf w}_{i},{\\bf x}_{i+1}^{\\tt o b s}_{i+1}^{\\tt o b s})\\in\\mathcal F.}}}\\\\ {{\\displaystyle\\langle{\\bf x}_{i,1}_{i},{\\bf w}_{i,1},{\\bf w}_{i+1}^{\\bf x}_{i+1}^{\\tt o b s}\\right)=0,}}&{{\\Gamma}_{i,\\,w_{i,\\,_{i},\\,_{i,1},{i,\\,x_{i,\\,}_{i}_{i,\\,j,\\,_{i}_{i}_{i,1}_{\\bf w}^{i,}^{\\right.",
+   "w": 698,
+   "h": 255
+  },
+  {
+   "image": "arxiv-2111.12066v2-p5-06.png",
+   "ms": 9400,
+   "latex": "\\begin{array}{l l}{{\\hat{\\Sigma}_{i}=g_{\\theta_{L}}({\\bf x}_{i}^{\\mathrm{f}}),}}&{{}}\\\\ {{\\hat{\\bf x}_{i+1}^{\\mathrm{obs}}=h_{\\theta_{d}}(\\hat{\\bf x}_{i},{\\bf x}_{i}^{\\mathrm{obs}},u_{i},{\\bf w}_{i})}}&{{}}&{{}}\\\\ {{\\hat{\\bf x}_{i+1}^{\\mathrm{obs}}=h_{\\theta_{d}}(\\hat{\\bf x}_{i},{\\bf x}_{i}^{\\mathrm{obs}},u_{i},{\\bf w}_{i})}}&{{}}&{{}}\\end{array}",
+   "w": 651,
+   "h": 129
+  },
+  {
+   "image": "arxiv-2111.12066v2-p6-07.png",
+   "ms": 29239,
+   "latex": "\\begin{array}{c c}{{\\left[\\hat{T}_{r}\\right]=\\left[-\\left(\\frac{1}{C_{r}R_{r a}}+\\frac{1}{C_{r}R_{r a}}\\right)}}&{{\\frac{1}{C_{r}R_{r a}}\\right]\\cdot\\left[T_{m}\\right]}}\\\\ {{\\left.\\vphantom{T}_{m}R_{r}}}&{{\\frac{1}{C_{r}}R_{r}}}&{{\\frac{1}{C_{r}R_{r a}}}}\\\\ {{\\left.+\\left[\\frac{1-\\alpha}{C_{m}}\\right.\\begin{array}{c c c}{{\\frac{1}{C_{r}}}}&{{\\frac{1}{C_{r}}}}&{{\\frac{1}{C_{r}}R_{r}}\\right]\\cdot\\left[T_{a}\\right]}}\\\\ {{\\left.\\left.\\left.\\left.\\frac{1}{C_{m}}\\right]\\cdot A_{r}R_{m}}}&{{\\frac{1}{C_{r}}{D}}}&{{\\frac{1}{C_{T_{r}R_{m}}{0}}\\right]\\cdot\\end{array}",
+   "w": 789,
+   "h": 278
+  },
+  {
+   "image": "arxiv-2111.12066v2-p6-08.png",
+   "ms": 6006,
+   "latex": "\\begin{array}{l l}{{\\hat{\\bf{Z}}_{i}=\\begin{array}{l l}{{\\Theta_{1}\\,S_{\\theta}({\\bf{X}}_{i},{\\bf{W}}_{i})+\\frac{\\Theta}{\\Theta_{2}},}}\\\\ {{\\hat{\\bf{X}}_{i+1}^{\\mathrm{obs}}\\,-\\,\\vert{\\bf h}_{1}\\,S_{\\theta}({\\bf{X}}_{i},{\\bf w}_{i},{\\bf w}_{i})+\\vert{\\bf{\\bar{x}}},}}\\end{array}\\qquad\\qquad(\\vartheta)}}\\end{array}",
+   "w": 670,
+   "h": 121
+  },
+  {
+   "image": "arxiv-2406.19831v2-p3-09.png",
+   "ms": 1595,
+   "latex": "\\varphi_{i}(x)={\\left\\{\\begin{array}{l l}{\\hat{\\varphi}(M_{i}^{-1}(x)),}&{x\\in P_{i},}\\\\ {0,}&{x\\not\\in P_{i}.}\\end{array}\\right.}\\qquad\\qquad\\qquad\\qquad\\qquad\\qquad\\qquad(2.7)",
+   "w": 1230,
+   "h": 114
+  },
+  {
+   "image": "arxiv-2406.19831v2-p3-10.png",
+   "ms": 3985,
+   "latex": "\\begin{array}{l l l}{{x_{0}=x,}}&{{x_{0}=x,}}\\\\ {{x_{t}=\\rho(A_{t}x_{L-1}+b_{L},}}&{{\\qquad\\qquad\\qquad\\qquad\\qquad}}&{{\\qquad}}\\\\ {{w(x)=A_{L}x_{L-1}+b_{L}.}}&{{\\qquad\\qquad}}&{{\\qquad}}&{{\\qquad}}\\\\ {{w(x)=A_{L}x_{L-1}+b_{L}.}}&{{\\qquad\\qquad}}\\end{array}",
+   "w": 1335,
+   "h": 153
+  },
+  {
+   "image": "arxiv-2406.19831v2-p3-11.png",
+   "ms": 1097,
+   "latex": "V^{\\Lambda\\Lambda^{\\prime}}=\\{v^{\\Lambda\\Lambda^{\\prime}}\\in\\bar{u}+V:v^{\\Lambda\\Lambda^{\\prime}}=B w\\mathrm{~for~some~}w\\in W^{\\Lambda\\Lambda^{\\Lambda\\Lambda^{\\prime}}\\}\\;.}",
+   "w": 973,
+   "h": 65
+  },
+  {
+   "image": "arxiv-2406.19831v2-p3-12.png",
+   "ms": 18287,
+   "latex": "B w=\\phi w+\\bar{g},~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~0~~0~~0~0~~~0",
+   "w": 1073,
+   "h": 53
+  },
+  {
+   "image": "arxiv-2406.19831v2-p3-13.png",
+   "ms": 524,
+   "latex": "a(u^{N N},v)=F(v)\\qquad\\forall v\\in V_{h}\\,.\\qquad\\qquad\\qquad\\qquad\\qquad\\qquad\\qquad\\qquad(2.8)",
+   "w": 1216,
+   "h": 63
+  },
+  {
+   "image": "arxiv-2406.19831v2-p4-14.png",
+   "ms": 1456,
+   "latex": "R_{h}^{2}(w;D)=\\frac{1}{n_{\\mathrm{pathes}}}\\sum_{i=1}^{n_{\\mathrm{patss}}}\\gamma_{i}r_{h,i}^{2}(w)\\,,\\qquad\\qquad\\qquad\\qquad\\qquad\\qquad(2.14)",
+   "w": 1249,
+   "h": 132
+  },
+  {
+   "image": "arxiv-2406.19831v2-p4-15.png",
+   "ms": 816,
+   "latex": "a_{h}^{i}(u^{N N},\\varphi_{i})=F_{h}^{i}(\\varphi_{i})\\qquad\\forall i=1,\\ldots,n_{\\mathrm{patehes}}\\,.",
+   "w": 1338,
+   "h": 66
+  }
+ ]
+}

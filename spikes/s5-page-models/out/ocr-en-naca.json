@@ -1,0 +1,52 @@
+{
+ "lang": "en",
+ "threads": 4,
+ "pdf": "naca-report-1135.pdf",
+ "pages": [
+  {
+   "page": 2,
+   "lines": 127,
+   "render_ms": 155,
+   "detect_ms": 398,
+   "recognise_ms": 7243,
+   "f1": 0.953,
+   "sample": "t42\nREPORT 1135\nEQUATIONS, TABLES, AND CHARTS FOR COMPRESSIBLE FLOW 1\nBy Ames ResearcH Staff\nnormal force\nSUMMARY\nCN\nnormal-force coefficient for cones,\nq0S\nThis report, which is a revision and extens"
+  },
+  {
+   "page": 3,
+   "lines": 139,
+   "render_ms": 89,
+   "detect_ms": 399,
+   "recognise_ms": 6905,
+   "f1": 0.93,
+   "sample": "521\n,49.\n614\nREPORT 1135-NATIONAL ADVISORY COMMITTEE FOR AERONAUTICS\nFUNDAMENTAL RELATIONS\nE\npressure ratio across a shock wave,\nP2\npi\nTHERMODYNAMICS\nρ\nmass density 2\nσ\nsemivertex angle of cone\nTHERMA"
+  },
+  {
+   "page": 4,
+   "lines": 166,
+   "render_ms": 91,
+   "detect_ms": 351,
+   "recognise_ms": 2715,
+   "f1": 0.755,
+   "sample": "615\nEQUATIONS, TABLES, AND CHARTS FOR COMPRESSIBLE FLOW\nENTROPY\nENERGY RELATIONS\nThe entropy is defined by\nThe law of conservation of energy gives\ndq=du+dw (first law of thermodynamics))\nds=(d)\n(21)\n("
+  },
+  {
+   "page": 5,
+   "lines": 168,
+   "render_ms": 71,
+   "detect_ms": 389,
+   "recognise_ms": 3739,
+   "f1": 0.714,
+   "sample": "616\nREPORT 1135-NATIONAL ADVISORY COMMITTEE FOR AERONAUTICS\nPRESSURE-DENSITY RELATION\nEnergy equation\nFrom equations (27) and (28b) it follows that\ndu+d(2)+v=0}\n[abiab]\n(28a)\nP\n=constant= P\n[isen, per"
+  },
+  {
+   "page": 6,
+   "lines": 79,
+   "render_ms": 104,
+   "detect_ms": 368,
+   "recognise_ms": 1388,
+   "f1": 0.472,
+   "sample": "617\nEQUATIONS, TABLES, AND CHARTS FOR COMPRESSIBLE FLOW\n\n7\n(47)\nM =−γ+1 (y)[1−+1 (y)]\nq\n${ M {2}=$\nM ² [therm perf]\n2\n10\np\n=6 (v)[1-6 (v)][adiab, e(55)\np=y M (1+r−1 M) \n7\n(59)\n2\n(v)=+1 )=5 )\n[isen, pe"
+  }
+ ]
+}

@@ -1,0 +1,128 @@
+[
+  {
+    "id": "heron",
+    "repo": "docling-project/docling-layout-heron-onnx",
+    "rev": "40bde044036bb181c130ddf6c51792187268748f",
+    "file": "model.onnx",
+    "sha256": "59c81a3a2923042d85034ffc487f8f47e4854117e879aef89b2b9f728fb4922a",
+    "size": 171220471,
+    "licence": "Apache-2.0"
+  },
+  {
+    "id": "heron",
+    "repo": "docling-project/docling-layout-heron-onnx",
+    "rev": "40bde044036bb181c130ddf6c51792187268748f",
+    "file": "config.json",
+    "sha256": null,
+    "size": 878,
+    "licence": "Apache-2.0"
+  },
+  {
+    "id": "heron",
+    "repo": "docling-project/docling-layout-heron-onnx",
+    "rev": "40bde044036bb181c130ddf6c51792187268748f",
+    "file": "preprocessor_config.json",
+    "sha256": null,
+    "size": 445,
+    "licence": "Apache-2.0"
+  },
+  {
+    "id": "pp-doclayout-plus-l",
+    "repo": "PaddlePaddle/PP-DocLayout_plus-L_onnx",
+    "rev": "feb74619326f634e0e883218598096a3733ad9f7",
+    "file": "inference.onnx",
+    "sha256": "77afb2caa74dd13240d087d2eced91d7fcd2caebd16006a0a66162fc8707ff0e",
+    "size": 129736329,
+    "licence": "Apache-2.0"
+  },
+  {
+    "id": "pp-doclayout-plus-l",
+    "repo": "PaddlePaddle/PP-DocLayout_plus-L_onnx",
+    "rev": "feb74619326f634e0e883218598096a3733ad9f7",
+    "file": "inference.yml",
+    "sha256": null,
+    "size": 1838,
+    "licence": "Apache-2.0"
+  },
+  {
+    "id": "ppocrv5-det",
+    "repo": "PaddlePaddle/PP-OCRv5_mobile_det_onnx",
+    "rev": "e6f4fa85f00e168c862bc462aebca69eef9b3d3d",
+    "file": "inference.onnx",
+    "sha256": "a431985659dc921974177a95adcfbb90fd9e51989a5e04d70d0b75f597b6e61d",
+    "size": 4826518,
+    "licence": "Apache-2.0"
+  },
+  {
+    "id": "ppocrv5-det",
+    "repo": "PaddlePaddle/PP-OCRv5_mobile_det_onnx",
+    "rev": "e6f4fa85f00e168c862bc462aebca69eef9b3d3d",
+    "file": "inference.yml",
+    "sha256": null,
+    "size": 903,
+    "licence": "Apache-2.0"
+  },
+  {
+    "id": "ppocrv5-rec-en",
+    "repo": "PaddlePaddle/en_PP-OCRv5_mobile_rec_onnx",
+    "rev": "3fafbc3b5dcf93dd72add9f48368be8a3a2cd33b",
+    "file": "inference.onnx",
+    "sha256": "b5f833dfc5d0eb71da397b4efa06ebeee9b431b690a47d6af40d77d8eabc557f",
+    "size": 7848423,
+    "licence": "Apache-2.0"
+  },
+  {
+    "id": "ppocrv5-rec-en",
+    "repo": "PaddlePaddle/en_PP-OCRv5_mobile_rec_onnx",
+    "rev": "3fafbc3b5dcf93dd72add9f48368be8a3a2cd33b",
+    "file": "inference.yml",
+    "sha256": null,
+    "size": 3964,
+    "licence": "Apache-2.0"
+  },
+  {
+    "id": "ppocrv5-rec-arabic",
+    "repo": "PaddlePaddle/arabic_PP-OCRv5_mobile_rec_onnx",
+    "rev": "14aaedcd75825982689ecf5cd64ab33ee083215a",
+    "file": "inference.onnx",
+    "sha256": "799113ebf267fbe742deb99eb36e8d42c9ddc5291ceacf92add41b4d52a59110",
+    "size": 7998947,
+    "licence": "Apache-2.0"
+  },
+  {
+    "id": "ppocrv5-rec-arabic",
+    "repo": "PaddlePaddle/arabic_PP-OCRv5_mobile_rec_onnx",
+    "rev": "14aaedcd75825982689ecf5cd64ab33ee083215a",
+    "file": "inference.yml",
+    "sha256": null,
+    "size": 6165,
+    "licence": "Apache-2.0"
+  },
+  {
+    "id": "egret-medium",
+    "repo": "ningpp/docling-layout-egret-medium-ONNX",
+    "rev": "06b27d85c5a004eb024ca82f78e094fb7bf47e47",
+    "file": "config.json",
+    "sha256": null,
+    "size": 4432,
+    "licence": "Apache-2.0"
+  },
+  {
+    "id": "egret-medium",
+    "repo": "ningpp/docling-layout-egret-medium-ONNX",
+    "rev": "06b27d85c5a004eb024ca82f78e094fb7bf47e47",
+    "file": "model.onnx",
+    "sha256": "e64ebaa061f6f8b4c049fa109590876532a67b77a4f6c00508a7def24844757b",
+    "size": 78481216,
+    "licence": "Apache-2.0"
+  },
+  {
+    "id": "egret-medium",
+    "repo": "ningpp/docling-layout-egret-medium-ONNX",
+    "rev": "06b27d85c5a004eb024ca82f78e094fb7bf47e47",
+    "file": "preprocessor_config.json",
+    "sha256": null,
+    "size": 470,
+    "licence": "Apache-2.0"
+  }
+]

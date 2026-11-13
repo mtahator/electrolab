@@ -1,0 +1,246 @@
+{
+ "model": "heron",
+ "threads": 8,
+ "load_s": 0.62,
+ "papers": [
+  {
+   "paper": "arxiv-2111.12066v2",
+   "pages": 14,
+   "model_ms_median": 591,
+   "render_ms_median": 20,
+   "total_s": 8.63,
+   "captions": 9,
+   "captions_found": 9,
+   "equation_numbers": 13,
+   "equations_found": 13,
+   "missed_captions": [],
+   "label_counts": {
+    "text": 94,
+    "title": 1,
+    "section_header": 27,
+    "page_header": 1,
+    "page_footer": 15,
+    "footnote": 3,
+    "list_item": 49,
+    "formula": 15,
+    "caption": 12,
+    "picture": 19,
+    "table": 6
+   }
+  },
+  {
+   "paper": "arxiv-2406.19831v2",
+   "pages": 20,
+   "model_ms_median": 588,
+   "render_ms_median": 27,
+   "total_s": 12.53,
+   "captions": 0,
+   "captions_found": 0,
+   "equation_numbers": 36,
+   "equations_found": 36,
+   "missed_captions": [],
+   "label_counts": {
+    "text": 126,
+    "footnote": 2,
+    "section_header": 20,
+    "page_header": 39,
+    "title": 2,
+    "key_value_region": 1,
+    "formula": 50,
+    "page_footer": 19,
+    "picture": 55,
+    "caption": 20,
+    "table": 1
+   }
+  },
+  {
+   "paper": "arxiv-2402.12652v3",
+   "pages": 19,
+   "model_ms_median": 608,
+   "render_ms_median": 20,
+   "total_s": 12.22,
+   "captions": 17,
+   "captions_found": 16,
+   "equation_numbers": 3,
+   "equations_found": 3,
+   "missed_captions": [
+    "Table2.Foracomprehensiveunderstandingoft"
+   ],
+   "label_counts": {
+    "text": 83,
+    "page_header": 21,
+    "section_header": 23,
+    "footnote": 16,
+    "page_footer": 19,
+    "caption": 15,
+    "picture": 22,
+    "formula": 23,
+    "table": 5,
+    "list_item": 47
+   }
+  },
+  {
+   "paper": "arxiv-2407.06664v2",
+   "pages": 20,
+   "model_ms_median": 591,
+   "render_ms_median": 27,
+   "total_s": 12.51,
+   "captions": 23,
+   "captions_found": 21,
+   "equation_numbers": 2,
+   "equations_found": 2,
+   "missed_captions": [
+    "Figure6.Accordingtothecurveonthetopofthe",
+    "Figure19(forsimplicityofillustration,wes"
+   ],
+   "label_counts": {
+    "text": 111,
+    "section_header": 41,
+    "page_header": 3,
+    "key_value_region": 1,
+    "page_footer": 22,
+    "title": 1,
+    "picture": 31,
+    "caption": 20,
+    "footnote": 7,
+    "formula": 17,
+    "table": 4,
+    "list_item": 44
+   }
+  },
+  {
+   "paper": "arxiv-2310.09367v1",
+   "pages": 12,
+   "model_ms_median": 615,
+   "render_ms_median": 39,
+   "total_s": 9.17,
+   "captions": 27,
+   "captions_found": 21,
+   "equation_numbers": 10,
+   "equations_found": 10,
+   "missed_captions": [
+    "Figure2(a)showsthegeneralmeshingstrategy",
+    "Figure3(c)isaschematicofthejet-in-cross-",
+    "Figure4(b)showsthemeanvelocityprofileat𝑥",
+    "Figure3(a)showsaschematicoftheperiodichi",
+    "Figure3(b)isaschematicofthebackward-faci",
+    "TABLE1:FURTHERDETAILSOFTHEGRIDS.HERE,nIS"
+   ],
+   "label_counts": {
+    "text": 88,
+    "section_header": 26,
+    "footnote": 5,
+    "page_header": 1,
+    "page_footer": 12,
+    "key_value_region": 2,
+    "list_item": 85,
+    "title": 1,
+    "caption": 22,
+    "picture": 37,
+    "formula": 10,
+    "table": 1
+   }
+  },
+  {
+   "paper": "arxiv-2106.03711v2",
+   "pages": 20,
+   "model_ms_median": 620,
+   "render_ms_median": 16,
+   "total_s": 12.46,
+   "captions": 1,
+   "captions_found": 1,
+   "equation_numbers": 38,
+   "equations_found": 38,
+   "missed_captions": [],
+   "label_counts": {
+    "text": 77,
+    "title": 1,
+    "footnote": 2,
+    "section_header": 9,
+    "page_header": 1,
+    "page_footer": 20,
+    "formula": 38,
+    "caption": 4,
+    "table": 1,
+    "picture": 7
+   }
+  },
+  {
+   "paper": "arxiv-2410.21481v1",
+   "pages": 20,
+   "model_ms_median": 599,
+   "render_ms_median": 17,
+   "total_s": 12.24,
+   "captions": 0,
+   "captions_found": 0,
+   "equation_numbers": 0,
+   "equations_found": 0,
+   "missed_captions": [],
+   "label_counts": {
+    "text": 290,
+    "document_index": 2,
+    "section_header": 44,
+    "page_header": 1,
+    "title": 1,
+    "page_footer": 20,
+    "key_value_region": 2,
+    "list_item": 23,
+    "formula": 96
+   }
+  },
+  {
+   "paper": "plos-pone-0232683",
+   "pages": 20,
+   "model_ms_median": 581,
+   "render_ms_median": 21,
+   "total_s": 12.34,
+   "captions": 16,
+   "captions_found": 15,
+   "equation_numbers": 0,
+   "equations_found": 0,
+   "missed_captions": [
+    "Fig2.Tobespecific,intheforwardcase,wemus"
+   ],
+   "label_counts": {
+    "text": 138,
+    "picture": 30,
+    "section_header": 14,
+    "page_footer": 99,
+    "key_value_region": 9,
+    "list_item": 2,
+    "page_header": 41,
+    "footnote": 3,
+    "formula": 50,
+    "caption": 17,
+    "table": 9
+   }
+  },
+  {
+   "paper": "naca-report-1135",
+   "pages": 20,
+   "model_ms_median": 607,
+   "render_ms_median": 70,
+   "total_s": 13.72,
+   "captions": 3,
+   "captions_found": 3,
+   "equation_numbers": 197,
+   "equations_found": 193,
+   "missed_captions": [],
+   "label_counts": {
+    "text": 288,
+    "section_header": 70,
+    "page_footer": 6,
+    "title": 1,
+    "footnote": 6,
+    "document_index": 1,
+    "list_item": 14,
+    "key_value_region": 3,
+    "formula": 361,
+    "page_header": 38,
+    "table": 3,
+    "caption": 9,
+    "picture": 10
+   }
+  }
+ ]
+}
