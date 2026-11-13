@@ -1,0 +1,157 @@
+{
+  "command": "document.thumbnails",
+  "input": {
+    "$defs": {
+      "BlobRef": {
+        "description": "A file in the content-addressed store: messages carry these, never large bytes (§9.4).",
+        "properties": {
+          "hash": {
+            "$ref": "#/$defs/Hash",
+            "description": "Content hash."
+          },
+          "media_type": {
+            "$ref": "#/$defs/MediaType",
+            "description": "What the bytes are."
+          },
+          "size": {
+            "description": "Size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "Hash": {
+        "description": "BLAKE3 content hash (hex)",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "MediaType": {
+        "description": "A media type such as `application/pdf`.",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `document.thumbnails`.",
+    "properties": {
+      "file": {
+        "$ref": "#/$defs/BlobRef",
+        "description": "The stored PDF."
+      },
+      "pages": {
+        "default": [],
+        "description": "Pages to render (empty: all).",
+        "items": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "type": "array"
+      },
+      "width_px": {
+        "description": "Width of each thumbnail in device pixels.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "file",
+      "width_px"
+    ],
+    "title": "ThumbnailsRequest",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "BlobRef": {
+        "description": "A file in the content-addressed store: messages carry these, never large bytes (§9.4).",
+        "properties": {
+          "hash": {
+            "$ref": "#/$defs/Hash",
+            "description": "Content hash."
+          },
+          "media_type": {
+            "$ref": "#/$defs/MediaType",
+            "description": "What the bytes are."
+          },
+          "size": {
+            "description": "Size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "Hash": {
+        "description": "BLAKE3 content hash (hex)",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "MediaType": {
+        "description": "A media type such as `application/pdf`.",
+        "type": "string"
+      },
+      "Rendered": {
+        "description": "A rendered page image (PNG in the render cache).",
+        "properties": {
+          "height_px": {
+            "description": "Height in pixels.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "image": {
+            "$ref": "#/$defs/BlobRef",
+            "description": "The PNG."
+          },
+          "page": {
+            "description": "1-based page.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "width_px": {
+            "description": "Width in pixels.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "image",
+          "width_px",
+          "height_px"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "items": {
+      "$ref": "#/$defs/Rendered"
+    },
+    "title": "Array_of_Rendered",
+    "type": "array"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Small images of pages (cached)"
+}

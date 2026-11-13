@@ -1,0 +1,623 @@
+{
+  "command": "document.search",
+  "input": {
+    "$defs": {
+      "ContextOptions": {
+        "description": "What surrounds each hit.",
+        "properties": {
+          "after": {
+            "default": 12,
+            "description": "Words after the hit (for `Words`).",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "before": {
+            "default": 12,
+            "description": "Words before the hit (for `Words`).",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "cross_pages": {
+            "default": false,
+            "description": "Let context continue onto the previous or next page.",
+            "type": "boolean"
+          },
+          "merge_within": {
+            "default": 0,
+            "description": "Hits closer than this many words share one snippet.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "unit": {
+            "$ref": "#/$defs/ContextUnit",
+            "default": "words",
+            "description": "Context unit."
+          }
+        },
+        "type": "object"
+      },
+      "ContextUnit": {
+        "description": "The unit of context returned around a hit.",
+        "oneOf": [
+          {
+            "const": "words",
+            "description": "`before` words before and `after` words after.",
+            "type": "string"
+          },
+          {
+            "const": "sentence",
+            "description": "The whole sentence the hit is in.",
+            "type": "string"
+          },
+          {
+            "const": "none",
+            "description": "No context, only the match.",
+            "type": "string"
+          }
+        ]
+      },
+      "Limits": {
+        "description": "Caps on the size of a result. Counts always include every occurrence.",
+        "properties": {
+          "max_context_chars": {
+            "default": 20000,
+            "description": "Most characters of context returned in total (keeps a model's context small).",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "max_hits": {
+            "default": 200,
+            "description": "Most hits returned in total.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "max_hits_per_term": {
+            "default": 50,
+            "description": "Most hits returned per term.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "MatchMode": {
+        "description": "How a word in the query may match a word in the paper.",
+        "oneOf": [
+          {
+            "const": "exact",
+            "description": "The written words after normalisation (case, accents, Unicode forms).",
+            "type": "string"
+          },
+          {
+            "const": "word_forms",
+            "description": "Also plural and simple English endings (equation/equations, solve/solved/solving).",
+            "type": "string"
+          },
+          {
+            "const": "fuzzy",
+            "description": "Also misspellings and OCR errors, down to `similarity`.",
+            "type": "string"
+          }
+        ]
+      },
+      "MatchOptions": {
+        "description": "Match options. Defaults suit both people and the language model.",
+        "properties": {
+          "case_sensitive": {
+            "default": false,
+            "description": "Distinguish upper and lower case (`Re` vs `re`).",
+            "type": "boolean"
+          },
+          "fold_accents": {
+            "default": true,
+            "description": "Treat accented and unaccented letters as equal (`Schrödinger` = `Schrodinger`).",
+            "type": "boolean"
+          },
+          "min_fuzzy_length": {
+            "default": 4,
+            "description": "Words shorter than this (in letters) always match exactly, even in `Fuzzy` mode.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "mode": {
+            "$ref": "#/$defs/MatchMode",
+            "default": "word_forms",
+            "description": "Strictness."
+          },
+          "notation": {
+            "default": true,
+            "description": "Symbols and their written variants match: `Cp`, `C_p`, `C_{p}`, `C p`, `Cₚ`, `𝐶𝑝`;\n`x²` = `x^2`; `α` = `alpha` = `\\alpha`.",
+            "type": "boolean"
+          },
+          "phrase_slop": {
+            "default": 0,
+            "description": "For phrases: number of other words allowed between the phrase's words.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "prefix": {
+            "default": false,
+            "description": "The term may be the start of a longer word (`therm` → `thermal`).",
+            "type": "boolean"
+          },
+          "similarity": {
+            "default": 0.800000011920929,
+            "description": "For `Fuzzy`: minimum similarity per word, 0.0–1.0 (1 − edit distance ÷ longer length).",
+            "format": "float",
+            "type": "number"
+          },
+          "whole_word": {
+            "default": true,
+            "description": "Match whole words only; false also finds the term inside longer words.",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "PageRange": {
+        "description": "An inclusive range of 1-based page numbers.",
+        "properties": {
+          "first": {
+            "description": "First page.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "last": {
+            "description": "Last page.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "first",
+          "last"
+        ],
+        "type": "object"
+      },
+      "PaperRef": {
+        "description": "A paper the caller wants searched. Placeholder for `Ref<Paper>` (Phase 1 M1.TYP).",
+        "type": "string"
+      },
+      "Scope": {
+        "description": "Which parts of the papers are searched.",
+        "properties": {
+          "exclude_sections": {
+            "default": [],
+            "description": "Skip sections whose heading contains one of these (e.g. `References`).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "include_sections": {
+            "default": [],
+            "description": "Only sections whose heading contains one of these (case-insensitive; empty = all).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "pages": {
+            "default": [],
+            "description": "Only these pages (empty = all).",
+            "items": {
+              "$ref": "#/$defs/PageRange"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "Sort": {
+        "description": "Order of hits.",
+        "oneOf": [
+          {
+            "const": "position",
+            "description": "Paper, page and position in the text.",
+            "type": "string"
+          },
+          {
+            "const": "score",
+            "description": "Best match first (exact before fuzzy), then position.",
+            "type": "string"
+          }
+        ]
+      },
+      "Term": {
+        "description": "One thing to look for: a word, a symbol (`C_p`) or a phrase (`heat capacity`).",
+        "properties": {
+          "label": {
+            "default": null,
+            "description": "Optional caller's name for the term, returned with each hit.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "text": {
+            "description": "The text as the caller writes it.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `document.search`.",
+    "properties": {
+      "context": {
+        "$ref": "#/$defs/ContextOptions",
+        "default": {
+          "after": 12,
+          "before": 12,
+          "cross_pages": false,
+          "merge_within": 0,
+          "unit": "words"
+        },
+        "description": "What is returned around each hit."
+      },
+      "limits": {
+        "$ref": "#/$defs/Limits",
+        "default": {
+          "max_context_chars": 20000,
+          "max_hits": 200,
+          "max_hits_per_term": 50
+        },
+        "description": "Caps on the size of the result."
+      },
+      "match": {
+        "$ref": "#/$defs/MatchOptions",
+        "default": {
+          "case_sensitive": false,
+          "fold_accents": true,
+          "min_fuzzy_length": 4,
+          "mode": "word_forms",
+          "notation": true,
+          "phrase_slop": 0,
+          "prefix": false,
+          "similarity": 0.800000011920929,
+          "whole_word": true
+        },
+        "description": "How strict a match is."
+      },
+      "papers": {
+        "description": "Papers to search (one, several, or a whole collection).",
+        "items": {
+          "$ref": "#/$defs/PaperRef"
+        },
+        "type": "array"
+      },
+      "scope": {
+        "$ref": "#/$defs/Scope",
+        "default": {
+          "exclude_sections": [],
+          "include_sections": [],
+          "pages": []
+        },
+        "description": "Which pages and sections are searched."
+      },
+      "sort": {
+        "$ref": "#/$defs/Sort",
+        "default": "position",
+        "description": "Order of hits."
+      },
+      "terms": {
+        "description": "What to look for; each term is searched and counted separately.",
+        "items": {
+          "$ref": "#/$defs/Term"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "papers",
+      "terms"
+    ],
+    "title": "SearchRequest",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "Hit": {
+        "description": "One occurrence of a term.",
+        "properties": {
+          "after": {
+            "description": "Context after the match (plain text).",
+            "type": "string"
+          },
+          "before": {
+            "description": "Context before the match (plain text).",
+            "type": "string"
+          },
+          "char_range": {
+            "description": "Character offsets `[start, end)` of the match in the paper's text.",
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              }
+            ],
+            "type": "array"
+          },
+          "kind": {
+            "$ref": "#/$defs/MatchKind",
+            "description": "How it matched."
+          },
+          "label": {
+            "description": "The term's label, if the caller gave one.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matched": {
+            "description": "The text exactly as written in the paper.",
+            "type": "string"
+          },
+          "merged": {
+            "description": "Other hits folded into this snippet by `merge_within`.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "page": {
+            "description": "1-based page number.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "paper": {
+            "$ref": "#/$defs/PaperRef",
+            "description": "The paper."
+          },
+          "rects": {
+            "description": "Boxes of the matched characters, one per line (for highlighting).",
+            "items": {
+              "$ref": "#/$defs/PageRect"
+            },
+            "type": "array"
+          },
+          "section": {
+            "description": "Heading of the section the hit is in, when known.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "similarity": {
+            "description": "1.0 for exact; the fuzzy similarity otherwise.",
+            "format": "float",
+            "type": "number"
+          },
+          "term": {
+            "description": "Index of the term in the request.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "term",
+          "paper",
+          "page",
+          "matched",
+          "before",
+          "after",
+          "kind",
+          "similarity",
+          "rects",
+          "char_range",
+          "merged"
+        ],
+        "type": "object"
+      },
+      "MatchKind": {
+        "description": "How a hit matched its term.",
+        "oneOf": [
+          {
+            "const": "exact",
+            "description": "Same words after normalisation.",
+            "type": "string"
+          },
+          {
+            "const": "notation",
+            "description": "A written variant of the same symbol (`C_p` for `Cp`).",
+            "type": "string"
+          },
+          {
+            "const": "word_form",
+            "description": "Another form of the word (plural, -ed, -ing).",
+            "type": "string"
+          },
+          {
+            "const": "prefix",
+            "description": "The term is the start of the word.",
+            "type": "string"
+          },
+          {
+            "const": "substring",
+            "description": "The term is inside the word.",
+            "type": "string"
+          },
+          {
+            "const": "fuzzy",
+            "description": "Similar spelling, within `similarity`.",
+            "type": "string"
+          }
+        ]
+      },
+      "PageRect": {
+        "description": "A rectangle on one page.",
+        "properties": {
+          "page": {
+            "description": "1-based page number.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "x0": {
+            "description": "Left edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "x1": {
+            "description": "Right edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "y0": {
+            "description": "Top edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "y1": {
+            "description": "Bottom edge.",
+            "format": "float",
+            "type": "number"
+          }
+        },
+        "required": [
+          "page",
+          "x0",
+          "y0",
+          "x1",
+          "y1"
+        ],
+        "type": "object"
+      },
+      "PaperRef": {
+        "description": "A paper the caller wants searched. Placeholder for `Ref<Paper>` (Phase 1 M1.TYP).",
+        "type": "string"
+      },
+      "TermCount": {
+        "description": "Every occurrence of one term, whether or not it was returned as a hit.",
+        "properties": {
+          "per_kind": {
+            "description": "`(kind, occurrences)`.",
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "$ref": "#/$defs/MatchKind"
+                },
+                {
+                  "format": "uint",
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              ],
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "per_page": {
+            "description": "`(page, occurrences)`, pages in order.",
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "format": "uint32",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "format": "uint",
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              ],
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "term": {
+            "description": "Index of the term in the request.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total": {
+            "description": "Total occurrences.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "term",
+          "total",
+          "per_page",
+          "per_kind"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Output of `document.search`.",
+    "properties": {
+      "counts": {
+        "description": "Per-term counts (every occurrence, even when hits were cut).",
+        "items": {
+          "$ref": "#/$defs/TermCount"
+        },
+        "type": "array"
+      },
+      "elapsed_us": {
+        "description": "Time spent, in microseconds (filled in by the facade, not the pure core).",
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "hits": {
+        "description": "The hits, in the requested order.",
+        "items": {
+          "$ref": "#/$defs/Hit"
+        },
+        "type": "array"
+      },
+      "truncated": {
+        "description": "True when a limit cut the hits.",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "hits",
+      "counts",
+      "truncated",
+      "elapsed_us"
+    ],
+    "title": "SearchResult",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Notation-aware word search with context in one or more papers"
+}

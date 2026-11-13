@@ -26,6 +26,7 @@ tauri-plugin-dialog = "=2.8.4"
 serde_json.workspace = true
 uuid.workspace = true
 anyhow.workspace = true
+tracing.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 ep-os-windows = { path = "../../../foundation/os-windows" }

@@ -1,4 +1,4 @@
-//! The PDFium adapter on the fixture papers. Needs `cargo xtask fetch-natives` (PDFium) and,
+//! The `PDFium` adapter on the fixture papers. Needs `cargo xtask fetch-natives` (`PDFium`) and,
 //! for the full set, `cargo xtask fetch-fixtures`; missing pieces are skipped with a note.
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)] // tests and their helpers stop loudly
 

@@ -53,9 +53,15 @@ impl App {
 
     pub fn with_dirs(dirs: Arc<dyn ep_os::AppDirs>) -> anyhow::Result<Self> {
         let bus = Arc::new(Bus::default());
+        let renders = dirs.cache().join("renders");
         let workspace = Workspace::new(dirs);
         workspace.register(&bus)?;
-        Document::new(Arc::new(WorkspaceBlobs(workspace))).register(&bus)?;
+        Document::new(
+            Arc::new(WorkspaceBlobs(workspace)),
+            ep_document::find_pdfium().and_then(|d| ep_document::start_pdfium(&d).ok()),
+            Some(&renders),
+        )?
+        .register(&bus)?;
         Ok(Self { bus })
     }
 

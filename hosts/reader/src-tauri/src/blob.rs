@@ -1,10 +1,11 @@
 //! `ep` URI scheme: `ep://localhost/blob/<hash>` (`http://ep.localhost/blob/<hash>` on Windows)
-//! serves a stored file of the open library, with HTTP range requests so PDF.js loads only the
+//! serves a stored file of the open library, and `/render/<hash>` a rendered page image, with HTTP range requests so PDF.js loads only the
 //! parts it needs (P1.M1.HST.2). Only blobs of the open library are served; nothing else on disk.
 
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 
+use ep_document::Document;
 use ep_types::Hash;
 use ep_workspace::Workspace;
 use tauri::http::{Request, Response, StatusCode};
@@ -43,21 +44,32 @@ pub fn parse_range(header: &str, len: u64) -> Option<(u64, u64)> {
     (start <= end && end < len).then_some((start, end))
 }
 
-pub fn serve(ws: &Workspace, req: &Request<Vec<u8>>) -> Response<Vec<u8>> {
+pub fn serve(ws: &Workspace, doc: &Document, req: &Request<Vec<u8>>) -> Response<Vec<u8>> {
     if req.method() == "OPTIONS" {
         return cors(Response::builder().status(StatusCode::NO_CONTENT))
             .body(Vec::new())
             .unwrap_or_default();
     }
     let path = req.uri().path();
-    let Some(hash) = path
-        .strip_prefix("/blob/")
-        .and_then(|h| h.parse::<Hash>().ok())
-    else {
-        return fail(StatusCode::BAD_REQUEST, "expected /blob/<hash>");
+    let (kind, hash) = match path.trim_start_matches('/').split_once('/') {
+        Some((k @ ("blob" | "render"), h)) => match h.parse::<Hash>() {
+            Ok(h) => (k, h),
+            Err(_) => return fail(StatusCode::BAD_REQUEST, "bad hash"),
+        },
+        _ => {
+            return fail(
+                StatusCode::BAD_REQUEST,
+                "expected /blob/<hash> or /render/<hash>",
+            );
+        }
     };
-    let Some(file_path) = ws.blob_path(&hash) else {
-        return fail(StatusCode::NOT_FOUND, "not in the open library");
+    let (found, content_type) = if kind == "blob" {
+        (ws.blob_path(&hash), "application/pdf")
+    } else {
+        (doc.render_path(&hash), "image/png")
+    };
+    let Some(file_path) = found else {
+        return fail(StatusCode::NOT_FOUND, "not available");
     };
     let Ok(mut file) = File::open(&file_path) else {
         return fail(StatusCode::NOT_FOUND, "missing");
@@ -80,7 +92,7 @@ pub fn serve(ws: &Workspace, req: &Request<Vec<u8>>) -> Response<Vec<u8>> {
         return fail(StatusCode::INTERNAL_SERVER_ERROR, "read");
     }
     let mut b = cors(Response::builder().status(status))
-        .header("Content-Type", "application/pdf")
+        .header("Content-Type", content_type)
         .header("Accept-Ranges", "bytes")
         .header("Cache-Control", "private, max-age=31536000, immutable")
         .header("Content-Length", body.len().to_string());

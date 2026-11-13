@@ -23,7 +23,8 @@ impl BlobAccess for ByName {
 
 async fn read(path: &Path) -> PdfMetadata {
     let bus = Bus::default();
-    Document::new(Arc::new(ByName(path.to_path_buf())))
+    Document::new(Arc::new(ByName(path.to_path_buf())), None, None)
+        .expect("engine")
         .register(&bus)
         .expect("register");
     let file = BlobRef {

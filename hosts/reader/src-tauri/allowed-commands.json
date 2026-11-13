@@ -1,7 +1,14 @@
 {
-  "description": "Bus commands the Reader window may call. A command not listed here cannot be called from the window (an allow-list, phase-1 plan: Best practices — foundation).",
+  "description": "Bus commands the Reader window may call. A command not listed here cannot be called from the window (an allow-list, phase-1 plan: Best practices \u2014 foundation).",
   "main": [
+    "document.info",
+    "document.links",
     "document.metadata",
+    "document.outline",
+    "document.render",
+    "document.search",
+    "document.text",
+    "document.thumbnails",
     "workspace.add_file",
     "workspace.classify",
     "workspace.current",

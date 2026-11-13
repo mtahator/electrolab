@@ -2,14 +2,29 @@
 //!
 //! The engine reads stored files through the [`BlobAccess`] port, which the host implements
 //! with the open library's blob store (the Document engine does not depend on Workspace).
+//! PDF work goes through the [`PdfBackend`] port (`PDFium`, ADR-003); rendered images go to a
+//! disposable render cache (content-addressed, in the app cache folder).
 #![deny(missing_docs)]
 
-use std::path::PathBuf;
+use std::collections::VecDeque;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use ep_blob::BlobStore;
+use ep_bus::cache::{ResultCache, cache_key};
 use ep_bus::{Bus, CommandError, Cx, Permission, RegisterError, Spec, Stability};
-use ep_document_contract::{MetadataRequest, PdfMetadata, commands, errors};
-use ep_types::Hash;
+use ep_document_contract::{
+    DocInfo, FileRequest, Link, MetadataRequest, OutlineItem, PageRequest, PageText, PaperRef,
+    PdfMetadata, RenderRequest, Rendered, SearchRequest, SearchResult, ThumbnailsRequest, commands,
+    errors, pdf_errors,
+};
+use ep_document_core::pdf::{BackendError, PageGeom, PdfBackend};
+use ep_document_core::search::{PageChars, SearchIndex};
+use ep_types::{BlobRef, Hash, MediaType};
+use parking_lot::Mutex;
+use serde_json::json;
+
+pub use ep_document_core::pdf::PdfBackend as Backend;
 
 /// Port: where a stored file is on disk.
 pub trait BlobAccess: Send + Sync {
@@ -17,22 +32,172 @@ pub trait BlobAccess: Send + Sync {
     fn path_of(&self, hash: &Hash) -> Option<PathBuf>;
 }
 
+/// Version of everything that shapes rendered images; bump to invalidate cached renders.
+const RENDER_IMPL: &str = "pdfium-8125/png-1";
+/// Search indexes kept in memory.
+const INDEXES: usize = 8;
+
+/// Cached page geometry of one file: hash, pages, encrypted.
+type GeomEntry = (Hash, Arc<Vec<PageGeom>>, bool);
+
 /// The Document engine.
 pub struct Document {
     blobs: Arc<dyn BlobAccess>,
+    pdf: Option<Arc<dyn PdfBackend>>,
+    renders: Option<(BlobStore, ResultCache)>,
+    geoms: Mutex<VecDeque<GeomEntry>>,
+    indexes: Mutex<VecDeque<(Hash, Arc<SearchIndex>)>>,
 }
 
 impl std::fmt::Debug for Document {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Document").finish_non_exhaustive()
+        f.debug_struct("Document")
+            .field("pdf", &self.pdf.is_some())
+            .finish_non_exhaustive()
     }
 }
 
+/// Start the `PDFium` backend from the folder holding its library.
+///
+/// # Errors
+/// The library cannot be loaded.
+pub fn start_pdfium(dir: &Path) -> Result<Arc<dyn PdfBackend>, String> {
+    Ok(Arc::new(ep_document_adapter_pdfium::PdfiumBackend::start(
+        dir,
+    )?))
+}
+
+/// Where the `PDFium` library is: `EP_PDFIUM_DIR`, next to the executable (installed app), or the
+/// repository's `.natives/pdfium/bin` above it (development builds).
+#[must_use]
+pub fn find_pdfium() -> Option<PathBuf> {
+    let has_lib = |d: &Path| {
+        ["pdfium.dll", "libpdfium.so", "libpdfium.dylib"]
+            .iter()
+            .any(|n| d.join(n).exists())
+    };
+    if let Some(d) = std::env::var_os("EP_PDFIUM_DIR").map(PathBuf::from) {
+        return has_lib(&d).then_some(d);
+    }
+    let exe_dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
+    if has_lib(&exe_dir) {
+        return Some(exe_dir);
+    }
+    exe_dir
+        .ancestors()
+        .map(|a| a.join(".natives").join("pdfium").join("bin"))
+        .find(|d| has_lib(d))
+}
+
+fn backend_err(e: BackendError) -> CommandError {
+    let kind = match e {
+        BackendError::Unreadable(_) => errors::UNREADABLE,
+        BackendError::PasswordRequired => pdf_errors::PASSWORD_REQUIRED,
+        BackendError::BadPage(_) => pdf_errors::BAD_PAGE,
+        BackendError::Timeout => pdf_errors::TIMEOUT,
+    };
+    CommandError::failed(kind, e)
+}
+
+async fn blocking<T: Send + 'static>(
+    f: impl FnOnce() -> Result<T, CommandError> + Send + 'static,
+) -> Result<T, CommandError> {
+    tokio::task::spawn_blocking(f)
+        .await
+        .map_err(|e| CommandError::failed(errors::UNREADABLE, e))?
+}
+
+fn png(width: u32, height: u32, rgba: &[u8]) -> Result<Vec<u8>, CommandError> {
+    let mut out = Vec::with_capacity(rgba.len() / 4);
+    let mut enc = png::Encoder::new(&mut out, width, height);
+    enc.set_color(png::ColorType::Rgba);
+    enc.set_depth(png::BitDepth::Eight);
+    enc.set_compression(png::Compression::Fast);
+    let mut w = enc
+        .write_header()
+        .map_err(|e| CommandError::failed("render", e))?;
+    w.write_image_data(rgba)
+        .map_err(|e| CommandError::failed("render", e))?;
+    w.finish().map_err(|e| CommandError::failed("render", e))?;
+    Ok(out)
+}
+
 impl Document {
-    /// An engine reading files through `blobs`.
+    /// An engine reading files through `blobs`. Without `pdf`, only `document.metadata` works;
+    /// without `render_cache`, `document.render` and `document.thumbnails` are unavailable.
+    ///
+    /// # Errors
+    /// The render cache folder cannot be created.
+    pub fn new(
+        blobs: Arc<dyn BlobAccess>,
+        pdf: Option<Arc<dyn PdfBackend>>,
+        render_cache: Option<&Path>,
+    ) -> std::io::Result<Arc<Self>> {
+        let renders = match render_cache {
+            Some(dir) => Some((
+                BlobStore::open(dir.join("images")).map_err(std::io::Error::other)?,
+                ResultCache::open(dir.join("index"))?,
+            )),
+            None => None,
+        };
+        Ok(Arc::new(Self {
+            blobs,
+            pdf,
+            renders,
+            geoms: Mutex::new(VecDeque::new()),
+            indexes: Mutex::new(VecDeque::new()),
+        }))
+    }
+
+    /// The image store of the render cache (hosts serve it to the viewer).
     #[must_use]
-    pub fn new(blobs: Arc<dyn BlobAccess>) -> Arc<Self> {
-        Arc::new(Self { blobs })
+    pub fn render_path(&self, hash: &Hash) -> Option<PathBuf> {
+        let (store, _) = self.renders.as_ref()?;
+        let p = store.path_of(hash);
+        p.exists().then_some(p)
+    }
+
+    fn path(&self, file: &BlobRef) -> Result<PathBuf, CommandError> {
+        self.blobs.path_of(&file.hash).ok_or_else(|| {
+            CommandError::failed(
+                errors::NOT_FOUND,
+                format!("file {} is not available", file.hash),
+            )
+        })
+    }
+
+    fn backend(&self) -> Result<Arc<dyn PdfBackend>, CommandError> {
+        self.pdf.clone().ok_or_else(|| {
+            CommandError::failed(
+                errors::UNREADABLE,
+                "the PDF backend (PDFium) is not available",
+            )
+        })
+    }
+
+    /// Page geometry of a file, cached by content hash.
+    fn geoms(&self, hash: Hash, path: &Path) -> Result<(Arc<Vec<PageGeom>>, bool), CommandError> {
+        if let Some((_, g, e)) = self.geoms.lock().iter().find(|(h, ..)| *h == hash) {
+            return Ok((g.clone(), *e));
+        }
+        let (g, enc) = self.backend()?.info(path).map_err(backend_err)?;
+        let g = Arc::new(g);
+        let mut cache = self.geoms.lock();
+        if cache.len() >= 32 {
+            cache.pop_back();
+        }
+        cache.push_front((hash, g.clone(), enc));
+        Ok((g, enc))
+    }
+
+    fn page_index(geoms: &[PageGeom], page: u32) -> Result<u32, CommandError> {
+        if page == 0 || page as usize > geoms.len() {
+            return Err(CommandError::failed(
+                pdf_errors::BAD_PAGE,
+                format!("page {page} does not exist (the PDF has {})", geoms.len()),
+            ));
+        }
+        Ok(page - 1)
     }
 
     /// Register the `document.*` commands.
@@ -40,34 +205,284 @@ impl Document {
     /// # Errors
     /// A name is already registered.
     pub fn register(self: &Arc<Self>, bus: &Bus) -> Result<(), RegisterError> {
-        let d = self.clone();
-        bus.register(
-            Spec {
-                name: commands::METADATA,
-                summary: "Title, authors, DOI and page count from a stored PDF",
-                stability: Stability::Experimental,
-                permission: Permission::read(),
-            },
-            move |_cx: Cx, i: MetadataRequest| {
-                let d = d.clone();
-                async move { d.metadata(i).await }
-            },
-        )
+        macro_rules! reg {
+            ($name:expr, $summary:expr, $method:ident) => {{
+                let d = self.clone();
+                let spec = Spec {
+                    name: $name,
+                    summary: $summary,
+                    stability: Stability::Experimental,
+                    permission: Permission::read(),
+                };
+                bus.register(spec, move |cx: Cx, i| {
+                    let d = d.clone();
+                    async move { d.$method(cx, i).await }
+                })?;
+            }};
+        }
+        reg!(
+            commands::METADATA,
+            "Title, authors, DOI and page count from a stored PDF",
+            metadata
+        );
+        reg!(
+            commands::INFO,
+            "Page count and the size of every page",
+            info
+        );
+        reg!(
+            commands::TEXT,
+            "Characters, words and lines of a page, with boxes in page space",
+            text
+        );
+        reg!(commands::RENDER, "A page as a PNG image (cached)", render);
+        reg!(
+            commands::THUMBNAILS,
+            "Small images of pages (cached)",
+            thumbnails
+        );
+        reg!(commands::OUTLINE, "The PDF's bookmarks", outline);
+        reg!(
+            commands::LINKS,
+            "Link areas of a page and where they go",
+            links
+        );
+        reg!(
+            commands::SEARCH,
+            "Notation-aware word search with context in one or more papers",
+            search
+        );
+        Ok(())
     }
 
-    async fn metadata(&self, i: MetadataRequest) -> Result<PdfMetadata, CommandError> {
-        let path = self.blobs.path_of(&i.file.hash).ok_or_else(|| {
-            CommandError::failed(
-                errors::NOT_FOUND,
-                format!("file {} is not available", i.file.hash),
-            )
-        })?;
-        tokio::task::spawn_blocking(move || {
+    async fn metadata(
+        self: Arc<Self>,
+        _cx: Cx,
+        i: MetadataRequest,
+    ) -> Result<PdfMetadata, CommandError> {
+        let path = self.path(&i.file)?;
+        blocking(move || {
             let raw = ep_document_adapter_lopdf::read_metadata(&path)
                 .map_err(|e| CommandError::failed(errors::UNREADABLE, e))?;
             Ok(ep_document_core::metadata::clean(&raw))
         })
         .await
-        .map_err(|e| CommandError::failed(errors::UNREADABLE, e))?
+    }
+
+    async fn info(self: Arc<Self>, _cx: Cx, i: FileRequest) -> Result<DocInfo, CommandError> {
+        let path = self.path(&i.file)?;
+        let me = self.clone();
+        blocking(move || {
+            let (g, encrypted) = me.geoms(i.file.hash, &path)?;
+            Ok(DocInfo {
+                pages: u32::try_from(g.len()).unwrap_or(u32::MAX),
+                sizes: g.iter().map(PageGeom::size).collect(),
+                encrypted,
+            })
+        })
+        .await
+    }
+
+    async fn text(self: Arc<Self>, _cx: Cx, i: PageRequest) -> Result<PageText, CommandError> {
+        let path = self.path(&i.file)?;
+        let me = self.clone();
+        blocking(move || {
+            let (g, _) = me.geoms(i.file.hash, &path)?;
+            let idx = Self::page_index(&g, i.page)?;
+            let raw = me.backend()?.chars(&path, idx).map_err(backend_err)?;
+            Ok(ep_document_core::pdf::page_text(
+                i.page,
+                &g[idx as usize],
+                &raw,
+            ))
+        })
+        .await
+    }
+
+    fn render_one(
+        &self,
+        file: &BlobRef,
+        path: &Path,
+        page: u32,
+        width_px: u32,
+    ) -> Result<Rendered, CommandError> {
+        let (store, index) = self.renders.as_ref().ok_or_else(|| {
+            CommandError::failed(errors::UNREADABLE, "no render cache configured")
+        })?;
+        let width_px = width_px.clamp(16, 8192);
+        let key = cache_key(
+            commands::RENDER,
+            RENDER_IMPL,
+            &json!({ "file": file.hash, "page": page, "width_px": width_px }),
+        );
+        if let Some(r) = index
+            .get(&key)
+            .and_then(|v| serde_json::from_value::<Rendered>(v).ok())
+            && store.stat(&r.image.hash).ok().flatten().is_some()
+        {
+            return Ok(r);
+        }
+        let (g, _) = self.geoms(file.hash, path)?;
+        let idx = Self::page_index(&g, page)?;
+        let bmp = self
+            .backend()?
+            .render(path, idx, width_px)
+            .map_err(backend_err)?;
+        let bytes = png(bmp.width, bmp.height, &bmp.rgba)?;
+        let image = store
+            .put(&bytes[..], MediaType("image/png".into()))
+            .map_err(|e| CommandError::failed("render", e))?;
+        let r = Rendered {
+            page,
+            image,
+            width_px: bmp.width,
+            height_px: bmp.height,
+        };
+        let _ = index.put(&key, &serde_json::to_value(&r).unwrap_or_default());
+        Ok(r)
+    }
+
+    async fn render(self: Arc<Self>, _cx: Cx, i: RenderRequest) -> Result<Rendered, CommandError> {
+        let path = self.path(&i.file)?;
+        let me = self.clone();
+        blocking(move || me.render_one(&i.file, &path, i.page, i.width_px)).await
+    }
+
+    async fn thumbnails(
+        self: Arc<Self>,
+        cx: Cx,
+        i: ThumbnailsRequest,
+    ) -> Result<Vec<Rendered>, CommandError> {
+        let path = self.path(&i.file)?;
+        let me = self.clone();
+        blocking(move || {
+            let (g, _) = me.geoms(i.file.hash, &path)?;
+            let pages: Vec<u32> = if i.pages.is_empty() {
+                (1..=u32::try_from(g.len()).unwrap_or(0)).collect()
+            } else {
+                i.pages.clone()
+            };
+            let mut out = Vec::with_capacity(pages.len());
+            for p in pages {
+                if cx.is_cancelled() {
+                    return Err(CommandError::Cancelled);
+                }
+                let r = me.render_one(&i.file, &path, p, i.width_px.min(512))?;
+                cx.progress(&r);
+                out.push(r);
+            }
+            Ok(out)
+        })
+        .await
+    }
+
+    async fn outline(
+        self: Arc<Self>,
+        _cx: Cx,
+        i: FileRequest,
+    ) -> Result<Vec<OutlineItem>, CommandError> {
+        let path = self.path(&i.file)?;
+        let me = self.clone();
+        blocking(move || {
+            let (g, _) = me.geoms(i.file.hash, &path)?;
+            let raw = me.backend()?.outline(&path).map_err(backend_err)?;
+            Ok(ep_document_core::pdf::outline(&raw, &g))
+        })
+        .await
+    }
+
+    async fn links(self: Arc<Self>, _cx: Cx, i: PageRequest) -> Result<Vec<Link>, CommandError> {
+        let path = self.path(&i.file)?;
+        let me = self.clone();
+        blocking(move || {
+            let (g, _) = me.geoms(i.file.hash, &path)?;
+            let idx = Self::page_index(&g, i.page)?;
+            let geom = g[idx as usize];
+            let raw = me.backend()?.links(&path, idx).map_err(backend_err)?;
+            Ok(raw
+                .iter()
+                .map(|l| Link {
+                    rect: geom.rect(i.page, l.rect),
+                    target: ep_document_core::pdf::target(&l.dest, &g),
+                })
+                .collect())
+        })
+        .await
+    }
+
+    /// The search index of a file, built from every page's text on first use.
+    fn index(&self, hash: Hash, cx: &Cx) -> Result<Arc<SearchIndex>, CommandError> {
+        if let Some((_, ix)) = self.indexes.lock().iter().find(|(h, _)| *h == hash) {
+            return Ok(ix.clone());
+        }
+        let path = self.blobs.path_of(&hash).ok_or_else(|| {
+            CommandError::failed(errors::NOT_FOUND, format!("paper {hash} is not available"))
+        })?;
+        let (g, _) = self.geoms(hash, &path)?;
+        let backend = self.backend()?;
+        let mut pages = Vec::with_capacity(g.len());
+        for (i, geom) in g.iter().enumerate() {
+            if cx.is_cancelled() {
+                return Err(CommandError::Cancelled);
+            }
+            let idx = u32::try_from(i).unwrap_or(u32::MAX);
+            let t = ep_document_core::pdf::page_text(
+                idx + 1,
+                geom,
+                &backend.chars(&path, idx).map_err(backend_err)?,
+            );
+            let chars = t
+                .text
+                .chars()
+                .zip(t.boxes)
+                .map(|(c, b)| {
+                    (
+                        c,
+                        b.map(|r| ep_types::PageRect {
+                            page: idx + 1,
+                            x0: r[0],
+                            y0: r[1],
+                            x1: r[2],
+                            y1: r[3],
+                        }),
+                    )
+                })
+                .collect();
+            pages.push(PageChars {
+                page: idx + 1,
+                chars,
+            });
+        }
+        let ix = Arc::new(SearchIndex::build(&pages, Vec::new()));
+        let mut cache = self.indexes.lock();
+        if cache.len() >= INDEXES {
+            cache.pop_back();
+        }
+        cache.push_front((hash, ix.clone()));
+        Ok(ix)
+    }
+
+    async fn search(
+        self: Arc<Self>,
+        cx: Cx,
+        i: SearchRequest,
+    ) -> Result<SearchResult, CommandError> {
+        let me = self.clone();
+        blocking(move || {
+            let mut indexes = Vec::with_capacity(i.papers.len());
+            for p in &i.papers {
+                let hash: Hash = p.0.parse().map_err(|_| CommandError::InvalidInput {
+                    message: format!("paper {:?} is not a file hash", p.0),
+                })?;
+                indexes.push((PaperRef(p.0.clone()), me.index(hash, &cx)?));
+            }
+            let refs: Vec<(PaperRef, &SearchIndex)> = indexes
+                .iter()
+                .map(|(p, ix)| (p.clone(), ix.as_ref()))
+                .collect();
+            ep_document_core::search::search(&refs, &i)
+                .map_err(|e| CommandError::failed("search", format!("{e:?}")))
+        })
+        .await
     }
 }

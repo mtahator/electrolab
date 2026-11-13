@@ -1,0 +1,148 @@
+{
+  "command": "document.render",
+  "input": {
+    "$defs": {
+      "BlobRef": {
+        "description": "A file in the content-addressed store: messages carry these, never large bytes (§9.4).",
+        "properties": {
+          "hash": {
+            "$ref": "#/$defs/Hash",
+            "description": "Content hash."
+          },
+          "media_type": {
+            "$ref": "#/$defs/MediaType",
+            "description": "What the bytes are."
+          },
+          "size": {
+            "description": "Size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "Hash": {
+        "description": "BLAKE3 content hash (hex)",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "MediaType": {
+        "description": "A media type such as `application/pdf`.",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `document.render`.",
+    "properties": {
+      "file": {
+        "$ref": "#/$defs/BlobRef",
+        "description": "The stored PDF."
+      },
+      "page": {
+        "description": "1-based page.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "width_px": {
+        "description": "Width of the image in device pixels (height follows the page's shape).",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "file",
+      "page",
+      "width_px"
+    ],
+    "title": "RenderRequest",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "BlobRef": {
+        "description": "A file in the content-addressed store: messages carry these, never large bytes (§9.4).",
+        "properties": {
+          "hash": {
+            "$ref": "#/$defs/Hash",
+            "description": "Content hash."
+          },
+          "media_type": {
+            "$ref": "#/$defs/MediaType",
+            "description": "What the bytes are."
+          },
+          "size": {
+            "description": "Size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "Hash": {
+        "description": "BLAKE3 content hash (hex)",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "MediaType": {
+        "description": "A media type such as `application/pdf`.",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "A rendered page image (PNG in the render cache).",
+    "properties": {
+      "height_px": {
+        "description": "Height in pixels.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "image": {
+        "$ref": "#/$defs/BlobRef",
+        "description": "The PNG."
+      },
+      "page": {
+        "description": "1-based page.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "width_px": {
+        "description": "Width in pixels.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "page",
+      "image",
+      "width_px",
+      "height_px"
+    ],
+    "title": "Rendered",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "A page as a PNG image (cached)"
+}

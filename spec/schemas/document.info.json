@@ -1,0 +1,114 @@
+{
+  "command": "document.info",
+  "input": {
+    "$defs": {
+      "BlobRef": {
+        "description": "A file in the content-addressed store: messages carry these, never large bytes (§9.4).",
+        "properties": {
+          "hash": {
+            "$ref": "#/$defs/Hash",
+            "description": "Content hash."
+          },
+          "media_type": {
+            "$ref": "#/$defs/MediaType",
+            "description": "What the bytes are."
+          },
+          "size": {
+            "description": "Size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "Hash": {
+        "description": "BLAKE3 content hash (hex)",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "MediaType": {
+        "description": "A media type such as `application/pdf`.",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input naming one stored PDF.",
+    "properties": {
+      "file": {
+        "$ref": "#/$defs/BlobRef",
+        "description": "The stored PDF."
+      }
+    },
+    "required": [
+      "file"
+    ],
+    "title": "FileRequest",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "PageSize": {
+        "description": "Size of one page in points, rotation applied.",
+        "properties": {
+          "height": {
+            "description": "Height.",
+            "format": "float",
+            "type": "number"
+          },
+          "width": {
+            "description": "Width.",
+            "format": "float",
+            "type": "number"
+          }
+        },
+        "required": [
+          "width",
+          "height"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Output of `document.info`: everything the viewer needs before drawing anything.",
+    "properties": {
+      "encrypted": {
+        "description": "The file declares encryption.",
+        "type": "boolean"
+      },
+      "pages": {
+        "description": "Number of pages.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "sizes": {
+        "description": "Size of every page, in order (so the scroll height never jumps).",
+        "items": {
+          "$ref": "#/$defs/PageSize"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "pages",
+      "sizes",
+      "encrypted"
+    ],
+    "title": "DocInfo",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Page count and the size of every page"
+}

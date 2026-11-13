@@ -1135,12 +1135,18 @@ dependencies = [
 name = "ep-document"
 version = "0.1.0"
 dependencies = [
+ "ep-blob",
  "ep-bus",
  "ep-document-adapter-lopdf",
+ "ep-document-adapter-pdfium",
  "ep-document-contract",
  "ep-document-core",
  "ep-types",
+ "parking_lot 0.13.0",
+ "png",
+ "serde",
  "serde_json",
+ "tempfile",
  "tokio",
 ]
 
@@ -1264,6 +1270,7 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
+ "tracing",
  "uuid",
 ]
 

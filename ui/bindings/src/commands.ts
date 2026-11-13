@@ -3,8 +3,22 @@ import type * as T from "./types";
 
 /** Every command: its input and output types. */
 export interface Commands {
+  /** Page count and the size of every page */
+  "document.info": { input: T.FileRequest; output: T.DocInfo };
+  /** Link areas of a page and where they go */
+  "document.links": { input: T.PageRequest; output: T.Link[] };
   /** Title, authors, DOI and page count from a stored PDF */
   "document.metadata": { input: T.MetadataRequest; output: T.PdfMetadata };
+  /** The PDF's bookmarks */
+  "document.outline": { input: T.FileRequest; output: T.OutlineItem[] };
+  /** A page as a PNG image (cached) */
+  "document.render": { input: T.RenderRequest; output: T.Rendered };
+  /** Notation-aware word search with context in one or more papers */
+  "document.search": { input: T.SearchRequest; output: T.SearchResult };
+  /** Characters, words and lines of a page, with boxes in page space */
+  "document.text": { input: T.PageRequest; output: T.PageText };
+  /** Small images of pages (cached) */
+  "document.thumbnails": { input: T.ThumbnailsRequest; output: T.Rendered[] };
   /** Add a PDF as a managed copy (the original is never changed) */
   "workspace.add_file": { input: T.FilePath; output: T.Added };
   /** Tell what kind of file this is (by content) */

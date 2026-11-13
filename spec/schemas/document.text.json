@@ -1,0 +1,199 @@
+{
+  "command": "document.text",
+  "input": {
+    "$defs": {
+      "BlobRef": {
+        "description": "A file in the content-addressed store: messages carry these, never large bytes (§9.4).",
+        "properties": {
+          "hash": {
+            "$ref": "#/$defs/Hash",
+            "description": "Content hash."
+          },
+          "media_type": {
+            "$ref": "#/$defs/MediaType",
+            "description": "What the bytes are."
+          },
+          "size": {
+            "description": "Size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "Hash": {
+        "description": "BLAKE3 content hash (hex)",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "MediaType": {
+        "description": "A media type such as `application/pdf`.",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input naming one page.",
+    "properties": {
+      "file": {
+        "$ref": "#/$defs/BlobRef",
+        "description": "The stored PDF."
+      },
+      "page": {
+        "description": "1-based page number.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "file",
+      "page"
+    ],
+    "title": "PageRequest",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "PageRect": {
+        "description": "A rectangle on one page.",
+        "properties": {
+          "page": {
+            "description": "1-based page number.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "x0": {
+            "description": "Left edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "x1": {
+            "description": "Right edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "y0": {
+            "description": "Top edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "y1": {
+            "description": "Bottom edge.",
+            "format": "float",
+            "type": "number"
+          }
+        },
+        "required": [
+          "page",
+          "x0",
+          "y0",
+          "x1",
+          "y1"
+        ],
+        "type": "object"
+      },
+      "TextSpan": {
+        "description": "A run of characters (a word or a line) and its box.",
+        "properties": {
+          "end": {
+            "description": "One past the last character.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rect": {
+            "$ref": "#/$defs/PageRect",
+            "description": "Box around the run."
+          },
+          "start": {
+            "description": "First character index in `PageText::text` (in characters, not bytes).",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "rect"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Output of `document.text`: the page's characters with their boxes, grouped into words and\nlines (layout level 0; reading order across columns comes with the layout model in M4).",
+    "properties": {
+      "boxes": {
+        "description": "One box per character (`[x0, y0, x1, y1]`), or `None` for generated characters such as\nline breaks.",
+        "items": {
+          "items": {
+            "format": "float",
+            "type": "number"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "type": "array"
+      },
+      "lines": {
+        "description": "Lines.",
+        "items": {
+          "$ref": "#/$defs/TextSpan"
+        },
+        "type": "array"
+      },
+      "page": {
+        "description": "1-based page.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "text": {
+        "description": "The characters, in content order. Line ends are `\\n`; a soft hyphen is U+00AD.",
+        "type": "string"
+      },
+      "unknown": {
+        "description": "Characters the font could not map to text (U+FFFD, private use); never quote these.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "words": {
+        "description": "Words.",
+        "items": {
+          "$ref": "#/$defs/TextSpan"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "page",
+      "text",
+      "boxes",
+      "words",
+      "lines",
+      "unknown"
+    ],
+    "title": "PageText",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Characters, words and lines of a page, with boxes in page space"
+}

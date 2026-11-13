@@ -193,9 +193,15 @@ fn os_dirs() -> anyhow::Result<Arc<dyn ep_os::AppDirs>> {
 
 async fn build(dirs: Arc<dyn ep_os::AppDirs>, project: Option<PathBuf>) -> anyhow::Result<Server> {
     let bus = Arc::new(Bus::default());
+    let renders = dirs.cache().join("renders");
     let workspace = Workspace::new(dirs);
     workspace.register(&bus)?;
-    Document::new(Arc::new(WorkspaceBlobs(workspace))).register(&bus)?;
+    Document::new(
+        Arc::new(WorkspaceBlobs(workspace)),
+        ep_document::find_pdfium().and_then(|d| ep_document::start_pdfium(&d).ok()),
+        Some(&renders),
+    )?
+    .register(&bus)?;
     let open = match project {
         Some(p) => Envelope::new("workspace.open_project", json!({ "folder": p })),
         None => Envelope::new("workspace.open_default_library", Value::Null),

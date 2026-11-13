@@ -104,11 +104,25 @@ fn main() -> anyhow::Result<()> {
     let _ = ep_telemetry::init(output, "info");
 
     let bus = Arc::new(Bus::default());
+    let renders = dirs.cache().join("renders");
     let workspace = Workspace::new(dirs);
     workspace.register(&bus)?;
-    Document::new(Arc::new(WorkspaceBlobs(workspace.clone()))).register(&bus)?;
+    let pdfium = ep_document::find_pdfium().and_then(|d| match ep_document::start_pdfium(&d) {
+        Ok(b) => Some(b),
+        Err(e) => {
+            tracing::error!(%e, "PDFium could not be loaded");
+            None
+        }
+    });
+    let document = Document::new(
+        Arc::new(WorkspaceBlobs(workspace.clone())),
+        pdfium,
+        Some(&renders),
+    )?;
+    document.register(&bus)?;
 
     let protocol_ws = workspace.clone();
+    let protocol_doc = document.clone();
     let events_bus = bus.clone();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -117,8 +131,8 @@ fn main() -> anyhow::Result<()> {
             allowed: allowed_commands()?,
         })
         .register_asynchronous_uri_scheme_protocol("ep", move |_ctx, request, responder| {
-            let ws = protocol_ws.clone();
-            std::thread::spawn(move || responder.respond(blob::serve(&ws, &request)));
+            let (ws, doc) = (protocol_ws.clone(), protocol_doc.clone());
+            std::thread::spawn(move || responder.respond(blob::serve(&ws, &doc, &request)));
         })
         .invoke_handler(tauri::generate_handler![bus_call, bus_cancel])
         .setup(move |app| {

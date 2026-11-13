@@ -94,6 +94,23 @@ export interface CommandInfo {
   summary: string;
 }
 
+/** What surrounds each hit. */
+export interface ContextOptions {
+  /** Words after the hit (for `Words`). */
+  after?: number;
+  /** Words before the hit (for `Words`). */
+  before?: number;
+  /** Let context continue onto the previous or next page. */
+  cross_pages?: boolean;
+  /** Hits closer than this many words share one snippet. */
+  merge_within?: number;
+  /** Context unit. */
+  unit?: ContextUnit;
+}
+
+/** The unit of context returned around a hit. */
+export type ContextUnit = "words" | "sentence" | "none";
+
 /** Input of `workspace.create_project`. */
 export interface CreateProject {
   /** Folder to create (must not exist, or be empty). */
@@ -109,6 +126,16 @@ export type DataClass = "public_paper" | "confidential_dataset" | "unpublished_i
 
 /** Where the data goes. */
 export type Destination = "device" | "our_server" | "external";
+
+/** Output of `document.info`: everything the viewer needs before drawing anything. */
+export interface DocInfo {
+  /** The file declares encryption. */
+  encrypted: boolean;
+  /** Number of pages. */
+  pages: number;
+  /** Size of every page, in order (so the scroll height never jumps). */
+  sizes: PageSize[];
+}
 
 /** One command call, as sent by any host (UI, CLI, MCP, IPC). */
 export type Envelope = {
@@ -135,6 +162,12 @@ export interface FilePath {
   path: string;
 }
 
+/** Input naming one stored PDF. */
+export interface FileRequest {
+  /** The stored PDF. */
+  file: BlobRef;
+}
+
 /** Input of `workspace.get_paper`. */
 export interface GetPaper {
   /** Which paper. */
@@ -144,6 +177,69 @@ export interface GetPaper {
 /** BLAKE3 content hash (hex) */
 export type Hash = string;
 
+/** One occurrence of a term. */
+export type Hit = {
+  /** Context after the match (plain text). */
+  after: string;
+  /** Context before the match (plain text). */
+  before: string;
+  /** Character offsets `[start, end)` of the match in the paper's text. */
+  char_range: [number, number];
+  /** How it matched. */
+  kind: MatchKind;
+  /** The term's label, if the caller gave one. */
+  label?: string | null;
+  /** The text exactly as written in the paper. */
+  matched: string;
+  /** Other hits folded into this snippet by `merge_within`. */
+  merged: number;
+  /** 1-based page number. */
+  page: number;
+  /** The paper. */
+  paper: PaperRef;
+  /** Boxes of the matched characters, one per line (for highlighting). */
+  rects: PageRect[];
+  /** Heading of the section the hit is in, when known. */
+  section?: string | null;
+  /** 1.0 for exact; the fuzzy similarity otherwise. */
+  similarity: number;
+  /** Index of the term in the request. */
+  term: number;
+};
+
+/** Caps on the size of a result. Counts always include every occurrence. */
+export interface Limits {
+  /** Most characters of context returned in total (keeps a model's context small). */
+  max_context_chars?: number;
+  /** Most hits returned in total. */
+  max_hits?: number;
+  /** Most hits returned per term. */
+  max_hits_per_term?: number;
+}
+
+/** A link area on a page. */
+export interface Link {
+  /** The clickable area. */
+  rect: PageRect;
+  /** Where it goes. */
+  target: LinkTarget;
+}
+
+/** A place a link or bookmark points to. */
+export type LinkTarget = {
+  kind: "page";
+  /** 1-based page. */
+  page: number;
+  /** Page-space y, when the destination gives one. */
+  top?: number | null;
+} | {
+  kind: "url";
+  /** The address. */
+  url: string;
+} | {
+  kind: "unsupported";
+};
+
 /** Input of `workspace.list_papers`. */
 export type ListPapers = {
   /** At most this many (default 200). */
@@ -151,6 +247,37 @@ export type ListPapers = {
   /** Skip this many. */
   offset?: number;
 };
+
+/** How a hit matched its term. */
+export type MatchKind = "exact" | "notation" | "word_form" | "prefix" | "substring" | "fuzzy";
+
+/** How a word in the query may match a word in the paper. */
+export type MatchMode = "exact" | "word_forms" | "fuzzy";
+
+/** Match options. Defaults suit both people and the language model. */
+export interface MatchOptions {
+  /** Distinguish upper and lower case (`Re` vs `re`). */
+  case_sensitive?: boolean;
+  /** Treat accented and unaccented letters as equal (`Schrödinger` = `Schrodinger`). */
+  fold_accents?: boolean;
+  /** Words shorter than this (in letters) always match exactly, even in `Fuzzy` mode. */
+  min_fuzzy_length?: number;
+  /** Strictness. */
+  mode?: MatchMode;
+  /**
+   * Symbols and their written variants match: `Cp`, `C_p`, `C_{p}`, `C p`, `Cₚ`, `𝐶𝑝`;
+   * `x²` = `x^2`; `α` = `alpha` = `\alpha`.
+   */
+  notation?: boolean;
+  /** For phrases: number of other words allowed between the phrase's words. */
+  phrase_slop?: number;
+  /** The term may be the start of a longer word (`therm` → `thermal`). */
+  prefix?: boolean;
+  /** For `Fuzzy`: minimum similarity per word, 0.0–1.0 (1 − edit distance ÷ longer length). */
+  similarity?: number;
+  /** Match whole words only; false also finds the term inside longer words. */
+  whole_word?: boolean;
+}
 
 /** A media type such as `application/pdf`. */
 export type MediaType = string;
@@ -169,6 +296,76 @@ export interface OpenProject {
 
 /** What kind of operation (§16.4 permission levels). */
 export type Operation = "read" | "create" | "execute" | "remote_execute" | "external_api" | "destructive";
+
+/** One entry of the document's outline (bookmarks). */
+export type OutlineItem = {
+  /** Sub-entries. */
+  children?: OutlineItem[];
+  /** Where it goes, if anywhere. */
+  target?: unknown & (LinkTarget | null);
+  /** Title. */
+  title: string;
+};
+
+/** An inclusive range of 1-based page numbers. */
+export interface PageRange {
+  /** First page. */
+  first: number;
+  /** Last page. */
+  last: number;
+}
+
+/** A rectangle on one page. */
+export interface PageRect {
+  /** 1-based page number. */
+  page: number;
+  /** Left edge. */
+  x0: number;
+  /** Right edge. */
+  x1: number;
+  /** Top edge. */
+  y0: number;
+  /** Bottom edge. */
+  y1: number;
+}
+
+/** Input naming one page. */
+export interface PageRequest {
+  /** The stored PDF. */
+  file: BlobRef;
+  /** 1-based page number. */
+  page: number;
+}
+
+/** Size of one page in points, rotation applied. */
+export interface PageSize {
+  /** Height. */
+  height: number;
+  /** Width. */
+  width: number;
+}
+
+/**
+ * Output of `document.text`: the page's characters with their boxes, grouped into words and
+ * lines (layout level 0; reading order across columns comes with the layout model in M4).
+ */
+export type PageText = {
+  /**
+   * One box per character (`[x0, y0, x1, y1]`), or `None` for generated characters such as
+   * line breaks.
+   */
+  boxes: (number[] | null)[];
+  /** Lines. */
+  lines: TextSpan[];
+  /** 1-based page. */
+  page: number;
+  /** The characters, in content order. Line ends are `\n`; a soft hyphen is U+00AD. */
+  text: string;
+  /** Characters the font could not map to text (U+FFFD, private use); never quote these. */
+  unknown: number;
+  /** Words. */
+  words: TextSpan[];
+};
 
 /** A paper in a library or project. */
 export type Paper = {
@@ -200,6 +397,9 @@ export type Paper = {
  * Serialised as the UUID's canonical hyphenated string.
  */
 export type PaperId = string;
+
+/** A paper the caller wants searched. Placeholder for `Ref<Paper>` (Phase 1 M1.TYP). */
+export type PaperRef = string;
 
 /**
  * Output of `document.metadata`: what the file says about itself, cleaned. Fields are `None`
@@ -258,6 +458,68 @@ export interface ProjectInfo {
 /** Library (the user's collection) or project (a focused piece of work). */
 export type ProjectKind = "library" | "project";
 
+/** Input of `document.render`. */
+export interface RenderRequest {
+  /** The stored PDF. */
+  file: BlobRef;
+  /** 1-based page. */
+  page: number;
+  /** Width of the image in device pixels (height follows the page's shape). */
+  width_px: number;
+}
+
+/** A rendered page image (PNG in the render cache). */
+export interface Rendered {
+  /** Height in pixels. */
+  height_px: number;
+  /** The PNG. */
+  image: BlobRef;
+  /** 1-based page. */
+  page: number;
+  /** Width in pixels. */
+  width_px: number;
+}
+
+/** Which parts of the papers are searched. */
+export interface Scope {
+  /** Skip sections whose heading contains one of these (e.g. `References`). */
+  exclude_sections?: string[];
+  /** Only sections whose heading contains one of these (case-insensitive; empty = all). */
+  include_sections?: string[];
+  /** Only these pages (empty = all). */
+  pages?: PageRange[];
+}
+
+/** Input of `document.search`. */
+export interface SearchRequest {
+  /** What is returned around each hit. */
+  context?: ContextOptions;
+  /** Caps on the size of the result. */
+  limits?: Limits;
+  /** How strict a match is. */
+  match?: MatchOptions;
+  /** Papers to search (one, several, or a whole collection). */
+  papers: PaperRef[];
+  /** Which pages and sections are searched. */
+  scope?: Scope;
+  /** Order of hits. */
+  sort?: Sort;
+  /** What to look for; each term is searched and counted separately. */
+  terms: Term[];
+}
+
+/** Output of `document.search`. */
+export interface SearchResult {
+  /** Per-term counts (every occurrence, even when hits were cut). */
+  counts: TermCount[];
+  /** Time spent, in microseconds (filled in by the facade, not the pure core). */
+  elapsed_us: number;
+  /** The hits, in the requested order. */
+  hits: Hit[];
+  /** True when a limit cut the hits. */
+  truncated: boolean;
+}
+
 /** Input of `workspace.set_paper_metadata`. Fields left `None` are unchanged. */
 export type SetPaperMetadata = {
   /** Authors. */
@@ -274,5 +536,48 @@ export type SetPaperMetadata = {
   title?: string | null;
 };
 
+/** Order of hits. */
+export type Sort = "position" | "score";
+
 /** How settled a command's contract is (Draft 2.2 §8.3). */
 export type Stability = "experimental" | "stable";
+
+/** One thing to look for: a word, a symbol (`C_p`) or a phrase (`heat capacity`). */
+export type Term = {
+  /** Optional caller's name for the term, returned with each hit. */
+  label?: string | null;
+  /** The text as the caller writes it. */
+  text: string;
+};
+
+/** Every occurrence of one term, whether or not it was returned as a hit. */
+export interface TermCount {
+  /** `(kind, occurrences)`. */
+  per_kind: [MatchKind, number][];
+  /** `(page, occurrences)`, pages in order. */
+  per_page: [number, number][];
+  /** Index of the term in the request. */
+  term: number;
+  /** Total occurrences. */
+  total: number;
+}
+
+/** A run of characters (a word or a line) and its box. */
+export interface TextSpan {
+  /** One past the last character. */
+  end: number;
+  /** Box around the run. */
+  rect: PageRect;
+  /** First character index in `PageText::text` (in characters, not bytes). */
+  start: number;
+}
+
+/** Input of `document.thumbnails`. */
+export interface ThumbnailsRequest {
+  /** The stored PDF. */
+  file: BlobRef;
+  /** Pages to render (empty: all). */
+  pages?: number[];
+  /** Width of each thumbnail in device pixels. */
+  width_px: number;
+}

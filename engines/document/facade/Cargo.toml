@@ -10,12 +10,18 @@ description = "Document engine facade: document.* commands on the bus"
 ep-document-contract = { path = "../contract" }
 ep-document-core = { path = "../core" }
 ep-document-adapter-lopdf = { path = "../adapters/lopdf" }
+ep-document-adapter-pdfium = { path = "../adapters/pdfium" }
+ep-blob = { path = "../../../foundation/blob" }
 ep-types = { path = "../../../foundation/types" }
 ep-bus = { path = "../../../foundation/bus" }
 tokio.workspace = true
+parking_lot.workspace = true
+serde_json.workspace = true
+png = "=0.18.1"
 
 [dev-dependencies]
-serde_json.workspace = true
+tempfile.workspace = true
+serde.workspace = true
 
 [lints]
 workspace = true
