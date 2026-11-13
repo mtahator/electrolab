@@ -19,6 +19,7 @@ members = [
     "engines/document/contract",
     "engines/document/core",
     "engines/document/adapters/lopdf",
+    "engines/document/adapters/pdfium",
     "engines/document/facade",
     "engines/workspace/contract",
     "engines/workspace/core",

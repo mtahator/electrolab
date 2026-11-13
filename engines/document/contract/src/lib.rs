@@ -6,19 +6,22 @@
 
 use serde::{Deserialize, Serialize};
 
+mod pdf;
+pub use pdf::*;
+
 pub use ep_types::PageRect;
 
 /// Contract version (semantic); experimental until used by a second engine or host (Draft 2.2 §8.3).
 pub const VERSION: &str = "0.1.0";
 
 /// A paper the caller wants searched. Placeholder for `Ref<Paper>` (Phase 1 M1.TYP).
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct PaperRef(pub String);
 
 // ---------------------------------------------------------------- document.search ---------
 
 /// Input of `document.search`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct SearchRequest {
     /// Papers to search (one, several, or a whole collection).
     pub papers: Vec<PaperRef>,
@@ -42,7 +45,7 @@ pub struct SearchRequest {
 }
 
 /// One thing to look for: a word, a symbol (`C_p`) or a phrase (`heat capacity`).
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct Term {
     /// The text as the caller writes it.
     pub text: String,
@@ -52,7 +55,9 @@ pub struct Term {
 }
 
 /// How a word in the query may match a word in the paper.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum MatchMode {
@@ -69,7 +74,7 @@ pub enum MatchMode {
 // Independent on/off switches that a caller (often the language model) sets by name in JSON;
 // separate bools read better there than enums.
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(default)]
 pub struct MatchOptions {
     /// Strictness.
@@ -110,7 +115,9 @@ impl Default for MatchOptions {
 }
 
 /// The unit of context returned around a hit.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum ContextUnit {
@@ -124,7 +131,7 @@ pub enum ContextUnit {
 }
 
 /// What surrounds each hit.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(default)]
 pub struct ContextOptions {
     /// Context unit.
@@ -152,7 +159,7 @@ impl Default for ContextOptions {
 }
 
 /// An inclusive range of 1-based page numbers.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct PageRange {
     /// First page.
     pub first: u32,
@@ -161,7 +168,7 @@ pub struct PageRange {
 }
 
 /// Which parts of the papers are searched.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(default)]
 pub struct Scope {
     /// Only these pages (empty = all).
@@ -173,7 +180,7 @@ pub struct Scope {
 }
 
 /// Caps on the size of a result. Counts always include every occurrence.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(default)]
 pub struct Limits {
     /// Most hits returned in total.
@@ -195,7 +202,9 @@ impl Default for Limits {
 }
 
 /// Order of hits.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum Sort {
@@ -207,7 +216,19 @@ pub enum Sort {
 }
 
 /// How a hit matched its term.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum MatchKind {
@@ -226,7 +247,7 @@ pub enum MatchKind {
 }
 
 /// One occurrence of a term.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct Hit {
     /// Index of the term in the request.
     pub term: usize,
@@ -257,7 +278,7 @@ pub struct Hit {
 }
 
 /// Every occurrence of one term, whether or not it was returned as a hit.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct TermCount {
     /// Index of the term in the request.
     pub term: usize,
@@ -270,7 +291,7 @@ pub struct TermCount {
 }
 
 /// Output of `document.search`.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct SearchResult {
     /// The hits, in the requested order.
     pub hits: Vec<Hit>,
@@ -283,7 +304,7 @@ pub struct SearchResult {
 }
 
 /// Errors of `document.search`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[non_exhaustive]
 pub enum SearchError {
     /// The paper has no extracted text yet; ask again after preparation.
@@ -330,6 +351,20 @@ mod tests {
 pub mod commands {
     /// Read title, authors, DOI and page count from a stored PDF.
     pub const METADATA: &str = "document.metadata";
+    /// Page count and page sizes.
+    pub const INFO: &str = "document.info";
+    /// Characters, words and lines of a page, with boxes.
+    pub const TEXT: &str = "document.text";
+    /// A page as an image.
+    pub const RENDER: &str = "document.render";
+    /// Small page images.
+    pub const THUMBNAILS: &str = "document.thumbnails";
+    /// The PDF's bookmarks.
+    pub const OUTLINE: &str = "document.outline";
+    /// Link areas of a page.
+    pub const LINKS: &str = "document.links";
+    /// Notation-aware word search with context.
+    pub const SEARCH: &str = "document.search";
 }
 
 /// Input of `document.metadata`.

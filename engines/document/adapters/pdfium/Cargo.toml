@@ -1,0 +1,14 @@
+[package]
+name = "ep-document-adapter-pdfium"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Document engine adapter: PDFium (text with boxes, rendering, bookmarks, links) on one owning thread"
+
+[dependencies]
+ep-document-core = { path = "../../core" }
+pdfium-render = { version = "=0.9.5", default-features = false, features = ["pdfium_8125"] }
+
+[lints]
+workspace = true
