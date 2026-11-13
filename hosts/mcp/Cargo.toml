@@ -12,6 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 ep-bus = { path = "../../foundation/bus" }
+ep-config = { path = "../../foundation/config" }
 ep-os = { path = "../../foundation/os" }
 ep-policy = { path = "../../foundation/policy" }
 ep-types = { path = "../../foundation/types" }

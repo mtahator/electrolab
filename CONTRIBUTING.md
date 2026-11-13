@@ -55,6 +55,8 @@ pnpm --filter @electropaper/reader-host dev       # development, with the UI dev
 pnpm --filter @electropaper/reader-host bundle    # NSIS installer in target/release/bundle/nsis/
 ```
 
+**Product name.** "ElectroPaper" is a placeholder until the founder decides. The name lives only in `product.toml`; rename with `cargo xtask set-name "<Name>"` (window title, installer, app id, data folder, UI title). `arch-check` fails if any of those places is edited by hand. The data folder follows the name, so an existing library under the old name is not moved.
+
 The CLI works on the same engines: `cargo run -p ep-cli -- commands`, `cargo run -p ep-cli -- import paper.pdf`.
 
 ## Environment notes (this PC)

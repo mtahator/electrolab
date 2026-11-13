@@ -15,6 +15,7 @@ tauri-build = { version = "=2.7.4", features = [] }
 
 [dependencies]
 ep-bus = { path = "../../../foundation/bus" }
+ep-config = { path = "../../../foundation/config" }
 ep-os = { path = "../../../foundation/os" }
 ep-telemetry = { path = "../../../foundation/telemetry" }
 ep-types = { path = "../../../foundation/types" }

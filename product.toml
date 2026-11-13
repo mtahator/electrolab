@@ -1,0 +1,4 @@
+# The product name, in one place. It is a placeholder until the founder decides.
+# Change it everywhere with:   cargo xtask set-name "<Name>"
+# `cargo xtask arch-check` fails if any place that shows the name disagrees with this file.
+name = "ElectroPaper"

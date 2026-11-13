@@ -1077,6 +1077,7 @@ dependencies = [
  "anyhow",
  "clap",
  "ep-bus",
+ "ep-config",
  "ep-document",
  "ep-document-contract",
  "ep-os",
@@ -1162,6 +1163,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ep-bus",
+ "ep-config",
  "ep-document",
  "ep-os",
  "ep-os-windows",
@@ -1214,6 +1216,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ep-bus",
+ "ep-config",
  "ep-document",
  "ep-os",
  "ep-os-windows",

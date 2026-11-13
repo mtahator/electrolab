@@ -11,9 +11,6 @@ use ep_workspace::Workspace;
 use ep_workspace_contract::{Added, Paper, commands as ws};
 use serde_json::{Value, json};
 
-/// Product name used for per-user folders and the key store (final name pending).
-pub const APP_NAME: &str = "ElectroPaper";
-
 /// The Document engine reads managed copies from the open library.
 struct WorkspaceBlobs(Arc<Workspace>);
 
@@ -37,7 +34,7 @@ fn dirs() -> anyhow::Result<Arc<dyn ep_os::AppDirs>> {
 
 #[cfg(windows)]
 fn os_dirs() -> anyhow::Result<Arc<dyn ep_os::AppDirs>> {
-    Ok(Arc::new(ep_os_windows::WinDirs::new(APP_NAME)?))
+    Ok(Arc::new(ep_os_windows::WinDirs::new(ep_config::PRODUCT)?))
 }
 
 #[cfg(not(windows))]

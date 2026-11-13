@@ -19,9 +19,6 @@ use serde_json::Value;
 use tauri::{Emitter, Manager, State};
 use uuid::Uuid;
 
-/// Product name for per-user folders (final name pending).
-const APP_NAME: &str = "ElectroPaper";
-
 struct AppState {
     bus: Arc<Bus>,
     allowed: HashSet<String>,
@@ -85,7 +82,7 @@ fn dirs() -> anyhow::Result<Arc<dyn ep_os::AppDirs>> {
 
 #[cfg(windows)]
 fn os_dirs() -> anyhow::Result<Arc<dyn ep_os::AppDirs>> {
-    Ok(Arc::new(ep_os_windows::WinDirs::new(APP_NAME)?))
+    Ok(Arc::new(ep_os_windows::WinDirs::new(ep_config::PRODUCT)?))
 }
 
 #[cfg(not(windows))]

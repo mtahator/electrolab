@@ -22,7 +22,7 @@ use serde_json::{Map, Value, json};
 #[command(
     name = "ep",
     version,
-    about = "ElectroPaper from the command line (JSON in, JSON out)"
+    about = "The ElectroPaper engines from the command line (JSON in, JSON out)"
 )]
 struct Cli {
     /// Library or project folder to use (default: the default library).

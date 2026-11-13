@@ -6,6 +6,10 @@
 //! `[1, 2]`), otherwise taken as strings.
 #![deny(missing_docs)]
 
+/// The product name (a placeholder until decided). Source of truth: `product.toml`;
+/// change it with `cargo xtask set-name`. Used for per-user folders and the key store.
+pub const PRODUCT: &str = "ElectroPaper";
+
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
