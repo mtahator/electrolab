@@ -11,6 +11,8 @@ members = [
     "foundation/config",
     "foundation/telemetry",
     "foundation/bus",
+    "foundation/os",
+    "foundation/os-windows",
     "engines/document/contract",
     "engines/document/core",
 ]
@@ -44,7 +46,7 @@ rusqlite = { version = "=0.41.1", features = ["bundled"] }
 parking_lot = "0.13.0"
 directories = "6.0.0"
 dunce = "1.0.5"
-keyring = "4.2.0"
+windows-sys = "=0.61.2"
 clap = { version = "4.6.7", features = ["derive"] }
 # tests
 tempfile = "3.27.0"

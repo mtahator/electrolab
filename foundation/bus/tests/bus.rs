@@ -198,3 +198,18 @@ async fn client_call(c: &ep_bus::ipc::IpcClient) -> Result<serde_json::Value, Co
     )
     .await
 }
+
+#[tokio::test]
+async fn dropping_the_client_closes_the_connection() {
+    let b = Arc::new(bus());
+    let (client_end, server_end) = tokio::io::duplex(1 << 16);
+    let (srd, swr) = tokio::io::split(server_end);
+    let server = tokio::spawn(ep_bus::ipc::serve(b, srd, swr));
+    let (crd, cwr) = tokio::io::split(client_end);
+    drop(ep_bus::ipc::IpcClient::new(crd, cwr));
+    let r = tokio::time::timeout(Duration::from_secs(2), server).await;
+    assert!(
+        matches!(r, Ok(Ok(Ok(())))),
+        "server did not see the close: {r:?}"
+    );
+}

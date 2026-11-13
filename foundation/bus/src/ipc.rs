@@ -181,6 +181,15 @@ enum Pending {
 pub struct IpcClient {
     out: mpsc::UnboundedSender<Wire>,
     pending: Arc<Mutex<HashMap<Uuid, Pending>>>,
+    reader: tokio::task::JoinHandle<()>,
+}
+
+impl Drop for IpcClient {
+    /// Closing the client closes the connection: the reader task owns the read half, and the
+    /// writer task ends when `out` is dropped, so both halves of the stream are released.
+    fn drop(&mut self) {
+        self.reader.abort();
+    }
 }
 
 impl std::fmt::Debug for IpcClient {
@@ -207,7 +216,7 @@ impl IpcClient {
         let out = writer_task(wr);
         let pending: Arc<Mutex<HashMap<Uuid, Pending>>> = Arc::default();
         let p = pending.clone();
-        tokio::spawn(async move {
+        let reader = tokio::spawn(async move {
             while let Ok(Some(msg)) = read_frame(&mut rd).await {
                 match msg {
                     Wire::Progress { id, item } => {
@@ -234,7 +243,11 @@ impl IpcClient {
             // Peer gone: every waiting call fails now (senders dropped).
             p.lock().clear();
         });
-        Self { out, pending }
+        Self {
+            out,
+            pending,
+            reader,
+        }
     }
 
     async fn call_inner(
