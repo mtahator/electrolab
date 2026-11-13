@@ -4,6 +4,12 @@ resolver = "3"
 members = [
     "xtask",
     "foundation/types",
+    "foundation/blob",
+    "foundation/store",
+    "foundation/events",
+    "foundation/policy",
+    "foundation/config",
+    "foundation/telemetry",
     "engines/document/contract",
     "engines/document/core",
 ]

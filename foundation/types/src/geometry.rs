@@ -37,7 +37,13 @@ impl PageRect {
     /// The smallest rectangle containing both (on the page of `self`).
     #[must_use]
     pub fn union(&self, other: &Self) -> Self {
-        Self { page: self.page, x0: self.x0.min(other.x0), y0: self.y0.min(other.y0), x1: self.x1.max(other.x1), y1: self.y1.max(other.y1) }
+        Self {
+            page: self.page,
+            x0: self.x0.min(other.x0),
+            y0: self.y0.min(other.y0),
+            x1: self.x1.max(other.x1),
+            y1: self.y1.max(other.y1),
+        }
     }
 
     /// Height in points.
@@ -60,14 +66,32 @@ impl PageRect {
 
     /// Convert from PDF native space (y up, origin bottom-left of a page of height `page_height`).
     #[must_use]
-    pub fn from_pdf(page: u32, page_height: f32, left: f32, bottom: f32, right: f32, top: f32) -> Self {
-        Self { page, x0: left, y0: page_height - top, x1: right, y1: page_height - bottom }
+    pub fn from_pdf(
+        page: u32,
+        page_height: f32,
+        left: f32,
+        bottom: f32,
+        right: f32,
+        top: f32,
+    ) -> Self {
+        Self {
+            page,
+            x0: left,
+            y0: page_height - top,
+            x1: right,
+            y1: page_height - bottom,
+        }
     }
 
     /// Convert to PDF native space: `(left, bottom, right, top)`.
     #[must_use]
     pub fn to_pdf(&self, page_height: f32) -> (f32, f32, f32, f32) {
-        (self.x0, page_height - self.y1, self.x1, page_height - self.y0)
+        (
+            self.x0,
+            page_height - self.y1,
+            self.x1,
+            page_height - self.y0,
+        )
     }
 }
 
@@ -86,7 +110,15 @@ impl PageQuad {
     #[must_use]
     pub fn from_rect(r: &PageRect) -> Self {
         let pt = |x, y| PagePoint { x, y };
-        Self { page: r.page, p: [pt(r.x0, r.y0), pt(r.x1, r.y0), pt(r.x0, r.y1), pt(r.x1, r.y1)] }
+        Self {
+            page: r.page,
+            p: [
+                pt(r.x0, r.y0),
+                pt(r.x1, r.y0),
+                pt(r.x0, r.y1),
+                pt(r.x1, r.y1),
+            ],
+        }
     }
 
     /// Smallest rectangle around the quad.
@@ -96,7 +128,13 @@ impl PageQuad {
         let ys = self.p.map(|q| q.y);
         let min = |v: [f32; 4]| v.into_iter().fold(f32::INFINITY, f32::min);
         let max = |v: [f32; 4]| v.into_iter().fold(f32::NEG_INFINITY, f32::max);
-        PageRect { page: self.page, x0: min(xs), y0: min(ys), x1: max(xs), y1: max(ys) }
+        PageRect {
+            page: self.page,
+            x0: min(xs),
+            y0: min(ys),
+            x1: max(xs),
+            y1: max(ys),
+        }
     }
 }
 
@@ -139,14 +177,41 @@ mod tests {
 
     #[test]
     fn union_covers_both() {
-        let a = PageRect { page: 1, x0: 10.0, y0: 10.0, x1: 20.0, y1: 20.0 };
-        let b = PageRect { page: 1, x0: 15.0, y0: 5.0, x1: 30.0, y1: 12.0 };
-        assert_eq!(a.union(&b), PageRect { page: 1, x0: 10.0, y0: 5.0, x1: 30.0, y1: 20.0 });
+        let a = PageRect {
+            page: 1,
+            x0: 10.0,
+            y0: 10.0,
+            x1: 20.0,
+            y1: 20.0,
+        };
+        let b = PageRect {
+            page: 1,
+            x0: 15.0,
+            y0: 5.0,
+            x1: 30.0,
+            y1: 12.0,
+        };
+        assert_eq!(
+            a.union(&b),
+            PageRect {
+                page: 1,
+                x0: 10.0,
+                y0: 5.0,
+                x1: 30.0,
+                y1: 20.0
+            }
+        );
     }
 
     #[test]
     fn quad_bounds() {
-        let r = PageRect { page: 2, x0: 1.0, y0: 2.0, x1: 3.0, y1: 4.0 };
+        let r = PageRect {
+            page: 2,
+            x0: 1.0,
+            y0: 2.0,
+            x1: 3.0,
+            y1: 4.0,
+        };
         assert_eq!(PageQuad::from_rect(&r).bounds(), r);
     }
 

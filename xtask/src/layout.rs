@@ -86,7 +86,7 @@ pub fn allowed_engines(engine: &str) -> Option<&'static [&'static str]> {
 }
 
 /// Foundation parts a contract or a pure core may use. The rest of foundation does I/O or holds state.
-pub const PURE_FOUNDATION: &[&str] = &["types"];
+pub const PURE_FOUNDATION: &[&str] = &["types", "policy"];
 
 /// Foundation parts that hold OS adapters (`ep-os-windows`, later `ep-os-macos`, `ep-os-linux`).
 pub fn is_os_adapter_part(part: &str) -> bool {

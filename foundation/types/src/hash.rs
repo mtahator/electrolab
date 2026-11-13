@@ -65,7 +65,10 @@ impl FromStr for Hash {
     type Err = HashParseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut b = [0u8; 32];
-        if s.len() != 64 || hex::decode_to_slice(s, &mut b).is_err() || s.chars().any(|c| c.is_ascii_uppercase()) {
+        if s.len() != 64
+            || hex::decode_to_slice(s, &mut b).is_err()
+            || s.chars().any(|c| c.is_ascii_uppercase())
+        {
             return Err(HashParseError(s.to_string()));
         }
         Ok(Self(b))
@@ -135,6 +138,9 @@ mod tests {
     #[test]
     fn known_blake3_value() {
         // BLAKE3 of the empty input (reference value from the BLAKE3 specification)
-        assert_eq!(Hash::of(b"").to_hex(), "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262");
+        assert_eq!(
+            Hash::of(b"").to_hex(),
+            "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+        );
     }
 }

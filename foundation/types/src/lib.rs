@@ -12,7 +12,9 @@ mod ids;
 pub use evidence::{Confidence, Importance, Quantity, Span, Status, Unit};
 pub use geometry::{Location, PagePoint, PageQuad, PageRect, ZoomSpec};
 pub use hash::{BlobRef, Hash, HashParseError, MediaType};
-pub use ids::{AnnotationId, ChatId, CollectionId, IdParseError, JobId, ObjectId, PaperId, ProjectId, Ref};
+pub use ids::{
+    AnnotationId, ChatId, CollectionId, IdParseError, JobId, ObjectId, PaperId, ProjectId, Ref,
+};
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

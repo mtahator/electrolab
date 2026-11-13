@@ -1,0 +1,21 @@
+[package]
+name = "ep-events"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Append-only, hash-chained event log with crash recovery and replay"
+
+[dependencies]
+ep-types = { path = "../types" }
+serde.workspace = true
+serde_json.workspace = true
+blake3.workspace = true
+parking_lot.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

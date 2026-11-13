@@ -110,14 +110,23 @@ impl<T> Ref<T> {
     /// Make a reference.
     #[must_use]
     pub const fn new(id: ObjectId, version: u32, hash: Hash) -> Self {
-        Self { id, version, hash, _kind: PhantomData }
+        Self {
+            id,
+            version,
+            hash,
+            _kind: PhantomData,
+        }
     }
 }
 
 // Manual impls: derives would wrongly require `T: Clone/PartialEq/Debug`.
 impl<T> fmt::Debug for Ref<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Ref").field("id", &self.id).field("version", &self.version).field("hash", &self.hash).finish()
+        f.debug_struct("Ref")
+            .field("id", &self.id)
+            .field("version", &self.version)
+            .field("hash", &self.hash)
+            .finish()
     }
 }
 impl<T> Clone for Ref<T> {

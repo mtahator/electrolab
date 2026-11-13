@@ -1,0 +1,19 @@
+[package]
+name = "ep-blob"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Content-addressed file store (BLAKE3): streaming put, range reads, verify"
+
+[dependencies]
+ep-types = { path = "../types" }
+blake3.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+proptest.workspace = true
+
+[lints]
+workspace = true

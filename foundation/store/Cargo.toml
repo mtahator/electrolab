@@ -1,0 +1,18 @@
+[package]
+name = "ep-store"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "SQLite store: numbered migrations, one writer, a pool of readers"
+
+[dependencies]
+rusqlite.workspace = true
+parking_lot.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true
