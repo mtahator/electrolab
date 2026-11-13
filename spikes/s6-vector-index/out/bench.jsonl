@@ -1,0 +1,5 @@
+{"build_s":0.0,"dim":384,"exe_bytes":344064,"extra":{"threads":16},"n":100000,"query_ms_max":7.296,"query_ms_p50":5.99,"query_ms_p95":7.031,"recall_at_10":1.0,"variant":"flat (exact, pure Rust)"}
+{"build_s":35.18,"dim":384,"exe_bytes":489984,"extra":{},"n":100000,"query_ms_max":0.877,"query_ms_p50":0.528,"query_ms_p95":0.693,"recall_at_10":1.0,"variant":"hnsw_rs (M=16, ef_c=200, ef_s=64)"}
+{"build_s":55.28,"dim":384,"exe_bytes":2855424,"extra":{"memory_bytes":286015616},"n":100000,"query_ms_max":0.375,"query_ms_p50":0.184,"query_ms_p95":0.26,"recall_at_10":0.99,"variant":"usearch (F32, M=16)"}
+{"build_s":22.36,"dim":384,"exe_bytes":2855424,"extra":{"memory_bytes":84689024},"n":100000,"query_ms_max":0.182,"query_ms_p50":0.091,"query_ms_p95":0.137,"recall_at_10":0.74,"variant":"usearch (I8, M=16)"}
+{"build_s":0.91,"dim":384,"exe_bytes":2042880,"extra":{},"n":100000,"query_ms_max":211.027,"query_ms_p50":42.576,"query_ms_p95":59.78,"recall_at_10":1.0,"variant":"sqlite-vec (vec0, exact)"}

@@ -1,0 +1,26 @@
+{
+  "cancel_to_ack_ms": 0.20049999999999998,
+  "child_alive_after_parent_exit_job": false,
+  "child_alive_after_parent_exit_nojob": true,
+  "concurrent_64_msgs_per_s": 106008.0,
+  "crash": {
+    "detect_ms": 133.659,
+    "reply_correct": true,
+    "restart_to_first_reply_ms": 16.3812
+  },
+  "echo_1mb_ms": 11.134,
+  "echo_8mb_ms": 57.6663,
+  "killed_detect_ms": 0.6513,
+  "roundtrip_ms": {
+    "max": 0.73,
+    "n": 10000,
+    "p50": 0.052,
+    "p99": 0.095
+  },
+  "spawn_connect_first_reply_ms": 17.236600000000003,
+  "stream_1000_events": {
+    "events": 1000,
+    "first_event_ms": 0.6306,
+    "total_ms": 5.7505999999999995
+  }
+}

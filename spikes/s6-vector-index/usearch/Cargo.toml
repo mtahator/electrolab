@@ -1,0 +1,11 @@
+[package]
+name = "s6-usearch"
+version = "0.0.0"
+edition = "2024"
+publish = false
+[workspace]
+[dependencies]
+usearch = "=2.26.6"
+serde_json = "1"
+[profile.release]
+lto = "thin"

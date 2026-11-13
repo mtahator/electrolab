@@ -1,0 +1,5 @@
+{"variant":"flat","ok":true,"build_s":62.0,"exe_mb":0.3,"crates":12}
+{"variant":"hnsw","ok":true,"build_s":66.0,"exe_mb":0.5,"crates":82}
+{"variant":"usearch","ok":true,"build_s":189.0,"exe_mb":2.7,"crates":21}
+{"variant":"sqlitevec","ok":true,"build_s":39.0,"exe_mb":1.9,"crates":16}
+{"variant":"lancedb","ok":false,"build_s":168.0,"exe_mb":null,"crates":589}

@@ -1,0 +1,13 @@
+[package]
+name = "s6-lancedb"
+version = "0.0.0"
+edition = "2024"
+publish = false
+[workspace]
+[dependencies]
+lancedb = "=0.41.0"
+tokio = { version = "=1.54.1", features = ["rt-multi-thread", "macros"] }
+futures = "0.3"
+serde_json = "1"
+[profile.release]
+lto = "thin"
