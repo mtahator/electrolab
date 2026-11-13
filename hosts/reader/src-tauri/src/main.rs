@@ -6,6 +6,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod blob;
+mod shell;
 
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -22,6 +23,10 @@ use uuid::Uuid;
 struct AppState {
     bus: Arc<Bus>,
     allowed: HashSet<String>,
+    workspace: Arc<Workspace>,
+    shell: Arc<dyn ep_os::ShellOpen>,
+    /// PDFs given on the command line, until the window takes them.
+    pending: parking_lot::Mutex<Vec<String>>,
 }
 
 struct WorkspaceBlobs(Arc<Workspace>);
@@ -121,20 +126,39 @@ fn main() -> anyhow::Result<()> {
     )?;
     document.register(&bus)?;
 
+    #[cfg(windows)]
+    let os_shell: Arc<dyn ep_os::ShellOpen> = Arc::new(ep_os_windows::WinShell);
+    #[cfg(not(windows))]
+    let os_shell: Arc<dyn ep_os::ShellOpen> = Arc::new(ep_os::fake::Recorder::default());
+    let startup_files = shell::pdf_args(&std::env::args().collect::<Vec<_>>());
+
     let protocol_ws = workspace.clone();
     let protocol_doc = document.clone();
     let events_bus = bus.clone();
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            shell::on_second_instance(app, &args);
+        }))
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState {
             bus,
             allowed: allowed_commands()?,
+            workspace: workspace.clone(),
+            shell: os_shell,
+            pending: parking_lot::Mutex::new(startup_files),
         })
         .register_asynchronous_uri_scheme_protocol("ep", move |_ctx, request, responder| {
             let (ws, doc) = (protocol_ws.clone(), protocol_doc.clone());
             std::thread::spawn(move || responder.respond(blob::serve(&ws, &doc, &request)));
         })
-        .invoke_handler(tauri::generate_handler![bus_call, bus_cancel])
+        .invoke_handler(tauri::generate_handler![
+            bus_call,
+            bus_cancel,
+            shell::open_external,
+            shell::open_paper_externally,
+            shell::print_paper,
+            shell::take_pending_files
+        ])
         .setup(move |app| {
             // Hub events go to the window; the publisher never waits for the UI.
             let handle = app.handle().clone();

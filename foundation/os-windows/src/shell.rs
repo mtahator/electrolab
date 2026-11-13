@@ -14,9 +14,13 @@ use crate::wide;
 #[derive(Clone, Copy, Debug, Default)]
 pub struct WinShell;
 
-#[allow(unsafe_code)]
 fn shell_open(target: &OsStr) -> Result<()> {
-    let verb = wide(OsStr::new("open"));
+    shell_verb("open", target)
+}
+
+#[allow(unsafe_code)]
+fn shell_verb(verb: &str, target: &OsStr) -> Result<()> {
+    let verb = wide(OsStr::new(verb));
     let file = wide(target);
     // SAFETY: both strings are NUL-terminated UTF-16 buffers that outlive the call; the other
     // pointer arguments are allowed to be null.
@@ -59,9 +63,22 @@ impl ShellOpen for WinShell {
     }
 
     fn open_url(&self, url: &str) -> Result<()> {
-        if !(url.starts_with("https://") || url.starts_with("http://")) {
-            return Err(OsError::Unsupported("only http(s) addresses"));
+        if !ep_os::is_safe_url(url) {
+            return Err(OsError::Unsupported(
+                "only http, https and mailto addresses",
+            ));
         }
-        shell_open(OsStr::new(url))
+        shell_open(OsStr::new(url.trim()))
+    }
+
+    fn print(&self, path: &Path) -> Result<()> {
+        if !path.exists() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                path.display().to_string(),
+            )
+            .into());
+        }
+        shell_verb("print", path.as_os_str())
     }
 }

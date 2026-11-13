@@ -36,6 +36,9 @@ jobs:
         run: pnpm -r typecheck
       - name: ui build
         run: pnpm --filter @electropaper/reader-ui build
+      # PDFium for the Document engine tests and the installer (llama.cpp is not needed here).
+      - name: natives (PDFium)
+        run: cargo xtask fetch-natives pdfium
       - name: format
         run: cargo fmt --all --check
       - name: lint

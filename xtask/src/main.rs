@@ -5,7 +5,7 @@
 //! cargo xtask set-name "<N>" rename the product everywhere (source: product.toml)
 //! cargo xtask gen             JSON Schemas (spec/schemas) and TypeScript bindings (ui/bindings)
 //! cargo xtask schema-check    committed schemas and bindings match the generated ones
-//! cargo xtask fetch-natives   download pinned native libraries and verify their hashes
+//! cargo xtask fetch-natives [name...]  download pinned native libraries and verify their hashes
 //! cargo xtask fetch-fixtures  download pinned fixture papers and verify their hashes
 //! ```
 
@@ -33,7 +33,7 @@ fn main() -> ExitCode {
         },
         Some("gen") => schema::generate(&root),
         Some("schema-check") => schema::check(&root),
-        Some("fetch-natives") => natives::fetch(&root),
+        Some("fetch-natives") => natives::fetch(&root, &args[1..]),
         Some("fetch-fixtures") => fixtures::fetch(&root),
         _ => {
             eprintln!(

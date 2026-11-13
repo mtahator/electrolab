@@ -32,7 +32,8 @@ struct Native {
     extract: bool,
 }
 
-pub fn fetch(root: &Path) -> anyhow::Result<()> {
+/// Fetch every pinned native library, or only those whose name is in `only` (when not empty).
+pub fn fetch(root: &Path, only: &[String]) -> anyhow::Result<()> {
     let manifest: Manifest = toml::from_str(
         &fs::read_to_string(root.join("natives.toml")).context("reading natives.toml")?,
     )
@@ -41,6 +42,7 @@ pub fn fetch(root: &Path) -> anyhow::Result<()> {
         .native
         .iter()
         .filter(|n| !n.url.is_empty() && !n.sha256.is_empty())
+        .filter(|n| only.is_empty() || only.iter().any(|o| o == &n.name))
         .collect();
     if pinned.is_empty() {
         println!("fetch-natives: nothing pinned yet");

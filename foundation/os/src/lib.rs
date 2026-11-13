@@ -138,11 +138,24 @@ pub trait ShellOpen: Send + Sync {
     /// # Errors
     /// The shell refused.
     fn reveal(&self, path: &Path) -> Result<()>;
-    /// Open a web address in the browser (`http`/`https` only).
+    /// Open a web or mail address (`http`, `https`, `mailto` only).
     ///
     /// # Errors
-    /// Not an http(s) address, or the shell refused.
+    /// Another scheme, or the shell refused.
     fn open_url(&self, url: &str) -> Result<()>;
+    /// Print a file with its usual app (the system print dialog or default printer).
+    ///
+    /// # Errors
+    /// The file is missing or the shell refused.
+    fn print(&self, path: &Path) -> Result<()>;
+}
+
+/// Whether a link may be handed to the shell: `http`, `https` or `mailto` only.
+#[must_use]
+pub fn is_safe_url(url: &str) -> bool {
+    let u = url.trim().to_ascii_lowercase();
+    (u.starts_with("https://") || u.starts_with("http://") || u.starts_with("mailto:"))
+        && !u.contains(char::is_whitespace)
 }
 
 /// A file-type filter for dialogs, e.g. `("PDF", &["pdf"])`.

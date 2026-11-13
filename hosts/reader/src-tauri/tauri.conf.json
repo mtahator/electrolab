@@ -27,13 +27,32 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
-    "icon": ["icons/icon.ico"],
+    "targets": [
+      "nsis"
+    ],
+    "icon": [
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "../../../.natives/pdfium/bin/pdfium.dll": "pdfium.dll",
+      "../../../.natives/pdfium/LICENSE": "licenses/pdfium-LICENSE.txt"
+    },
     "shortDescription": "Read, annotate and understand research papers",
     "windows": {
       "nsis": {
         "installMode": "currentUser"
       }
-    }
+    },
+    "fileAssociations": [
+      {
+        "ext": [
+          "pdf"
+        ],
+        "name": "PDF document",
+        "description": "PDF document",
+        "role": "Viewer",
+        "mimeType": "application/pdf"
+      }
+    ]
   }
 }

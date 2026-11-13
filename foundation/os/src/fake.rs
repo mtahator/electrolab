@@ -58,10 +58,16 @@ impl ShellOpen for Recorder {
         Ok(())
     }
     fn open_url(&self, url: &str) -> Result<()> {
-        if !(url.starts_with("https://") || url.starts_with("http://")) {
-            return Err(OsError::Unsupported("only http(s) addresses"));
+        if !crate::is_safe_url(url) {
+            return Err(OsError::Unsupported(
+                "only http, https and mailto addresses",
+            ));
         }
         self.note(format!("url {url}"));
+        Ok(())
+    }
+    fn print(&self, path: &Path) -> Result<()> {
+        self.note(format!("print {}", path.display()));
         Ok(())
     }
 }
