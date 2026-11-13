@@ -1,4 +1,5 @@
 //! Bus behaviour: middleware order, policy, provenance, events, overhead.
+#![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)] // tests and their helpers stop loudly
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -87,7 +88,7 @@ async fn policy_runs_before_handler_and_provenance_after() {
             r.event.kind.clone(),
             r.event.data["command"].clone(),
             r.event.at_ms,
-        ))
+        ));
     })
     .expect("replay");
     assert_eq!(

@@ -1,4 +1,5 @@
 //! Integration tests of the Windows adapters on a real Windows system.
+#![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)] // tests and their helpers stop loudly
 #![cfg(windows)]
 
 use std::sync::Arc;
@@ -10,9 +11,11 @@ use ep_os_windows::{CredentialStore, JobSpawner, NamedPipes, WinDirs, WinShell};
 fn alive(pid: u32) -> bool {
     let out = std::process::Command::new("tasklist")
         .args(["/FI", &format!("PID eq {pid}"), "/NH", "/FO", "CSV"])
-        .output()
-        .expect("tasklist");
-    String::from_utf8_lossy(&out.stdout).contains(&format!("\"{pid}\""))
+        .output();
+    // If tasklist cannot run, report "alive" so the test fails loudly rather than passing.
+    out.map_or(true, |o| {
+        String::from_utf8_lossy(&o.stdout).contains(&format!("\"{pid}\""))
+    })
 }
 
 #[test]

@@ -3,6 +3,7 @@
 //! The committed fixture always runs; the downloaded ones (`cargo xtask fetch-fixtures`) run
 //! when present. `EP_PRINT_METADATA=1` prints what was read; `EP_UPDATE_SNAPSHOT=1` rewrites
 //! the snapshot after a reviewed change.
+#![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)] // tests and their helpers stop loudly
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

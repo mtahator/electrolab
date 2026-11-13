@@ -1,4 +1,5 @@
 //! Workspace conformance suite (P1.M1.WSP.1-2): the contract's promises, through the bus.
+#![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)] // tests and their helpers stop loudly
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

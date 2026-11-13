@@ -215,7 +215,7 @@ async fn blocking<T: Send + 'static>(
 
 // Handlers are `async` because the bus calls them as futures; quick ones (single SQLite reads)
 // do not need to await anything.
-#[allow(clippy::unused_async)]
+#[allow(clippy::unused_async, clippy::unused_async_trait_impl)]
 impl Workspace {
     /// A workspace with nothing open.
     #[must_use]
