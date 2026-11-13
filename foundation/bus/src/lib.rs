@@ -6,7 +6,7 @@
 //!
 //! Commands are registered with [`Bus::register`]: a generic function whose types give the
 //! schemas, so a wrong handler signature is a compile error (this replaces the proc-macro
-//! planned in P1.M1.BUS.2; see `CONTRACT.md`).
+//! planned in P1.M1.BUS.2: the same guarantees with less machinery).
 #![deny(missing_docs)]
 
 mod bus;

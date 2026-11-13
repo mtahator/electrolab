@@ -32,14 +32,14 @@ pub enum ConfigError {
         /// File.
         path: PathBuf,
         /// Cause.
-        source: toml::de::Error,
+        source: Box<toml::de::Error>,
     },
     /// The merged settings do not fit the settings type.
     #[error("settings: {0}")]
-    Shape(#[from] toml::de::Error),
+    Shape(Box<toml::de::Error>),
     /// Settings could not be written as TOML.
     #[error("settings: {0}")]
-    Write(#[from] toml::ser::Error),
+    Write(Box<toml::ser::Error>),
 }
 
 /// Result alias.
@@ -72,7 +72,7 @@ fn read_table(path: &Path) -> Result<Table> {
     match fs::read_to_string(path) {
         Ok(text) => text.parse::<Table>().map_err(|source| ConfigError::Parse {
             path: path.into(),
-            source,
+            source: Box::new(source),
         }),
         Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(Table::new()),
         Err(source) => Err(ConfigError::Io {
@@ -129,7 +129,7 @@ pub fn load_with_env<T: Serialize + DeserializeOwned + Default>(
     layers: &Layers,
     env: impl Iterator<Item = (String, String)>,
 ) -> Result<T> {
-    let mut merged = Table::try_from(T::default())?;
+    let mut merged = Table::try_from(T::default()).map_err(|e| ConfigError::Write(Box::new(e)))?;
     for f in [&layers.app_file, &layers.project_file]
         .into_iter()
         .flatten()
@@ -139,7 +139,9 @@ pub fn load_with_env<T: Serialize + DeserializeOwned + Default>(
     if let Some(prefix) = &layers.env_prefix {
         merge(&mut merged, env_table(prefix, env));
     }
-    Ok(merged.try_into()?)
+    merged
+        .try_into()
+        .map_err(|e| ConfigError::Shape(Box::new(e)))
 }
 
 /// Write settings to a file atomically (temporary file, then rename).
@@ -147,7 +149,7 @@ pub fn load_with_env<T: Serialize + DeserializeOwned + Default>(
 /// # Errors
 /// Serialisation or disk error.
 pub fn save<T: Serialize>(path: &Path, value: &T) -> Result<()> {
-    let text = toml::to_string_pretty(value)?;
+    let text = toml::to_string_pretty(value).map_err(|e| ConfigError::Write(Box::new(e)))?;
     let io_err = |source| ConfigError::Io {
         path: path.into(),
         source,

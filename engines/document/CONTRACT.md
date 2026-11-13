@@ -24,6 +24,13 @@ Fast, deterministic, notation-aware word search with context. Full design: [`doc
 - **Permission:** read.
 - **Example:** `terms: ["C_p"]` on a paper containing `Cp`, `C_p`, `C_{p}`, `𝐶ₚ` and `C p` → five hits, kinds `exact`/`notation`, each with page, boxes and 12 words either side; "C. P. Burgess" is not a hit.
 
+### document.metadata   (experimental, T1)
+- **Input:** `{ file: BlobRef }` (the file is read through the host's `BlobAccess` port).
+- **Output:** `PdfMetadata { title?, authors, doi?, pages, subject?, encrypted }` from the Info dictionary, cleaned: junk titles ("Microsoft Word - …", file names, template defaults) become `null`, authors are split, DOIs are found in custom keys, subject, keywords or title.
+- **Errors:** `not_found`, `unreadable`.
+- **Permission:** read.
+- **Note:** many arXiv PDFs carry no Info metadata; first-page text (PDFium, M2) fills those gaps. Snapshot over the fixture papers: `engines/document/facade/tests/metadata-snapshot.json`.
+
 ### Planned (Phase 1, contracts written before code)
 `document.extract`, `document.region`, `document.render`, `document.annotate`, `document.outline`, `document.links`, `document.thumbnails`, `document.ocr`, `document.objects`, `document.equation`, `document.table`, `document.annotations`, `document.references` (Draft 2.2 §14.2, §28.6).
 
@@ -56,4 +63,4 @@ Raw numbers: `engines/document/core/benches-results/search-2026-11-13.jsonl`; re
 - none yet (the Greek-name table and stemming rules are code; they move to assets if they become language-specific lists).
 
 ## Changelog
-- 0.1.0 (2026-11-13): `document.search` contract and core.
+- 0.1.0 (2026-11-13): `document.search` contract and core; `document.metadata` with the lopdf adapter and the facade.

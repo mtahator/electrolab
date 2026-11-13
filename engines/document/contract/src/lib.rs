@@ -323,3 +323,44 @@ mod tests {
         assert_eq!(req.limits.max_hits, 200);
     }
 }
+
+// ---------------------------------------------------------------- document.metadata -------
+
+/// Command names.
+pub mod commands {
+    /// Read title, authors, DOI and page count from a stored PDF.
+    pub const METADATA: &str = "document.metadata";
+}
+
+/// Input of `document.metadata`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct MetadataRequest {
+    /// The stored PDF.
+    pub file: ep_types::BlobRef,
+}
+
+/// Output of `document.metadata`: what the file says about itself, cleaned. Fields are `None`
+/// rather than guessed when the file's values look like junk.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct PdfMetadata {
+    /// Title.
+    pub title: Option<String>,
+    /// Authors in order.
+    pub authors: Vec<String>,
+    /// DOI, lowercase.
+    pub doi: Option<String>,
+    /// Number of pages.
+    pub pages: u32,
+    /// Subject line (often journal and year).
+    pub subject: Option<String>,
+    /// The file is encrypted (fields may be missing).
+    pub encrypted: bool,
+}
+
+/// Error kinds reported in `CommandError::Failed { kind }` by the Document engine.
+pub mod errors {
+    /// The blob is not available.
+    pub const NOT_FOUND: &str = "not_found";
+    /// The file is not a readable PDF.
+    pub const UNREADABLE: &str = "unreadable";
+}

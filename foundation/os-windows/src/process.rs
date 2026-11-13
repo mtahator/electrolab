@@ -2,7 +2,15 @@
 //!
 //! The job has "kill on close": when the app exits in any way — even a crash or Task Manager —
 //! Windows closes the job handle and ends every child. Children get no console window, null
-//! stdin, and stdout/stderr only into a log file; no other handles are inherited.
+//! stdin, and stdout/stderr only into a log file.
+//!
+//! Handle inheritance: Rust's standard library creates every handle non-inheritable, so only
+//! the stdio handles reach the child. ADR-009 asks for an explicit
+//! `PROC_THREAD_ATTRIBUTE_HANDLE_LIST`; that is still to do (needed only if a non-Rust library
+//! in our process ever creates inheritable handles).
+//!
+//! A child is assigned to the job right after it starts; it must not start its own children
+//! in its first instants (true for `llama-server` and the page-model worker).
 
 use std::fs::OpenOptions;
 use std::os::windows::io::AsRawHandle;

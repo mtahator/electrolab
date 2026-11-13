@@ -295,6 +295,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)] // one row per rule reads better than helpers
     fn rule_table() {
         let none = Settings::default();
         let consent = Settings {

@@ -9,6 +9,7 @@ description = "Document engine contract: commands, inputs, outputs, errors (see 
 [dependencies]
 ep-types = { path = "../../../foundation/types" }
 serde.workspace = true
+schemars.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
