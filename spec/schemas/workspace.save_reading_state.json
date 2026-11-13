@@ -1,0 +1,220 @@
+{
+  "command": "workspace.save_reading_state",
+  "input": {
+    "$defs": {
+      "Location": {
+        "description": "\"Go there\": the single way to point at a place in a paper (links, history, search hits,\ncitations in answers, bookmarks).",
+        "properties": {
+          "page": {
+            "description": "1-based page.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "paper": {
+            "$ref": "#/$defs/PaperId",
+            "description": "The paper."
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PageRect"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Area to show and mark, if any."
+          },
+          "zoom": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ZoomSpec"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Zoom to apply, if any."
+          }
+        },
+        "required": [
+          "paper",
+          "page"
+        ],
+        "type": "object"
+      },
+      "PageRect": {
+        "description": "A rectangle on one page.",
+        "properties": {
+          "page": {
+            "description": "1-based page number.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "x0": {
+            "description": "Left edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "x1": {
+            "description": "Right edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "y0": {
+            "description": "Top edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "y1": {
+            "description": "Bottom edge.",
+            "format": "float",
+            "type": "number"
+          }
+        },
+        "required": [
+          "page",
+          "x0",
+          "y0",
+          "x1",
+          "y1"
+        ],
+        "type": "object"
+      },
+      "PaperId": {
+        "description": "A paper (a PDF in the library or a project).\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      },
+      "ViewMode": {
+        "description": "How pages are laid out.",
+        "oneOf": [
+          {
+            "const": "continuous",
+            "description": "One column of pages, scrolling continuously.",
+            "type": "string"
+          },
+          {
+            "const": "single",
+            "description": "One page at a time.",
+            "type": "string"
+          },
+          {
+            "const": "two_page",
+            "description": "Two pages side by side.",
+            "type": "string"
+          }
+        ]
+      },
+      "ZoomSpec": {
+        "description": "How far to zoom when going to a location.",
+        "oneOf": [
+          {
+            "description": "Page width fills the view.",
+            "properties": {
+              "kind": {
+                "const": "fit_width",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "description": "Whole page visible.",
+            "properties": {
+              "kind": {
+                "const": "fit_page",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "description": "A scale factor (1.0 = 100 %).",
+            "properties": {
+              "factor": {
+                "description": "Factor.",
+                "format": "float",
+                "type": "number"
+              },
+              "kind": {
+                "const": "scale",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "factor"
+            ],
+            "type": "object"
+          }
+        ]
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `workspace.save_reading_state` (also marks the paper as opened now).",
+    "properties": {
+      "location": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/Location"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Current place."
+      },
+      "paper": {
+        "$ref": "#/$defs/PaperId",
+        "description": "The paper."
+      },
+      "view_mode": {
+        "$ref": "#/$defs/ViewMode",
+        "default": "continuous",
+        "description": "Layout."
+      },
+      "zoom": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ZoomSpec"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Zoom."
+      }
+    },
+    "required": [
+      "paper"
+    ],
+    "title": "SaveReadingState",
+    "type": "object"
+  },
+  "output": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "null",
+    "type": "null"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "create"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Remember where the reader is in a paper"
+}

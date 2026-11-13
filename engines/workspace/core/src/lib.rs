@@ -102,10 +102,11 @@ pub fn classify(head: &[u8]) -> FileKind {
 }
 
 /// Database migrations, in order (each engine owns its tables).
-pub const MIGRATIONS: &[(u32, &str, &str)] = &[(
-    1,
-    "papers",
-    "CREATE TABLE paper (
+pub const MIGRATIONS: &[(u32, &str, &str)] = &[
+    (
+        1,
+        "papers",
+        "CREATE TABLE paper (
         id              TEXT PRIMARY KEY,
         hash            TEXT NOT NULL UNIQUE,
         size            INTEGER NOT NULL,
@@ -120,7 +121,97 @@ pub const MIGRATIONS: &[(u32, &str, &str)] = &[(
         added_ms        INTEGER NOT NULL
     );
     CREATE INDEX paper_added ON paper (added_ms DESC);",
-)];
+    ),
+    (
+        2,
+        "library: collections, tags, reading state, bookmarks, reading time",
+        "ALTER TABLE paper ADD COLUMN opened_ms INTEGER;
+    CREATE TABLE collection (
+        id          TEXT PRIMARY KEY,
+        name        TEXT NOT NULL,
+        created_ms  INTEGER NOT NULL
+    );
+    CREATE UNIQUE INDEX collection_name ON collection (name COLLATE NOCASE);
+    CREATE TABLE collection_paper (
+        collection  TEXT NOT NULL REFERENCES collection(id) ON DELETE CASCADE,
+        paper       TEXT NOT NULL REFERENCES paper(id) ON DELETE CASCADE,
+        added_ms    INTEGER NOT NULL,
+        PRIMARY KEY (collection, paper)
+    );
+    CREATE TABLE paper_tag (
+        paper       TEXT NOT NULL REFERENCES paper(id) ON DELETE CASCADE,
+        tag         TEXT NOT NULL,
+        PRIMARY KEY (paper, tag)
+    );
+    CREATE INDEX paper_tag_tag ON paper_tag (tag COLLATE NOCASE);
+    CREATE TABLE reading_state (
+        paper       TEXT PRIMARY KEY REFERENCES paper(id) ON DELETE CASCADE,
+        location    TEXT,
+        zoom        TEXT,
+        view_mode   TEXT NOT NULL DEFAULT 'continuous',
+        updated_ms  INTEGER NOT NULL
+    );
+    CREATE TABLE bookmark (
+        id          TEXT PRIMARY KEY,
+        paper       TEXT NOT NULL REFERENCES paper(id) ON DELETE CASCADE,
+        name        TEXT NOT NULL,
+        location    TEXT NOT NULL,
+        created_ms  INTEGER NOT NULL
+    );
+    CREATE INDEX bookmark_paper ON bookmark (paper, created_ms);
+    CREATE TABLE reading_time (
+        paper       TEXT NOT NULL REFERENCES paper(id) ON DELETE CASCADE,
+        page        INTEGER NOT NULL,
+        seconds     INTEGER NOT NULL,
+        last_ms     INTEGER NOT NULL,
+        PRIMARY KEY (paper, page)
+    );",
+    ),
+];
+
+/// Seconds counted from one `record_reading` report at most (the UI reports every few seconds;
+/// a larger number means the report is wrong or the user was away).
+pub const MAX_READING_REPORT_S: u32 = 300;
+
+/// Clean tags: trimmed, inner spaces collapsed, at most 64 characters, no duplicates ignoring
+/// case (first spelling wins), empty ones dropped. Order is kept.
+#[must_use]
+pub fn clean_tags(tags: &[String]) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for t in tags {
+        let t: String = t
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+            .chars()
+            .filter(|c| !c.is_control())
+            .take(64)
+            .collect();
+        if !t.is_empty() && !out.iter().any(|o| o.to_lowercase() == t.to_lowercase()) {
+            out.push(t);
+        }
+    }
+    out
+}
+
+/// Words of a library search, lowercase, as SQL `LIKE` patterns (`%word%`). `%`, `_` and `!` in
+/// the words are escaped with `!`, so queries use `LIKE ? ESCAPE '!'`.
+#[must_use]
+pub fn like_patterns(query: &str) -> Vec<String> {
+    query
+        .split_whitespace()
+        .take(8)
+        .map(|w| {
+            format!(
+                "%{}%",
+                w.to_lowercase()
+                    .replace('!', "!!")
+                    .replace('%', "!%")
+                    .replace('_', "!_")
+            )
+        })
+        .collect()
+}
 
 /// Clean a display name for a new library or project.
 #[must_use]
@@ -177,5 +268,26 @@ mod tests {
             Some("کتابخانه من".into())
         );
         assert_eq!(clean_name("   "), None);
+    }
+}
+
+#[cfg(test)]
+mod library_tests {
+    use super::*;
+
+    #[test]
+    fn tags_are_cleaned() {
+        let t = clean_tags(&[
+            "  PINN ".into(),
+            "pinn".into(),
+            "heat  transfer".into(),
+            String::new(),
+        ]);
+        assert_eq!(t, ["PINN", "heat transfer"]);
+    }
+
+    #[test]
+    fn like_patterns_escape() {
+        assert_eq!(like_patterns("Neural 100%_x"), ["%neural%", "%100!%!_x%"]);
     }
 }

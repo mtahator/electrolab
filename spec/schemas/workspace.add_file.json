@@ -91,6 +91,15 @@
               "null"
             ]
           },
+          "opened_ms": {
+            "default": null,
+            "description": "Last opened, ms since the Unix epoch.",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "original_name": {
             "description": "File name when added.",
             "type": "string"
@@ -112,6 +121,14 @@
               "integer",
               "null"
             ]
+          },
+          "tags": {
+            "default": [],
+            "description": "Tags.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "title": {
             "default": null,

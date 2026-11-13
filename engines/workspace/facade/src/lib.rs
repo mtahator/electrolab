@@ -18,13 +18,15 @@ use ep_store::rusqlite::{self, OptionalExtension, params};
 use ep_store::{Migration, Store};
 use ep_types::{BlobRef, Hash, MediaType, PaperId, ProjectId};
 use ep_workspace_contract::{
-    Added, Classification, CreateProject, FileKind, FilePath, GetPaper, ListPapers, OpenProject,
-    Paper, ProjectInfo, ProjectKind, SetPaperMetadata, commands as cmd, errors, events,
+    Added, Classification, CreateProject, FileKind, FilePath, GetPaper, OpenProject, Paper,
+    ProjectInfo, ProjectKind, SetPaperMetadata, commands as cmd, errors, events,
 };
 use ep_workspace_core::{
     BLOBS_DIR, DATABASE, EVENTS_DIR, MANIFEST, Manifest, classify, clean_name,
 };
 use parking_lot::RwLock;
+
+mod library;
 use serde_json::json;
 
 /// An open library or project.
@@ -69,6 +71,9 @@ fn migrations() -> Vec<Migration> {
         .collect()
 }
 
+/// Columns of a paper row: the table plus its tags (joined with the unit separator U+001F).
+const PAPER_SELECT: &str = "SELECT p.*, (SELECT group_concat(t.tag, char(31)) FROM paper_tag t WHERE t.paper = p.id) AS tags FROM paper p";
+
 fn row_to_paper(r: &rusqlite::Row<'_>) -> rusqlite::Result<Paper> {
     let id: String = r.get("id")?;
     let hash: String = r.get("hash")?;
@@ -96,7 +101,12 @@ fn row_to_paper(r: &rusqlite::Row<'_>) -> rusqlite::Result<Paper> {
             .get::<_, Option<i64>>("pages")?
             .and_then(|p| u32::try_from(p).ok()),
         metadata_source: r.get("metadata_source")?,
+        tags: r
+            .get::<_, Option<String>>("tags")?
+            .map(|t| t.split('\u{1f}').map(str::to_string).collect())
+            .unwrap_or_default(),
         added_ms: r.get("added_ms")?,
+        opened_ms: r.get("opened_ms")?,
     })
 }
 
@@ -121,7 +131,7 @@ impl Opened {
         self.db
             .read(|c| {
                 c.query_row(
-                    "SELECT * FROM paper WHERE id = ?1",
+                    &format!("{PAPER_SELECT} WHERE p.id = ?1"),
                     [id.to_string()],
                     row_to_paper,
                 )
@@ -134,7 +144,7 @@ impl Opened {
         self.db
             .read(|c| {
                 c.query_row(
-                    "SELECT * FROM paper WHERE hash = ?1",
+                    &format!("{PAPER_SELECT} WHERE p.hash = ?1"),
                     [hash.to_hex()],
                     row_to_paper,
                 )
@@ -282,6 +292,7 @@ impl Workspace {
     ///
     /// # Errors
     /// A name is already registered.
+    #[allow(clippy::too_many_lines)] // a table of command registrations
     pub fn register(self: &Arc<Self>, bus: &Arc<Bus>) -> Result<(), RegisterError> {
         *self.bus.write() = Arc::downgrade(bus);
         macro_rules! reg {
@@ -338,7 +349,7 @@ impl Workspace {
         reg!(cmd::GET_PAPER, "One paper", Permission::read(), get_paper);
         reg!(
             cmd::LIST_PAPERS,
-            "Papers, newest first",
+            "Papers: filter by collection, tag or words; sort by added, opened or title",
             Permission::read(),
             list_papers
         );
@@ -347,6 +358,90 @@ impl Workspace {
             "Record title, authors, DOI or page count for a paper",
             Permission::create(),
             set_paper_metadata
+        );
+        reg!(
+            cmd::CREATE_COLLECTION,
+            "Make a collection",
+            Permission::create(),
+            create_collection
+        );
+        reg!(
+            cmd::RENAME_COLLECTION,
+            "Rename a collection",
+            Permission::create(),
+            rename_collection
+        );
+        reg!(
+            cmd::DELETE_COLLECTION,
+            "Delete a collection (its papers stay in the library)",
+            Permission::destructive(),
+            delete_collection
+        );
+        reg!(
+            cmd::LIST_COLLECTIONS,
+            "Collections, by name",
+            Permission::read(),
+            list_collections
+        );
+        reg!(
+            cmd::ADD_TO_COLLECTION,
+            "Put papers in a collection",
+            Permission::create(),
+            add_to_collection
+        );
+        reg!(
+            cmd::REMOVE_FROM_COLLECTION,
+            "Take papers out of a collection (they stay in the library)",
+            Permission::create(),
+            remove_from_collection
+        );
+        reg!(
+            cmd::SET_TAGS,
+            "Replace a paper's tags",
+            Permission::create(),
+            set_tags
+        );
+        reg!(
+            cmd::LIST_TAGS,
+            "Every tag in use, with counts",
+            Permission::read(),
+            list_tags
+        );
+        reg!(
+            cmd::GET_READING_STATE,
+            "Where the reader was in a paper, its zoom, layout and bookmarks",
+            Permission::read(),
+            get_reading_state
+        );
+        reg!(
+            cmd::SAVE_READING_STATE,
+            "Remember where the reader is in a paper",
+            Permission::create(),
+            save_reading_state
+        );
+        reg!(
+            cmd::ADD_BOOKMARK,
+            "Add a named place in a paper",
+            Permission::create(),
+            add_bookmark
+        );
+        reg!(
+            cmd::REMOVE_BOOKMARK,
+            "Remove a named place",
+            Permission::create(),
+            remove_bookmark
+        );
+        reg!(
+            cmd::RECORD_READING,
+            "Count active reading time on a visible page",
+            Permission::create(),
+            record_reading
+        );
+        reg!(
+            cmd::READING_STATS,
+            "Reading time and pages read for a paper",
+            Permission::read(),
+            reading_stats
         );
         Ok(())
     }
@@ -448,23 +543,6 @@ impl Workspace {
             .ok_or_else(|| CommandError::failed(errors::NOT_FOUND, format!("paper {}", i.id)))
     }
 
-    async fn list_papers(
-        self: Arc<Self>,
-        _cx: Cx,
-        i: ListPapers,
-    ) -> Result<Vec<Paper>, CommandError> {
-        let o = self.require()?;
-        let limit = i64::from(i.limit.unwrap_or(200).min(10_000));
-        o.db.read(|c| {
-            let mut s = c.prepare_cached(
-                "SELECT * FROM paper ORDER BY added_ms DESC, id LIMIT ?1 OFFSET ?2",
-            )?;
-            s.query_map(params![limit, i64::from(i.offset)], row_to_paper)?
-                .collect::<rusqlite::Result<Vec<_>>>()
-        })
-        .map_err(sql_err)
-    }
-
     async fn set_paper_metadata(
         self: Arc<Self>,
         cx: Cx,
@@ -544,7 +622,9 @@ fn store_file(o: &Opened, path: &Path, id: PaperId, now: i64) -> Result<Added, C
         doi: None,
         pages: None,
         metadata_source: None,
+        tags: vec![],
         added_ms: now,
+        opened_ms: None,
     };
     o.db.write(|t| {
         t.execute(

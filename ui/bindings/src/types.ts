@@ -11,6 +11,14 @@ export type Actor = {
   kind: "system";
 };
 
+/** Input of `workspace.add_bookmark`. */
+export interface AddBookmark {
+  /** Where (its `paper` names the paper). */
+  location: Location;
+  /** Name. */
+  name: string;
+}
+
 /** Output of `workspace.add_file`. */
 export interface Added {
   /** The same content was already in the library (nothing new was stored). */
@@ -29,12 +37,63 @@ export interface BlobRef {
   size: number;
 }
 
+/** A named place in a paper. */
+export interface Bookmark {
+  /** Created, ms since the Unix epoch. */
+  created_ms: number;
+  /** Id. */
+  id: ObjectId;
+  /** Where. */
+  location: Location;
+  /** Name. */
+  name: string;
+}
+
+/** Input of `workspace.remove_bookmark`. */
+export interface BookmarkRef {
+  /** Which bookmark. */
+  id: ObjectId;
+}
+
 /** Output of `workspace.classify`. */
 export interface Classification {
   /** Kind. */
   kind: FileKind;
   /** Size in bytes. */
   size: number;
+}
+
+/** A named group of papers. */
+export interface Collection {
+  /** Created, ms since the Unix epoch. */
+  created_ms: number;
+  /** Id. */
+  id: CollectionId;
+  /** Name. */
+  name: string;
+  /** Number of papers in it. */
+  papers: number;
+}
+
+/**
+ * A collection of papers.
+ * 
+ * Serialised as the UUID's canonical hyphenated string.
+ */
+export type CollectionId = string;
+
+/** Input of `workspace.add_to_collection` and `workspace.remove_from_collection`. */
+export interface CollectionPapers {
+  /** Which collection. */
+  collection: CollectionId;
+  /** Papers to add or remove. */
+  papers: PaperId[];
+}
+
+/** Input naming one collection. */
+export interface CollectionRef {
+  /** Which collection. */
+  id: CollectionId;
 }
 
 /** Why a call failed. Serialisable so every transport reports errors the same way. */
@@ -110,6 +169,12 @@ export interface ContextOptions {
 
 /** The unit of context returned around a hit. */
 export type ContextUnit = "words" | "sentence" | "none";
+
+/** Input of `workspace.create_collection`. */
+export interface CreateCollection {
+  /** Name. */
+  name: string;
+}
 
 /** Input of `workspace.create_project`. */
 export interface CreateProject {
@@ -242,10 +307,33 @@ export type LinkTarget = {
 
 /** Input of `workspace.list_papers`. */
 export type ListPapers = {
+  /** Only papers in this collection. */
+  collection?: unknown & (CollectionId | null);
   /** At most this many (default 200). */
   limit?: number | null;
   /** Skip this many. */
   offset?: number;
+  /** Only papers whose title, authors, DOI or file name contain these words. */
+  query?: string | null;
+  /** Order. */
+  sort?: PaperSort;
+  /** Only papers with this tag. */
+  tag?: string | null;
+};
+
+/**
+ * "Go there": the single way to point at a place in a paper (links, history, search hits,
+ * citations in answers, bookmarks).
+ */
+export type Location = {
+  /** 1-based page. */
+  page: number;
+  /** The paper. */
+  paper: PaperId;
+  /** Area to show and mark, if any. */
+  target?: unknown & (PageRect | null);
+  /** Zoom to apply, if any. */
+  zoom?: unknown & (ZoomSpec | null);
 };
 
 /** How a hit matched its term. */
@@ -287,6 +375,13 @@ export interface MetadataRequest {
   /** The stored PDF. */
   file: BlobRef;
 }
+
+/**
+ * A research object of any kind.
+ * 
+ * Serialised as the UUID's canonical hyphenated string.
+ */
+export type ObjectId = string;
 
 /** Input of `workspace.open_project`. */
 export interface OpenProject {
@@ -381,12 +476,16 @@ export type Paper = {
   id: PaperId;
   /** Where the metadata came from (e.g. `pdf-info`), when set. */
   metadata_source?: string | null;
+  /** Last opened, ms since the Unix epoch. */
+  opened_ms?: number | null;
   /** File name when added. */
   original_name: string;
   /** Where it came from on this machine, if added from a file. */
   original_path?: string | null;
   /** Number of pages, when known. */
   pages?: number | null;
+  /** Tags. */
+  tags?: string[];
   /** Title, when known. */
   title?: string | null;
 };
@@ -398,8 +497,14 @@ export type Paper = {
  */
 export type PaperId = string;
 
-/** A paper the caller wants searched. Placeholder for `Ref<Paper>` (Phase 1 M1.TYP). */
-export type PaperRef = string;
+/** Input naming one paper. */
+export interface PaperRef {
+  /** The paper. */
+  paper: PaperId;
+}
+
+/** Order of `workspace.list_papers`. */
+export type PaperSort = "added" | "opened" | "title";
 
 /**
  * Output of `document.metadata`: what the file says about itself, cleaned. Fields are `None`
@@ -458,6 +563,53 @@ export interface ProjectInfo {
 /** Library (the user's collection) or project (a focused piece of work). */
 export type ProjectKind = "library" | "project";
 
+/** Where the reader was in a paper, and how it was shown. */
+export type ReadingState = {
+  /** Named places. */
+  bookmarks?: Bookmark[];
+  /** Last place. */
+  location?: unknown & (Location | null);
+  /** Last opened, ms since the Unix epoch (`None` if never opened). */
+  opened_ms?: number | null;
+  /** The paper. */
+  paper: PaperId;
+  /** Layout. */
+  view_mode?: ViewMode;
+  /** Zoom. */
+  zoom?: unknown & (ZoomSpec | null);
+};
+
+/** Reading statistics of a paper. */
+export type ReadingStats = {
+  /** Last reading, ms since the Unix epoch. */
+  last_ms?: number | null;
+  /** Number of different pages seen. */
+  pages_read: number;
+  /** Total seconds of active reading. */
+  seconds: number;
+};
+
+/**
+ * Input of `workspace.record_reading`: the UI reports time on a visible page while the window
+ * is active, in short intervals.
+ */
+export interface RecordReading {
+  /** The page that was visible. */
+  page: number;
+  /** The paper. */
+  paper: PaperId;
+  /** Seconds of active reading in this interval (at most 300 counted). */
+  seconds: number;
+}
+
+/** Input of `workspace.rename_collection`. */
+export interface RenameCollection {
+  /** Which collection. */
+  id: CollectionId;
+  /** New name. */
+  name: string;
+}
+
 /** Input of `document.render`. */
 export interface RenderRequest {
   /** The stored PDF. */
@@ -479,6 +631,18 @@ export interface Rendered {
   /** Width in pixels. */
   width_px: number;
 }
+
+/** Input of `workspace.save_reading_state` (also marks the paper as opened now). */
+export type SaveReadingState = {
+  /** Current place. */
+  location?: unknown & (Location | null);
+  /** The paper. */
+  paper: PaperId;
+  /** Layout. */
+  view_mode?: ViewMode;
+  /** Zoom. */
+  zoom?: unknown & (ZoomSpec | null);
+};
 
 /** Which parts of the papers are searched. */
 export interface Scope {
@@ -536,11 +700,27 @@ export type SetPaperMetadata = {
   title?: string | null;
 };
 
+/** Input of `workspace.set_tags`: replaces the paper's tags. */
+export interface SetTags {
+  /** Which paper. */
+  paper: PaperId;
+  /** Tags (trimmed, case-insensitively unique). */
+  tags: string[];
+}
+
 /** Order of hits. */
 export type Sort = "position" | "score";
 
 /** How settled a command's contract is (Draft 2.2 §8.3). */
 export type Stability = "experimental" | "stable";
+
+/** A tag and how many papers carry it. */
+export interface TagCount {
+  /** Papers. */
+  papers: number;
+  /** Tag. */
+  tag: string;
+}
 
 /** One thing to look for: a word, a symbol (`C_p`) or a phrase (`heat capacity`). */
 export type Term = {
@@ -581,3 +761,17 @@ export interface ThumbnailsRequest {
   /** Width of each thumbnail in device pixels. */
   width_px: number;
 }
+
+/** How pages are laid out. */
+export type ViewMode = "continuous" | "single" | "two_page";
+
+/** How far to zoom when going to a location. */
+export type ZoomSpec = {
+  kind: "fit_width";
+} | {
+  kind: "fit_page";
+} | {
+  /** Factor. */
+  factor: number;
+  kind: "scale";
+};

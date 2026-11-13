@@ -7,7 +7,10 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-pub use ep_types::{BlobRef, Hash, MediaType, PaperId, ProjectId};
+pub use ep_types::{BlobRef, CollectionId, Hash, MediaType, PaperId, ProjectId};
+
+mod library;
+pub use library::*;
 
 /// Contract version; experimental until a second host uses it (Draft 2.2 §8.3).
 pub const VERSION: &str = "0.1.0";
@@ -35,6 +38,34 @@ pub mod commands {
     pub const LIST_PAPERS: &str = "workspace.list_papers";
     /// Record metadata read from the paper.
     pub const SET_PAPER_METADATA: &str = "workspace.set_paper_metadata";
+    /// Make a collection.
+    pub const CREATE_COLLECTION: &str = "workspace.create_collection";
+    /// Rename a collection.
+    pub const RENAME_COLLECTION: &str = "workspace.rename_collection";
+    /// Delete a collection (its papers stay in the library).
+    pub const DELETE_COLLECTION: &str = "workspace.delete_collection";
+    /// Collections, by name.
+    pub const LIST_COLLECTIONS: &str = "workspace.list_collections";
+    /// Put papers in a collection.
+    pub const ADD_TO_COLLECTION: &str = "workspace.add_to_collection";
+    /// Take papers out of a collection.
+    pub const REMOVE_FROM_COLLECTION: &str = "workspace.remove_from_collection";
+    /// Replace a paper's tags.
+    pub const SET_TAGS: &str = "workspace.set_tags";
+    /// Every tag in use, with counts.
+    pub const LIST_TAGS: &str = "workspace.list_tags";
+    /// Where the reader was in a paper.
+    pub const GET_READING_STATE: &str = "workspace.get_reading_state";
+    /// Remember where the reader is.
+    pub const SAVE_READING_STATE: &str = "workspace.save_reading_state";
+    /// Add a named place.
+    pub const ADD_BOOKMARK: &str = "workspace.add_bookmark";
+    /// Remove a named place.
+    pub const REMOVE_BOOKMARK: &str = "workspace.remove_bookmark";
+    /// Count active reading time on a page.
+    pub const RECORD_READING: &str = "workspace.record_reading";
+    /// Reading time and pages read.
+    pub const READING_STATS: &str = "workspace.reading_stats";
 }
 
 /// Library (the user's collection) or project (a focused piece of work).
@@ -138,8 +169,14 @@ pub struct Paper {
     /// Where the metadata came from (e.g. `pdf-info`), when set.
     #[serde(default)]
     pub metadata_source: Option<String>,
+    /// Tags.
+    #[serde(default)]
+    pub tags: Vec<String>,
     /// Added, ms since the Unix epoch.
     pub added_ms: i64,
+    /// Last opened, ms since the Unix epoch.
+    #[serde(default)]
+    pub opened_ms: Option<i64>,
 }
 
 /// Output of `workspace.add_file`.
@@ -166,6 +203,23 @@ pub struct ListPapers {
     pub limit: Option<u32>,
     /// Skip this many.
     pub offset: u32,
+    /// Only papers in this collection.
+    pub collection: Option<CollectionId>,
+    /// Only papers with this tag.
+    pub tag: Option<String>,
+    /// Only papers whose title, authors, DOI or file name contain these words.
+    pub query: Option<String>,
+    /// Order.
+    pub sort: PaperSort,
+}
+
+/// A tag and how many papers carry it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct TagCount {
+    /// Tag.
+    pub tag: String,
+    /// Papers.
+    pub papers: u64,
 }
 
 /// Input of `workspace.set_paper_metadata`. Fields left `None` are unchanged.

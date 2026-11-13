@@ -1,0 +1,80 @@
+{
+  "command": "workspace.record_reading",
+  "input": {
+    "$defs": {
+      "PaperId": {
+        "description": "A paper (a PDF in the library or a project).\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `workspace.record_reading`: the UI reports time on a visible page while the window\nis active, in short intervals.",
+    "properties": {
+      "page": {
+        "description": "The page that was visible.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "paper": {
+        "$ref": "#/$defs/PaperId",
+        "description": "The paper."
+      },
+      "seconds": {
+        "description": "Seconds of active reading in this interval (at most 300 counted).",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "paper",
+      "page",
+      "seconds"
+    ],
+    "title": "RecordReading",
+    "type": "object"
+  },
+  "output": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Reading statistics of a paper.",
+    "properties": {
+      "last_ms": {
+        "default": null,
+        "description": "Last reading, ms since the Unix epoch.",
+        "format": "int64",
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "pages_read": {
+        "description": "Number of different pages seen.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "seconds": {
+        "description": "Total seconds of active reading.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "seconds",
+      "pages_read"
+    ],
+    "title": "ReadingStats",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "create"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Count active reading time on a visible page"
+}

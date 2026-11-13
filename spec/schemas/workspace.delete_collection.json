@@ -1,0 +1,38 @@
+{
+  "command": "workspace.delete_collection",
+  "input": {
+    "$defs": {
+      "CollectionId": {
+        "description": "A collection of papers.\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input naming one collection.",
+    "properties": {
+      "id": {
+        "$ref": "#/$defs/CollectionId",
+        "description": "Which collection."
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "title": "CollectionRef",
+    "type": "object"
+  },
+  "output": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "null",
+    "type": "null"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "destructive"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Delete a collection (its papers stay in the library)"
+}

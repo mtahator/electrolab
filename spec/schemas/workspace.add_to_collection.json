@@ -1,0 +1,86 @@
+{
+  "command": "workspace.add_to_collection",
+  "input": {
+    "$defs": {
+      "CollectionId": {
+        "description": "A collection of papers.\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      },
+      "PaperId": {
+        "description": "A paper (a PDF in the library or a project).\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `workspace.add_to_collection` and `workspace.remove_from_collection`.",
+    "properties": {
+      "collection": {
+        "$ref": "#/$defs/CollectionId",
+        "description": "Which collection."
+      },
+      "papers": {
+        "description": "Papers to add or remove.",
+        "items": {
+          "$ref": "#/$defs/PaperId"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "collection",
+      "papers"
+    ],
+    "title": "CollectionPapers",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "CollectionId": {
+        "description": "A collection of papers.\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "A named group of papers.",
+    "properties": {
+      "created_ms": {
+        "description": "Created, ms since the Unix epoch.",
+        "format": "int64",
+        "type": "integer"
+      },
+      "id": {
+        "$ref": "#/$defs/CollectionId",
+        "description": "Id."
+      },
+      "name": {
+        "description": "Name.",
+        "type": "string"
+      },
+      "papers": {
+        "description": "Number of papers in it.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "id",
+      "name",
+      "papers",
+      "created_ms"
+    ],
+    "title": "Collection",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "create"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Put papers in a collection"
+}

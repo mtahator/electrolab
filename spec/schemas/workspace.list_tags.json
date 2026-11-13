@@ -1,0 +1,46 @@
+{
+  "command": "workspace.list_tags",
+  "input": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "null",
+    "type": "null"
+  },
+  "output": {
+    "$defs": {
+      "TagCount": {
+        "description": "A tag and how many papers carry it.",
+        "properties": {
+          "papers": {
+            "description": "Papers.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "tag": {
+            "description": "Tag.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag",
+          "papers"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "items": {
+      "$ref": "#/$defs/TagCount"
+    },
+    "title": "Array_of_TagCount",
+    "type": "array"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Every tag in use, with counts"
+}

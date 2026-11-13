@@ -1,0 +1,38 @@
+{
+  "command": "workspace.remove_bookmark",
+  "input": {
+    "$defs": {
+      "ObjectId": {
+        "description": "A research object of any kind.\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `workspace.remove_bookmark`.",
+    "properties": {
+      "id": {
+        "$ref": "#/$defs/ObjectId",
+        "description": "Which bookmark."
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "title": "BookmarkRef",
+    "type": "object"
+  },
+  "output": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "null",
+    "type": "null"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "create"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Remove a named place"
+}

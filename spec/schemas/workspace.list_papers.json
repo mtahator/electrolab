@@ -1,9 +1,48 @@
 {
   "command": "workspace.list_papers",
   "input": {
+    "$defs": {
+      "CollectionId": {
+        "description": "A collection of papers.\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      },
+      "PaperSort": {
+        "description": "Order of `workspace.list_papers`.",
+        "oneOf": [
+          {
+            "const": "added",
+            "description": "Newest added first.",
+            "type": "string"
+          },
+          {
+            "const": "opened",
+            "description": "Most recently opened first (never opened last).",
+            "type": "string"
+          },
+          {
+            "const": "title",
+            "description": "By title (untitled by file name).",
+            "type": "string"
+          }
+        ]
+      }
+    },
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "description": "Input of `workspace.list_papers`.",
     "properties": {
+      "collection": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/CollectionId"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Only papers in this collection."
+      },
       "limit": {
         "default": null,
         "description": "At most this many (default 200).",
@@ -20,6 +59,27 @@
         "format": "uint32",
         "minimum": 0,
         "type": "integer"
+      },
+      "query": {
+        "default": null,
+        "description": "Only papers whose title, authors, DOI or file name contain these words.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "sort": {
+        "$ref": "#/$defs/PaperSort",
+        "default": "added",
+        "description": "Order."
+      },
+      "tag": {
+        "default": null,
+        "description": "Only papers with this tag.",
+        "type": [
+          "string",
+          "null"
+        ]
       }
     },
     "title": "ListPapers",
@@ -101,6 +161,15 @@
               "null"
             ]
           },
+          "opened_ms": {
+            "default": null,
+            "description": "Last opened, ms since the Unix epoch.",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "original_name": {
             "description": "File name when added.",
             "type": "string"
@@ -122,6 +191,14 @@
               "integer",
               "null"
             ]
+          },
+          "tags": {
+            "default": [],
+            "description": "Tags.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "title": {
             "default": null,
@@ -160,5 +237,5 @@
   },
   "stability": "experimental",
   "streaming": false,
-  "summary": "Papers, newest first"
+  "summary": "Papers: filter by collection, tag or words; sort by added, opened or title"
 }

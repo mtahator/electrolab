@@ -19,24 +19,52 @@ export interface Commands {
   "document.text": { input: T.PageRequest; output: T.PageText };
   /** Small images of pages (cached) */
   "document.thumbnails": { input: T.ThumbnailsRequest; output: T.Rendered[] };
+  /** Add a named place in a paper */
+  "workspace.add_bookmark": { input: T.AddBookmark; output: T.Bookmark };
   /** Add a PDF as a managed copy (the original is never changed) */
   "workspace.add_file": { input: T.FilePath; output: T.Added };
+  /** Put papers in a collection */
+  "workspace.add_to_collection": { input: T.CollectionPapers; output: T.Collection };
   /** Tell what kind of file this is (by content) */
   "workspace.classify": { input: T.FilePath; output: T.Classification };
+  /** Make a collection */
+  "workspace.create_collection": { input: T.CreateCollection; output: T.Collection };
   /** Create a library or project folder and open it */
   "workspace.create_project": { input: T.CreateProject; output: T.ProjectInfo };
   /** The open library or project, if any */
   "workspace.current": { input: null; output: T.ProjectInfo | null };
+  /** Delete a collection (its papers stay in the library) */
+  "workspace.delete_collection": { input: T.CollectionRef; output: null };
   /** One paper */
   "workspace.get_paper": { input: T.GetPaper; output: T.Paper };
-  /** Papers, newest first */
+  /** Where the reader was in a paper, its zoom, layout and bookmarks */
+  "workspace.get_reading_state": { input: T.PaperRef; output: T.ReadingState };
+  /** Collections, by name */
+  "workspace.list_collections": { input: null; output: T.Collection[] };
+  /** Papers: filter by collection, tag or words; sort by added, opened or title */
   "workspace.list_papers": { input: T.ListPapers; output: T.Paper[] };
+  /** Every tag in use, with counts */
+  "workspace.list_tags": { input: null; output: T.TagCount[] };
   /** Open the default library, creating it on first run */
   "workspace.open_default_library": { input: null; output: T.ProjectInfo };
   /** Open a library or project folder */
   "workspace.open_project": { input: T.OpenProject; output: T.ProjectInfo };
+  /** Reading time and pages read for a paper */
+  "workspace.reading_stats": { input: T.PaperRef; output: T.ReadingStats };
+  /** Count active reading time on a visible page */
+  "workspace.record_reading": { input: T.RecordReading; output: T.ReadingStats };
+  /** Remove a named place */
+  "workspace.remove_bookmark": { input: T.BookmarkRef; output: null };
+  /** Take papers out of a collection (they stay in the library) */
+  "workspace.remove_from_collection": { input: T.CollectionPapers; output: T.Collection };
+  /** Rename a collection */
+  "workspace.rename_collection": { input: T.RenameCollection; output: T.Collection };
+  /** Remember where the reader is in a paper */
+  "workspace.save_reading_state": { input: T.SaveReadingState; output: null };
   /** Record title, authors, DOI or page count for a paper */
   "workspace.set_paper_metadata": { input: T.SetPaperMetadata; output: T.Paper };
+  /** Replace a paper's tags */
+  "workspace.set_tags": { input: T.SetTags; output: T.Paper };
 }
 
 /** A command name. */

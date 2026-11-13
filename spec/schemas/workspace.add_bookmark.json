@@ -1,0 +1,347 @@
+{
+  "command": "workspace.add_bookmark",
+  "input": {
+    "$defs": {
+      "Location": {
+        "description": "\"Go there\": the single way to point at a place in a paper (links, history, search hits,\ncitations in answers, bookmarks).",
+        "properties": {
+          "page": {
+            "description": "1-based page.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "paper": {
+            "$ref": "#/$defs/PaperId",
+            "description": "The paper."
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PageRect"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Area to show and mark, if any."
+          },
+          "zoom": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ZoomSpec"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Zoom to apply, if any."
+          }
+        },
+        "required": [
+          "paper",
+          "page"
+        ],
+        "type": "object"
+      },
+      "PageRect": {
+        "description": "A rectangle on one page.",
+        "properties": {
+          "page": {
+            "description": "1-based page number.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "x0": {
+            "description": "Left edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "x1": {
+            "description": "Right edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "y0": {
+            "description": "Top edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "y1": {
+            "description": "Bottom edge.",
+            "format": "float",
+            "type": "number"
+          }
+        },
+        "required": [
+          "page",
+          "x0",
+          "y0",
+          "x1",
+          "y1"
+        ],
+        "type": "object"
+      },
+      "PaperId": {
+        "description": "A paper (a PDF in the library or a project).\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      },
+      "ZoomSpec": {
+        "description": "How far to zoom when going to a location.",
+        "oneOf": [
+          {
+            "description": "Page width fills the view.",
+            "properties": {
+              "kind": {
+                "const": "fit_width",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "description": "Whole page visible.",
+            "properties": {
+              "kind": {
+                "const": "fit_page",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "description": "A scale factor (1.0 = 100 %).",
+            "properties": {
+              "factor": {
+                "description": "Factor.",
+                "format": "float",
+                "type": "number"
+              },
+              "kind": {
+                "const": "scale",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "factor"
+            ],
+            "type": "object"
+          }
+        ]
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `workspace.add_bookmark`.",
+    "properties": {
+      "location": {
+        "$ref": "#/$defs/Location",
+        "description": "Where (its `paper` names the paper)."
+      },
+      "name": {
+        "description": "Name.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "name",
+      "location"
+    ],
+    "title": "AddBookmark",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "Location": {
+        "description": "\"Go there\": the single way to point at a place in a paper (links, history, search hits,\ncitations in answers, bookmarks).",
+        "properties": {
+          "page": {
+            "description": "1-based page.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "paper": {
+            "$ref": "#/$defs/PaperId",
+            "description": "The paper."
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PageRect"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Area to show and mark, if any."
+          },
+          "zoom": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ZoomSpec"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Zoom to apply, if any."
+          }
+        },
+        "required": [
+          "paper",
+          "page"
+        ],
+        "type": "object"
+      },
+      "ObjectId": {
+        "description": "A research object of any kind.\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      },
+      "PageRect": {
+        "description": "A rectangle on one page.",
+        "properties": {
+          "page": {
+            "description": "1-based page number.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "x0": {
+            "description": "Left edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "x1": {
+            "description": "Right edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "y0": {
+            "description": "Top edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "y1": {
+            "description": "Bottom edge.",
+            "format": "float",
+            "type": "number"
+          }
+        },
+        "required": [
+          "page",
+          "x0",
+          "y0",
+          "x1",
+          "y1"
+        ],
+        "type": "object"
+      },
+      "PaperId": {
+        "description": "A paper (a PDF in the library or a project).\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      },
+      "ZoomSpec": {
+        "description": "How far to zoom when going to a location.",
+        "oneOf": [
+          {
+            "description": "Page width fills the view.",
+            "properties": {
+              "kind": {
+                "const": "fit_width",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "description": "Whole page visible.",
+            "properties": {
+              "kind": {
+                "const": "fit_page",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "description": "A scale factor (1.0 = 100 %).",
+            "properties": {
+              "factor": {
+                "description": "Factor.",
+                "format": "float",
+                "type": "number"
+              },
+              "kind": {
+                "const": "scale",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "factor"
+            ],
+            "type": "object"
+          }
+        ]
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "A named place in a paper.",
+    "properties": {
+      "created_ms": {
+        "description": "Created, ms since the Unix epoch.",
+        "format": "int64",
+        "type": "integer"
+      },
+      "id": {
+        "$ref": "#/$defs/ObjectId",
+        "description": "Id."
+      },
+      "location": {
+        "$ref": "#/$defs/Location",
+        "description": "Where."
+      },
+      "name": {
+        "description": "Name.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "id",
+      "name",
+      "location",
+      "created_ms"
+    ],
+    "title": "Bookmark",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "create"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Add a named place in a paper"
+}

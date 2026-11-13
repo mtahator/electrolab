@@ -1,5 +1,5 @@
 {
-  "description": "Bus commands the Reader window may call. A command not listed here cannot be called from the window (an allow-list, phase-1 plan: Best practices \u2014 foundation).",
+  "description": "Bus commands the Reader window may call. A command not listed here cannot be called from the window (an allow-list, phase-1 plan: Best practices — foundation).",
   "main": [
     "document.info",
     "document.links",
@@ -9,13 +9,27 @@
     "document.search",
     "document.text",
     "document.thumbnails",
+    "workspace.add_bookmark",
     "workspace.add_file",
+    "workspace.add_to_collection",
     "workspace.classify",
+    "workspace.create_collection",
     "workspace.current",
+    "workspace.delete_collection",
     "workspace.get_paper",
+    "workspace.get_reading_state",
+    "workspace.list_collections",
     "workspace.list_papers",
+    "workspace.list_tags",
     "workspace.open_default_library",
     "workspace.open_project",
-    "workspace.set_paper_metadata"
+    "workspace.reading_stats",
+    "workspace.record_reading",
+    "workspace.remove_bookmark",
+    "workspace.remove_from_collection",
+    "workspace.rename_collection",
+    "workspace.save_reading_state",
+    "workspace.set_paper_metadata",
+    "workspace.set_tags"
   ]
 }
