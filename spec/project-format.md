@@ -35,6 +35,18 @@ created_ms = 1763000000000  # ms since the Unix epoch
 | `title`, `authors` (JSON array), `doi`, `pages`, `metadata_source` | | filled by `workspace.set_paper_metadata` |
 | `added_ms` | INTEGER | |
 
+### Migration 2 (library) and 3 (source address)
+
+| Table | Columns |
+|---|---|
+| `paper` (added) | `opened_ms` (2), `source_url` (3) |
+| `collection` | `id`, `name` (unique ignoring case), `created_ms` |
+| `collection_paper` | `collection`, `paper`, `added_ms` (deleted with either side) |
+| `paper_tag` | `paper`, `tag` |
+| `reading_state` | `paper`, `location` (JSON `Location`), `zoom` (JSON `ZoomSpec`), `view_mode`, `updated_ms` |
+| `bookmark` | `id`, `paper`, `name`, `location` (JSON), `created_ms` |
+| `reading_time` | `paper`, `page`, `seconds`, `last_ms` |
+
 ## Event record (one JSON line)
 
 ```json

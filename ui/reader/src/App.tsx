@@ -4,11 +4,11 @@ import { Button, THEMES, type Theme, setTheme, t, theme } from "@electropaper/ki
 import { For, type JSX, Show, createSignal, onCleanup, onMount } from "solid-js";
 import { createStore } from "solid-js/store";
 
-import { bus, onBusEvent, onDropFiles, onOpenFiles, openPaperExternally, pickPdfs, printPaper, takePendingFiles } from "./host";
+import { bus, downloadPdf, onBusEvent, onDropFiles, onOpenFiles, openPaperExternally, pickPdfs, printPaper, takePendingFiles } from "./host";
 import { importPdf, openDefaultLibrary, refresh } from "./library";
 import { registerActions } from "./shell/actions";
 import { LibraryView } from "./shell/LibraryView";
-import { Confirm, KeymapSettings, Palette } from "./shell/Overlays";
+import { Confirm, KeymapSettings, Palette, Prompt } from "./shell/Overlays";
 import { activate, activeTab, closeTab, moveTab, openPapers, openTab, restore, session, setShowLibrary, toggleSplit, updatePaper } from "./shell/session";
 import { type PanelKind, SidePanel } from "./shell/SidePanel";
 import type { Marks, ViewerApi, ViewerStatus } from "./viewer/Viewer";
@@ -27,6 +27,7 @@ export function App(): JSX.Element {
   const [palette, setPalette] = createSignal(false);
   const [keymap, setKeymap] = createSignal(false);
   const [confirm, setConfirm] = createSignal<{ message: string; answer: (ok: boolean) => void } | null>(null);
+  const [urlPrompt, setUrlPrompt] = createSignal(false);
   const [status, setStatus] = createStore<Record<string, ViewerStatus>>({});
   const [marks, setMarks] = createStore<Record<string, Marks>>({});
   const apis = new Map<string, ViewerApi>();
@@ -57,6 +58,22 @@ export function App(): JSX.Element {
   }
   const addPdfs = async (): Promise<void> => importAndOpen(await pickPdfs(t("library.add")));
 
+  // Open a PDF from a web address (P1.M2.SH.7): download, add with the address kept, open.
+  async function openUrl(url: string): Promise<void> {
+    setBusy(true);
+    setError(null);
+    try {
+      const path = await downloadPdf(url);
+      const paper = await importPdf(path, url);
+      await refresh();
+      openTab(paper);
+    } catch (e) {
+      report(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   // Find hits: give each open tab the hits in its paper; bring the active hit's tab forward.
   const showHits = (hits: Hit[], active: number | null): void => {
     for (const pane of session.panes) {
@@ -82,6 +99,7 @@ export function App(): JSX.Element {
 
   registerActions([
     { id: "file.add", title: () => t("library.add"), keys: "Ctrl+O", run: () => void addPdfs() },
+    { id: "file.url", title: () => t("library.open_url"), keys: "Ctrl+Shift+O", run: () => setUrlPrompt(true) },
     { id: "view.library", title: () => t("library.title"), keys: "Ctrl+L", run: () => setShowLibrary(!session.showLibrary) },
     { id: "palette", title: () => t("palette.title"), keys: "Ctrl+K", run: () => setPalette(true) },
     { id: "keymap", title: () => t("keymap.title"), run: () => setKeymap(true) },
@@ -189,6 +207,9 @@ export function App(): JSX.Element {
         </Button>
         <Button variant="primary" disabled={busy()} onClick={() => void addPdfs()} title="Ctrl+O">
           {busy() ? t("library.adding") : t("library.add")}
+        </Button>
+        <Button disabled={busy()} onClick={() => setUrlPrompt(true)} title="Ctrl+Shift+O">
+          {t("library.open_url")}
         </Button>
         <Show when={!session.showLibrary && st()}>
           {(s) => (
@@ -367,6 +388,16 @@ export function App(): JSX.Element {
       </Show>
       <Show when={keymap()}>
         <KeymapSettings onClose={() => setKeymap(false)} />
+      </Show>
+      <Show when={urlPrompt()}>
+        <Prompt
+          message={t("library.open_url")}
+          placeholder="https://"
+          onAnswer={(url) => {
+            setUrlPrompt(false);
+            if (url) void openUrl(url);
+          }}
+        />
       </Show>
       <Show when={confirm()}>
         {(c) => (

@@ -64,6 +64,11 @@ export function printPaper(hash: string): Promise<void> {
   return invoke("print_paper", { hash });
 }
 
+/** Download a PDF from a web address; returns the temporary file to import. */
+export function downloadPdf(url: string): Promise<string> {
+  return invoke("download_pdf", { url });
+}
+
 /** PDFs given to the app at start-up (taken once). */
 export function takePendingFiles(): Promise<string[]> {
   return invoke("take_pending_files");

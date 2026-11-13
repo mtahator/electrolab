@@ -14,6 +14,11 @@ ignore = [
     # Unmaintained (not a vulnerability). Reaches us only through Tauri's Linux menu stack
     # (muda -> gtk -> glib-macros), which is not built for Windows. Revisit at the port stage.
     { id = "RUSTSEC-2024-0370", reason = "Linux-only transitive dependency of Tauri; review at the port stage" },
+    # Unmaintained as standalone crates (merged into zbus). Linux D-Bus support of the
+    # single-instance plugin; not built for Windows. Revisit at the port stage.
+    { id = "RUSTSEC-2026-0370", reason = "zvariant: Linux-only dependency of tauri-plugin-single-instance" },
+    { id = "RUSTSEC-2026-0371", reason = "zbus_names: Linux-only dependency of tauri-plugin-single-instance" },
+    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive: Linux-only dependency of tauri-plugin-single-instance" },
 ]
 
 [licenses]

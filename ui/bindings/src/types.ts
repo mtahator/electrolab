@@ -222,10 +222,15 @@ export type Envelope = {
 export type FileKind = "pdf" | "unsupported";
 
 /** Input of `workspace.classify` and `workspace.add_file`. */
-export interface FilePath {
+export type FilePath = {
   /** A file on this machine. */
   path: string;
-}
+  /**
+   * `workspace.add_file` only: the web address the file was downloaded from (kept with the
+   * paper; the temporary download path is then not recorded).
+   */
+  source_url?: string | null;
+};
 
 /** Input naming one stored PDF. */
 export interface FileRequest {
@@ -484,6 +489,8 @@ export type Paper = {
   original_path?: string | null;
   /** Number of pages, when known. */
   pages?: number | null;
+  /** The web address it was downloaded from, if any. */
+  source_url?: string | null;
   /** Tags. */
   tags?: string[];
   /** Title, when known. */

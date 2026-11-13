@@ -130,6 +130,7 @@ fn main() -> anyhow::Result<()> {
     let os_shell: Arc<dyn ep_os::ShellOpen> = Arc::new(ep_os_windows::WinShell);
     #[cfg(not(windows))]
     let os_shell: Arc<dyn ep_os::ShellOpen> = Arc::new(ep_os::fake::Recorder::default());
+    shell::clean_downloads();
     let startup_files = shell::pdf_args(&std::env::args().collect::<Vec<_>>());
 
     let protocol_ws = workspace.clone();
@@ -157,7 +158,8 @@ fn main() -> anyhow::Result<()> {
             shell::open_external,
             shell::open_paper_externally,
             shell::print_paper,
-            shell::take_pending_files
+            shell::take_pending_files,
+            shell::download_pdf
         ])
         .setup(move |app| {
             // Hub events go to the window; the publisher never waits for the UI.

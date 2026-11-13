@@ -106,6 +106,37 @@ export function KeymapSettings(props: { onClose: () => void }): JSX.Element {
   );
 }
 
+export function Prompt(props: { message: string; placeholder: string; onAnswer: (value: string | null) => void }): JSX.Element {
+  let input!: HTMLInputElement;
+  return (
+    <div class="overlay" onClick={(e) => e.target === e.currentTarget && props.onAnswer(null)}>
+      <div class="dialog" role="dialog" aria-modal="true">
+        <label class="prompt-label">
+          {props.message}
+          <input
+            class="ep-input"
+            ref={(el) => {
+              input = el;
+              queueMicrotask(() => el.focus());
+            }}
+            placeholder={props.placeholder}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") props.onAnswer(e.currentTarget.value.trim() || null);
+              if (e.key === "Escape") props.onAnswer(null);
+            }}
+          />
+        </label>
+        <div class="dialog-actions">
+          <Button onClick={() => props.onAnswer(null)}>{t("common.cancel")}</Button>
+          <Button variant="primary" onClick={() => props.onAnswer(input.value.trim() || null)}>
+            {t("common.ok")}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Confirm(props: { message: string; onAnswer: (ok: boolean) => void }): JSX.Element {
   return (
     <div class="overlay">

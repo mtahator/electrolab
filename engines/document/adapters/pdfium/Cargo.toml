@@ -10,5 +10,9 @@ description = "Document engine adapter: PDFium (text with boxes, rendering, book
 ep-document-core = { path = "../../core" }
 pdfium-render = { version = "=0.9.5", default-features = false, features = ["pdfium_8125"] }
 
+[dev-dependencies]
+lopdf.workspace = true
+tempfile.workspace = true
+
 [lints]
 workspace = true

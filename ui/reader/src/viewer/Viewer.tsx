@@ -4,8 +4,8 @@
 
 import type { DocInfo, Link, PageRect, PageText, Paper, ReadingState } from "@electropaper/bindings";
 import { t, theme } from "@electropaper/kit";
-import { For, type JSX, Show, createEffect, createMemo, createSignal, on, onCleanup, onMount } from "solid-js";
-import { createStore } from "solid-js/store";
+import { For, type JSX, Show, createEffect, createMemo, createSignal, on, onCleanup, onMount, untrack } from "solid-js";
+import { createStore, produce } from "solid-js/store";
 
 import { bus, openExternal } from "../host";
 import { History, type Place } from "./history";
@@ -50,6 +50,8 @@ export interface ViewerProps {
 }
 
 const RECORD_EVERY_S = 15;
+/** Pages around the view whose text and links stay loaded. */
+const KEEP_NEAR = 10;
 
 function pageColors(): { background: string; foreground: string } | null {
   const css = getComputedStyle(document.documentElement);
@@ -58,17 +60,6 @@ function pageColors(): { background: string; foreground: string } | null {
   return ink ? { background: bg || "#000", foreground: ink } : null;
 }
 
-function heavyKey(hash: string): string {
-  return `ep.heavy.${hash}`;
-}
-
-function loadHeavy(hash: string): Set<number> {
-  try {
-    return new Set(JSON.parse(localStorage.getItem(heavyKey(hash)) ?? "[]") as number[]);
-  } catch {
-    return new Set();
-  }
-}
 
 export function Viewer(props: ViewerProps): JSX.Element {
   let scroller!: HTMLDivElement;
@@ -86,18 +77,8 @@ export function Viewer(props: ViewerProps): JSX.Element {
   const [preview, setPreview] = createSignal<{ page: number; top: number | null; at: DOMRect } | null>(null);
   const history = new History();
   const [histTick, setHistTick] = createSignal(0);
-  const heavy = loadHeavy(hash);
   let restored = false;
   let saveTimer: number | undefined;
-
-  const markHeavy = (page: number): void => {
-    heavy.add(page);
-    try {
-      localStorage.setItem(heavyKey(hash), JSON.stringify([...heavy]));
-    } catch {
-      // Remembering heavy pages is only an optimisation.
-    }
-  };
 
   const sizes = (): DocInfo["sizes"] => info()?.sizes ?? [];
   const scale = createMemo(() => scaleFor(zoom(), sizes(), mode(), view().w, view().h));
@@ -269,6 +250,17 @@ export function Viewer(props: ViewerProps): JSX.Element {
         void bus("document.links", { file: props.paper.file, page: p }).then((ls) => setLinks(p, ls)).catch(() => {});
       }
     }
+    // Keep text and links only near the view, so memory stays flat in long papers.
+    const near = shown().map((s) => s.page);
+    if (near.length > 0) {
+      const lo = Math.min(...near) - KEEP_NEAR;
+      const hi = Math.max(...near) + KEEP_NEAR;
+      const far = (k: string): boolean => Number(k) < lo || Number(k) > hi;
+      const farTexts = Object.keys(untrack(() => texts)).filter(far);
+      const farLinks = Object.keys(untrack(() => links)).filter(far);
+      if (farTexts.length > 0) setTexts(produce((t) => farTexts.forEach((k) => delete t[Number(k)])));
+      if (farLinks.length > 0) setLinks(produce((l) => farLinks.forEach((k) => delete l[Number(k)])));
+    }
   });
 
   // Reading time: counted only while this tab is active, the window has focus and is visible.
@@ -381,8 +373,6 @@ export function Viewer(props: ViewerProps): JSX.Element {
                       const d = Math.abs(s.top + s.height / 2 - mid);
                       return s.top + s.height >= view().top && s.top <= view().top + view().h ? 0 : d;
                     }}
-                    heavy={heavy}
-                    markHeavy={markHeavy}
                     colors={colors()}
                     text={texts[s.page]}
                     links={links[s.page]}

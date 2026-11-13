@@ -14,7 +14,7 @@ Turn PDFs (later other documents) into positioned, searchable content for every 
 - Text for copy, Explain, notes and evidence comes from this engine (PDFium characters), never from the browser's selection string (spike S1).
 
 ## How to check your work
-- `cargo nextest run -p ep-document-contract -p ep-document-core`
+- `cargo nextest run -p ep-document-contract -p ep-document-core -p ep-document-adapter-pdfium -p ep-document` (needs `cargo xtask fetch-natives pdfium`; adapter tests skip without it)
 - `cargo clippy -p ep-document-core --all-targets -- -D warnings`
 - `cargo xtask arch-check`
 - `cargo run -p ep-document-core --example search_bench --release -- spikes/s2-pdfium/out` (needs `cargo xtask fetch-fixtures` and spike S2's output)
@@ -28,6 +28,9 @@ Turn PDFs (later other documents) into positioned, searchable content for every 
 - **pdfium-render cannot save incrementally, write Line annotations or reply links** — annotation export uses our own lopdf writer (ADR-006).
 - **Notation search:** punctuation must never join symbol parts (`C. P. Burgess` is not `C_p`); phrases may cross spaces, line breaks and hyphens only.
 - **f32 rounding:** `(1 − 0.8) × 10` is `1.9999999`; edit budgets need a small tolerance.
+
+- **Rotation:** `PDFium` renders with `/Rotate` applied; our page space applies it too (`PageGeom`). `tests/robustness.rs` checks that both agree on a rotated copy of a fixture.
+- **Damaged files:** `PDFium` repairs some damage (a truncated file may still open); callers get either a document or a typed `Unreadable`, never a panic.
 
 ## Decisions
 - ADR-003, ADR-006, ADR-007; design note `docs/design/document-search.md`.

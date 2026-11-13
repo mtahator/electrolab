@@ -15,8 +15,9 @@ const [theme, setThemeSignal] = createSignal<Theme>(initial());
 
 /** Apply a theme now (live, no reload) and remember it. */
 export function setTheme(t: Theme): void {
-  setThemeSignal(t);
+  // The attribute first: listeners of the signal read the new theme's CSS variables.
   document.documentElement.dataset.theme = t;
+  setThemeSignal(t);
   globalThis.localStorage?.setItem(KEY, t);
 }
 

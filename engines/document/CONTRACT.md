@@ -1,7 +1,7 @@
 # Document engine — contract
 
-Version: 0.1.0      Stability: experimental      Tier: T1
-Crates: `ep-document-contract` (types), `ep-document-core` (pure logic), facade and PDFium adapter in Phase 1 (M2)
+Version: 0.2.0      Stability: experimental      Tier: T1
+Crates: `ep-document-contract` (types), `ep-document-core` (pure logic), `ep-document-adapter-pdfium`, `ep-document-adapter-lopdf`, `ep-document` (facade)
 
 ## Purpose
 Read documents into structured, positioned content — and find things in them — for every host (Reader, Lab, CLI, Python, MCP).
@@ -31,8 +31,22 @@ Fast, deterministic, notation-aware word search with context. Full design: [`doc
 - **Permission:** read.
 - **Note:** many arXiv PDFs carry no Info metadata; first-page text (PDFium, M2) fills those gaps. Snapshot over the fixture papers: `engines/document/facade/tests/metadata-snapshot.json`.
 
+### Reading commands (experimental, T1) — P1.M2.DOC.1–6
+All positions are in page space (points, top-left origin, rotation applied; ADR-003). Pages are 1-based. Errors: `not_found`, `unreadable`, `password_required`, `bad_page`, `timeout`. Permission: read.
+
+| Command | Input → Output |
+|---|---|
+| `document.info` | `{ file }` → `DocInfo { pages, sizes: [PageSize], encrypted }` (every page size before anything is drawn) |
+| `document.text` | `{ file, page }` → `PageText { page, text, boxes, words, lines, unknown }` (layout level 0; `\n` line ends, U+00AD soft hyphens) |
+| `document.render` | `{ file, page, width_px }` → `Rendered { page, image: BlobRef (PNG), width_px, height_px }` (render cache, keyed by file, page, width and renderer version) |
+| `document.thumbnails` | `{ file, pages?, width_px ≤ 512 }` → `[Rendered]`, streaming one item per page |
+| `document.outline` | `{ file }` → `[OutlineItem { title, target?, children }]` (the PDF's bookmarks; generated outlines come in M4) |
+| `document.links` | `{ file, page }` → `[Link { rect, target }]`; `target` is `page { page, top? }`, `url { url }` (http, https, mailto only) or `unsupported` (launch, script, other files: never followed) |
+
+The PDF backend is the `PdfBackend` port; the `PDFium` adapter owns one thread, answers through a channel with a 30 s timeout, and keeps four documents open (ADR-003). Hosts find `PDFium` with `ep_document::find_pdfium()` (`EP_PDFIUM_DIR`, next to the executable, or `.natives/pdfium/bin`).
+
 ### Planned (Phase 1, contracts written before code)
-`document.extract`, `document.region`, `document.render`, `document.annotate`, `document.outline`, `document.links`, `document.thumbnails`, `document.ocr`, `document.objects`, `document.equation`, `document.table`, `document.annotations`, `document.references` (Draft 2.2 §14.2, §28.6).
+`document.extract`, `document.region`, `document.annotate`, `document.ocr`, `document.objects`, `document.equation`, `document.table`, `document.annotations`, `document.references` (Draft 2.2 §14.2, §28.6).
 
 ## Events
 - `document.extracted { paper, extractor_version }` — after preparation; the search index is built in the same stage.
@@ -63,4 +77,5 @@ Raw numbers: `engines/document/core/benches-results/search-2026-11-13.jsonl`; re
 - none yet (the Greek-name table and stemming rules are code; they move to assets if they become language-specific lists).
 
 ## Changelog
+- 0.2.0 (2026-11-13): `info`, `text`, `render`, `thumbnails`, `outline`, `links` with the PDFium adapter; `search` on the bus (index built from PDFium text on first use).
 - 0.1.0 (2026-11-13): `document.search` contract and core; `document.metadata` with the lopdf adapter and the facade.

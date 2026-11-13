@@ -159,6 +159,7 @@ try {
   // Library view: both papers; search narrows the list.
   await s.key("l", { ctrl: true });
   const listed = await s.until(`document.querySelectorAll(".paper-item").length || null`);
+  // (the paper opened from a URL comes later; here the library has the two command-line papers)
   await s.js(`(() => { const i = document.querySelector(".library-tools input"); i.value = "thermal"; i.dispatchEvent(new InputEvent("input", { bubbles: true })); })()`);
   const narrowed = await s.until(`document.querySelectorAll(".paper-item").length === 1 ? 1 : null`);
   check("library_search", listed === 2 && narrowed === 1, { listed, narrowed });
@@ -167,6 +168,17 @@ try {
   await s.key("l", { ctrl: true });
   await s.until(`document.querySelectorAll(".pane canvas.page-canvas").length > 0 && document.querySelector(".page-box")`);
   await sleep(1000);
+
+  // Open a PDF from a web address (needs the network; skipped when offline).
+  const opened = await s.js(`(async () => {
+    try {
+      const path = await window.__TAURI_INTERNALS__.invoke("download_pdf", { url: "https://arxiv.org/pdf/2601.12341v1" });
+      const call = (command, input) => window.__TAURI_INTERNALS__.invoke("bus_call", { command, input, deadlineMs: null, approved: [] });
+      const added = await call("workspace.add_file", { path, source_url: "https://arxiv.org/pdf/2601.12341v1" });
+      return { name: added.paper.original_name, source: added.paper.source_url, pages_ok: (await call("document.info", { file: added.paper.file })).pages > 0 };
+    } catch (e) { return { offline_or_failed: String(e?.message ?? JSON.stringify(e)) }; }
+  })()`);
+  check("open_from_url", !!opened?.pages_ok || !!opened?.offline_or_failed, opened);
 
   // Leave the second paper at page 5 for the restart check.
   await s.js(`(() => { const panes = document.querySelectorAll(".pane"); panes[panes.length - 1].querySelector(".pane-body").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })); })()`);

@@ -7,6 +7,14 @@
       "path": {
         "description": "A file on this machine.",
         "type": "string"
+      },
+      "source_url": {
+        "default": null,
+        "description": "`workspace.add_file` only: the web address the file was downloaded from (kept with the\npaper; the temporary download path is then not recorded).",
+        "type": [
+          "string",
+          "null"
+        ]
       }
     },
     "required": [

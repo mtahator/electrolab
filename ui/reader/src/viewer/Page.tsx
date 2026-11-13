@@ -1,19 +1,22 @@
-// One page: the drawing (PDF.js, or a PDFium image for pages PDF.js draws slowly), the text layer
-// for selection, the link layer and search highlights. Sizes come from the layout; the backing
-// store is redrawn only when the zoom settles, so zoom gestures are CSS-scaled (no blank flash).
+// One page: the drawing, the text layer for selection, the link layer and search highlights.
+// Sizes come from the layout; the drawing is redone only when the zoom settles, so zoom gestures
+// are CSS-scaled (no blank flash).
+//
+// Drawing (ADR-003, amended after measuring): PDFium draws on its own thread and the page arrives
+// as a cached image the browser decodes off the main thread, so scrolling never waits for drawing.
+// PDF.js draws only for the recoloured themes (dark, night, high contrast), which need its page
+// colours; its drawing runs on the main thread.
 
 import type { BlobRef, Link, PageRect, PageText } from "@electropaper/bindings";
 import { t } from "@electropaper/kit";
-import { For, type JSX, Show, createEffect, createSignal, onCleanup } from "solid-js";
+import { For, type JSX, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js";
 
 import { bus, renderUrl } from "../host";
 import type { PDFDocumentProxy, RenderTask } from "./pdf";
 import { enqueue } from "./queue";
 
-/** Largest backing store for one page (pixels), so high zoom does not exhaust memory. */
+/** Largest drawing for one page (pixels), so high zoom does not exhaust memory. */
 const MAX_PIXELS = 16_000_000;
-/** Hybrid rule (spike S1): a page PDF.js draws slower than this is drawn by PDFium next time. */
-const HEAVY_MS = 150;
 
 export interface PageProps {
   file: BlobRef;
@@ -27,8 +30,6 @@ export interface PageProps {
   renderScale: number;
   /** Distance from the view centre, for the render queue. */
   priority: () => number;
-  heavy: Set<number>;
-  markHeavy: (page: number) => void;
   /** Page colours for dark/night/contrast themes (text and lines only), or null. */
   colors: { background: string; foreground: string } | null;
   text: PageText | undefined;
@@ -57,15 +58,26 @@ export function Page(props: PageProps): JSX.Element {
     const scale = props.renderScale;
     const colors = props.colors;
     const pageNo = props.page;
-    const heavy = props.heavy.has(pageNo);
     let task: RenderTask | null = null;
     const cancel = enqueue({
       priority: props.priority,
       run: async (signal) => {
         const ratio = window.devicePixelRatio || 1;
-        if (heavy && !colors) {
-          const r = await bus("document.render", { file: props.file, page: pageNo, width_px: Math.round(props.width * ratio) });
-          if (!signal.aborted) setImage(renderUrl(r.image.hash));
+        if (!colors) {
+          // Width in device pixels, capped so the image stays under MAX_PIXELS.
+          const aspect = props.height / Math.max(1, props.width);
+          const want = (props.width / props.layoutScale) * scale * ratio;
+          const width = Math.max(16, Math.round(Math.min(want, Math.sqrt(MAX_PIXELS / Math.max(0.01, aspect)), 8192)));
+          const r = await bus("document.render", { file: props.file, page: pageNo, width_px: width });
+          if (signal.aborted) return;
+          const url = renderUrl(r.image.hash);
+          const img = new Image();
+          img.src = url;
+          // Never wait forever on a decode (a blocked or broken image must not stall the queue).
+          await Promise.race([img.decode().catch(() => {}), new Promise((r) => setTimeout(r, 5000))]);
+          if (signal.aborted) return;
+          host.querySelector("canvas.page-canvas")?.remove();
+          setImage(url);
           return;
         }
         const page = await props.doc.getPage(pageNo);
@@ -79,12 +91,10 @@ export function Page(props: PageProps): JSX.Element {
         canvas.width = Math.floor(viewport.width);
         canvas.height = Math.floor(viewport.height);
         canvas.className = "page-canvas";
-        const started = performance.now();
         task = page.render({ canvas, viewport, ...(colors ? { pageColors: colors } : {}) });
         signal.addEventListener("abort", () => task?.cancel());
         await task.promise;
         if (signal.aborted) return;
-        if (performance.now() - started > HEAVY_MS) props.markHeavy(pageNo);
         // Swap only when the new drawing is complete: the old one stays visible meanwhile.
         const old = host.querySelector("canvas.page-canvas");
         if (old) old.replaceWith(canvas);
@@ -155,7 +165,8 @@ function TextLayer(props: { text: PageText | undefined; scale: number }): JSX.El
     <div class="text-layer">
       <Show when={props.text}>
         {(pt) => {
-          const chars = Array.from(pt().text);
+          // The words arrive after the layer is first built: keep the characters reactive.
+          const chars = createMemo(() => Array.from(pt().text));
           return (
             <For each={pt().words}>
               {(w) => {
@@ -173,7 +184,7 @@ function TextLayer(props: { text: PageText | undefined; scale: number }): JSX.El
                       "font-size": `${h * 0.85}px`,
                     }}
                   >
-                    {chars.slice(w.start, w.end).join("").replace("­", "")}
+                    {chars().slice(w.start, w.end).join("").replace("­", "")}
                   </span>
                 );
               }}

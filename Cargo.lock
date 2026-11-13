@@ -1343,7 +1343,9 @@ name = "ep-document-adapter-pdfium"
 version = "0.1.0"
 dependencies = [
  "ep-document-core",
+ "lopdf",
  "pdfium-render",
+ "tempfile",
 ]
 
 [[package]]

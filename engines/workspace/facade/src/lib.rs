@@ -94,6 +94,7 @@ fn row_to_paper(r: &rusqlite::Row<'_>) -> rusqlite::Result<Paper> {
         },
         original_name: r.get("original_name")?,
         original_path: r.get("original_path")?,
+        source_url: r.get("source_url")?,
         title: r.get("title")?,
         authors: serde_json::from_str(&authors).unwrap_or_default(),
         doi: r.get("doi")?,
@@ -529,7 +530,9 @@ impl Workspace {
         let id = PaperId::from_uuid(cx.ids.next());
         let now = cx.clock.now_ms();
         let o2 = o.clone();
-        let added = blocking(move || store_file(&o2, &PathBuf::from(&i.path), id, now)).await?;
+        let source_url = i.source_url.clone().filter(|u| ep_os::is_safe_url(u));
+        let added =
+            blocking(move || store_file(&o2, &PathBuf::from(&i.path), id, now, source_url)).await?;
         if !added.already_present {
             o.record(&cx, events::PAPER_ADDED, json!({ "paper": added.paper.id, "hash": added.paper.file.hash, "size": added.paper.file.size }));
             self.publish(&cx, events::PAPER_ADDED, &added.paper);
@@ -592,7 +595,13 @@ fn read_head(path: &Path) -> Result<(Vec<u8>, u64), CommandError> {
 }
 
 /// Copy a PDF into the blob store and record it (or return the paper with the same bytes).
-fn store_file(o: &Opened, path: &Path, id: PaperId, now: i64) -> Result<Added, CommandError> {
+fn store_file(
+    o: &Opened,
+    path: &Path,
+    id: PaperId,
+    now: i64,
+    source_url: Option<String>,
+) -> Result<Added, CommandError> {
     let (head, _) = read_head(path)?;
     if classify(&head) != FileKind::Pdf {
         return Err(CommandError::failed(
@@ -607,16 +616,33 @@ fn store_file(o: &Opened, path: &Path, id: PaperId, now: i64) -> Result<Added, C
             already_present: true,
         });
     }
-    let name = path.file_name().map_or_else(
-        || "paper.pdf".to_string(),
-        |n| n.to_string_lossy().into_owned(),
-    );
-    let original = ep_os::paths::canonical(path).unwrap_or_else(|_| path.to_path_buf());
+    // A download is named after its address; the temporary download path is not worth keeping.
+    let from_url = source_url.as_deref().and_then(|u| {
+        u.split(['?', '#'])
+            .next()?
+            .rsplit('/')
+            .find(|s| !s.is_empty())
+            .map(str::to_string)
+    });
+    let name = from_url.unwrap_or_else(|| {
+        path.file_name().map_or_else(
+            || "paper.pdf".to_string(),
+            |n| n.to_string_lossy().into_owned(),
+        )
+    });
+    let name = if name.to_lowercase().ends_with(".pdf") {
+        name
+    } else {
+        format!("{name}.pdf")
+    };
+    let original = (source_url.is_none())
+        .then(|| ep_os::paths::canonical(path).unwrap_or_else(|_| path.to_path_buf()));
     let paper = Paper {
         id,
         file: blob,
         original_name: name,
-        original_path: Some(original.display().to_string()),
+        original_path: original.map(|p| p.display().to_string()),
+        source_url,
         title: None,
         authors: vec![],
         doi: None,
@@ -628,7 +654,7 @@ fn store_file(o: &Opened, path: &Path, id: PaperId, now: i64) -> Result<Added, C
     };
     o.db.write(|t| {
         t.execute(
-            "INSERT INTO paper (id, hash, size, media_type, original_name, original_path, added_ms) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            "INSERT INTO paper (id, hash, size, media_type, original_name, original_path, source_url, added_ms) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             params![
                 paper.id.to_string(),
                 paper.file.hash.to_hex(),
@@ -636,6 +662,7 @@ fn store_file(o: &Opened, path: &Path, id: PaperId, now: i64) -> Result<Added, C
                 paper.file.media_type.0,
                 paper.original_name,
                 paper.original_path,
+                paper.source_url,
                 paper.added_ms
             ],
         )

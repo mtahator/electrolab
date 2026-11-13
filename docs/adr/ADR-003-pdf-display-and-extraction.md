@@ -32,3 +32,20 @@ The Document engine needs text with exact positions for search, evidence, highli
 ## Evidence
 `spikes/s2-pdfium/RESULTS.md`, `spikes/s2-pdfium/out/report.md` — 20 fixture papers, 915 pages, minimum hardware.
 `spikes/s1-tauri-pdfjs/RESULTS.md`, `spikes/s1-tauri-pdfjs/out/report.md` — display, scrolling, range loading, real mouse input.
+
+## Amendment 1 (2026-11-13): PDFium draws by default
+
+**Measured in the built Reader** (`e2e/perf.mjs`; scroll the whole paper, 80 % of the view per frame):
+
+| Drawing | Paper | Longest main-thread task | Frames over 33 ms |
+|---|---|---|---|
+| PDF.js (main thread) | 2106.03711 (S1 heavy, 31 p.) | 249–329 ms | 49–57 of 64 |
+| PDF.js | 2511.21915 (286 p.) | 351–536 ms | 563–571 of 594 |
+| PDFium images (render cache, decoded off the main thread) | 2106.03711 | 0–55 ms | 7 of 64 |
+| PDFium images | 2511.21915 | 99 ms | 26 of 594 |
+
+S1 measured PDF.js page by page in a simple viewer; a real viewer drawing several pages while scrolling blocks the main thread far beyond the 100 ms budget, because PDF.js draws canvases on the main thread (its worker only parses).
+
+**Decision:** pages are drawn by PDFium on its own thread and shown as images from the render cache (`document.render`). PDF.js still loads the document (range requests) and draws only the recoloured themes (dark, night, high contrast), which need its page colours (text and lines recoloured, images untouched). Text, links and selection come from the Document engine in every case.
+
+**Follow-up:** draw the recoloured themes with PDFium's colour-scheme rendering (`FPDF_RenderPageBitmapWithColorScheme_Start`: path and text colours replaced, images kept). pdfium-render does not expose the page and bitmap handles it needs, so this takes a small direct binding to the PDFium library in the adapter (a named `unsafe` boundary). Until then the recoloured themes scroll with PDF.js's main-thread cost.

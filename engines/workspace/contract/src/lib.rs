@@ -120,6 +120,10 @@ pub struct ProjectInfo {
 pub struct FilePath {
     /// A file on this machine.
     pub path: String,
+    /// `workspace.add_file` only: the web address the file was downloaded from (kept with the
+    /// paper; the temporary download path is then not recorded).
+    #[serde(default)]
+    pub source_url: Option<String>,
 }
 
 /// What a file is.
@@ -154,6 +158,9 @@ pub struct Paper {
     /// Where it came from on this machine, if added from a file.
     #[serde(default)]
     pub original_path: Option<String>,
+    /// The web address it was downloaded from, if any.
+    #[serde(default)]
+    pub source_url: Option<String>,
     /// Title, when known.
     #[serde(default)]
     pub title: Option<String>,

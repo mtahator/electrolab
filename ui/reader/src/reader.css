@@ -734,3 +734,9 @@ kbd {
   font-size: var(--text-lg);
   pointer-events: none;
 }
+
+.prompt-label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}

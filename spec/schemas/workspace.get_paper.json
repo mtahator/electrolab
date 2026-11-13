@@ -135,6 +135,14 @@
           "null"
         ]
       },
+      "source_url": {
+        "default": null,
+        "description": "The web address it was downloaded from, if any.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
       "tags": {
         "default": [],
         "description": "Tags.",

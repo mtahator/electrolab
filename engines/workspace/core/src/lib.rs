@@ -167,6 +167,11 @@ pub const MIGRATIONS: &[(u32, &str, &str)] = &[
         PRIMARY KEY (paper, page)
     );",
     ),
+    (
+        3,
+        "papers downloaded from the web keep their address",
+        "ALTER TABLE paper ADD COLUMN source_url TEXT;",
+    ),
 ];
 
 /// Seconds counted from one `record_reading` report at most (the UI reports every few seconds;

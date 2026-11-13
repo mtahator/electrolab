@@ -49,8 +49,8 @@ export function setFilter(patch: Partial<Filter>): void {
 }
 
 /** Add one PDF and record its metadata. Returns the paper. */
-export async function importPdf(path: string): Promise<Paper> {
-  const added = await bus("workspace.add_file", { path });
+export async function importPdf(path: string, sourceUrl: string | null = null): Promise<Paper> {
+  const added = await bus("workspace.add_file", { path, source_url: sourceUrl });
   if (added.already_present && added.paper.metadata_source) return added.paper;
   const meta = await bus("document.metadata", { file: added.paper.file });
   return bus("workspace.set_paper_metadata", {

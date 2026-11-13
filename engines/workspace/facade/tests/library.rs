@@ -308,3 +308,38 @@ async fn reading_state_survives_reopening_and_stats_count_time() {
     .unwrap();
     assert_eq!(s.seconds, 340);
 }
+
+#[tokio::test]
+async fn downloaded_files_keep_their_address() {
+    let d = tempfile::tempdir().unwrap();
+    let e = env(d.path());
+    let _: ProjectInfo = call(&e.bus, "workspace.open_default_library", json!(null))
+        .await
+        .unwrap();
+    let tmp = d.path().join("1794000000.pdf");
+    std::fs::write(&tmp, "%PDF-1.4 downloaded").unwrap();
+    let a: Added = call(
+        &e.bus,
+        "workspace.add_file",
+        json!({ "path": tmp, "source_url": "https://arxiv.org/pdf/2111.12066v2?download=1" }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        a.paper.source_url.as_deref(),
+        Some("https://arxiv.org/pdf/2111.12066v2?download=1")
+    );
+    assert_eq!(a.paper.original_name, "2111.12066v2.pdf");
+    assert_eq!(a.paper.original_path, None);
+    // Unsafe addresses are not stored.
+    let tmp2 = d.path().join("x.pdf");
+    std::fs::write(&tmp2, "%PDF-1.4 other").unwrap();
+    let b: Added = call(
+        &e.bus,
+        "workspace.add_file",
+        json!({ "path": tmp2, "source_url": "javascript:alert(1)" }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(b.paper.source_url, None);
+}

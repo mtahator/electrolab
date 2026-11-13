@@ -82,3 +82,80 @@ pub fn on_second_instance(app: &tauri::AppHandle, args: &[String]) {
         let _ = app.emit("open-files", files);
     }
 }
+
+/// Where downloads wait until they are added to the library (emptied at start-up).
+pub fn downloads_dir() -> PathBuf {
+    std::env::temp_dir().join("electropaper-downloads")
+}
+
+/// Download a PDF from a web address the user gave (P1.M2.SH.7) with the system `curl`
+/// (http and https only, at most 200 MB, 2 minutes). Returns the downloaded file's path; the
+/// window then adds it to the library with the address kept as its source.
+#[tauri::command]
+pub async fn download_pdf(url: String) -> Result<String, String> {
+    let url = url.trim().to_string();
+    let lower = url.to_ascii_lowercase();
+    if !(lower.starts_with("https://") || lower.starts_with("http://"))
+        || url.contains(char::is_whitespace)
+    {
+        return Err("only http and https addresses can be opened".into());
+    }
+    let dir = downloads_dir();
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_nanos());
+    let file = dir.join(format!("{nanos}.pdf"));
+    let target = file.clone();
+    let out = tauri::async_runtime::spawn_blocking(move || {
+        let mut cmd = std::process::Command::new("curl.exe");
+        cmd.args([
+            "--location",
+            "--fail",
+            "--silent",
+            "--show-error",
+            "--proto",
+            "=https,http",
+            "--max-redirs",
+            "10",
+            "--max-filesize",
+            "209715200",
+            "--max-time",
+            "120",
+            "--user-agent",
+            "ElectroPaper-Reader",
+            "--output",
+        ])
+        .arg(&target)
+        .arg(&url)
+        .stdin(std::process::Stdio::null());
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+        }
+        cmd.output()
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| format!("the download tool could not start: {e}"))?;
+    if !out.status.success() {
+        let _ = std::fs::remove_file(&file);
+        let msg = String::from_utf8_lossy(&out.stderr).trim().to_string();
+        return Err(if msg.is_empty() {
+            "the download failed".into()
+        } else {
+            msg
+        });
+    }
+    Ok(file.display().to_string())
+}
+
+/// Remove downloads left from an earlier run.
+pub fn clean_downloads() {
+    if let Ok(entries) = std::fs::read_dir(downloads_dir()) {
+        for e in entries.flatten() {
+            let _ = std::fs::remove_file(e.path());
+        }
+    }
+}
