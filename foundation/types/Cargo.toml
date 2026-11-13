@@ -4,10 +4,18 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
-description = "Shared types for every engine (Phase 1 M1.TYP grows this crate)"
+description = "Shared types for every engine: ids, hashes, references, geometry, evidence"
 
 [dependencies]
 serde.workspace = true
+schemars.workspace = true
+uuid.workspace = true
+hex.workspace = true
+blake3 = { workspace = true, features = ["pure"] }
+
+[dev-dependencies]
+serde_json.workspace = true
+proptest.workspace = true
 
 [lints]
 workspace = true
