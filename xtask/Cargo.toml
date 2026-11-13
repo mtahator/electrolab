@@ -10,6 +10,7 @@ description = "Repository automation: architecture, schema and native-library ch
 anyhow.workspace = true
 cargo_metadata.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 sha2.workspace = true
 toml.workspace = true
 

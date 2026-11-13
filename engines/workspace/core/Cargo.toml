@@ -8,7 +8,6 @@ description = "Workspace engine core: project format, file classification, schem
 
 [dependencies]
 ep-workspace-contract = { path = "../contract" }
-ep-types = { path = "../../../foundation/types" }
 serde.workspace = true
 toml.workspace = true
 

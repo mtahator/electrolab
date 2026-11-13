@@ -1,0 +1,65 @@
+{
+  "command": "workspace.classify",
+  "input": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `workspace.classify` and `workspace.add_file`.",
+    "properties": {
+      "path": {
+        "description": "A file on this machine.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "path"
+    ],
+    "title": "FilePath",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "FileKind": {
+        "description": "What a file is.",
+        "oneOf": [
+          {
+            "const": "pdf",
+            "description": "A PDF (by content, not by name).",
+            "type": "string"
+          },
+          {
+            "const": "unsupported",
+            "description": "Anything else (not accepted in Phase 1).",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Output of `workspace.classify`.",
+    "properties": {
+      "kind": {
+        "$ref": "#/$defs/FileKind",
+        "description": "Kind."
+      },
+      "size": {
+        "description": "Size in bytes.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "kind",
+      "size"
+    ],
+    "title": "Classification",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Tell what kind of file this is (by content)"
+}

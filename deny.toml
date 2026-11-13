@@ -10,6 +10,11 @@ targets = [
 [advisories]
 version = 2
 yanked = "deny"
+ignore = [
+    # Unmaintained (not a vulnerability). Reaches us only through Tauri's Linux menu stack
+    # (muda -> gtk -> glib-macros), which is not built for Windows. Revisit at the port stage.
+    { id = "RUSTSEC-2024-0370", reason = "Linux-only transitive dependency of Tauri; review at the port stage" },
+]
 
 [licenses]
 version = 2

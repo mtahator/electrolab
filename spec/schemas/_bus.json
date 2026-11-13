@@ -1,0 +1,449 @@
+{
+  "types": {
+    "CommandError": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "description": "Why a call failed. Serialisable so every transport reports errors the same way.",
+      "oneOf": [
+        {
+          "description": "No command with this name.",
+          "properties": {
+            "code": {
+              "const": "unknown_command",
+              "type": "string"
+            },
+            "command": {
+              "description": "Name asked for.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "command"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Input does not match the schema.",
+          "properties": {
+            "code": {
+              "const": "invalid_input",
+              "type": "string"
+            },
+            "message": {
+              "description": "Details.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "The policy forbids it.",
+          "properties": {
+            "code": {
+              "const": "denied",
+              "type": "string"
+            },
+            "reason": {
+              "description": "Why.",
+              "type": "string"
+            },
+            "rule": {
+              "description": "Rule cited.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "rule",
+            "reason"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "The user must approve first; resend with `rule` in `approved`.",
+          "properties": {
+            "code": {
+              "const": "needs_approval",
+              "type": "string"
+            },
+            "reason": {
+              "description": "What to tell the user.",
+              "type": "string"
+            },
+            "rule": {
+              "description": "Rule cited.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "rule",
+            "reason"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Cancelled by the caller.",
+          "properties": {
+            "code": {
+              "const": "cancelled",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "The deadline passed.",
+          "properties": {
+            "code": {
+              "const": "deadline_exceeded",
+              "type": "string"
+            },
+            "deadline_ms": {
+              "description": "Deadline.",
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "code",
+            "deadline_ms"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "The command could not do its work.",
+          "properties": {
+            "code": {
+              "const": "failed",
+              "type": "string"
+            },
+            "kind": {
+              "description": "Short machine-readable kind, e.g. `not_found`, `io`, `corrupt`.",
+              "type": "string"
+            },
+            "message": {
+              "description": "Human-readable message.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "kind",
+            "message"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "The transport broke (IPC peer gone, frame too large).",
+          "properties": {
+            "code": {
+              "const": "transport",
+              "type": "string"
+            },
+            "message": {
+              "description": "Details.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "type": "object"
+        }
+      ],
+      "title": "CommandError"
+    },
+    "CommandInfo": {
+      "$defs": {
+        "DataClass": {
+          "description": "The kind of data an operation touches (§16.5).",
+          "oneOf": [
+            {
+              "const": "public_paper",
+              "description": "A published paper.",
+              "type": "string"
+            },
+            {
+              "const": "confidential_dataset",
+              "description": "A dataset the user marked confidential.",
+              "type": "string"
+            },
+            {
+              "const": "unpublished_idea",
+              "description": "The user's own unpublished ideas, notes and drafts.",
+              "type": "string"
+            },
+            {
+              "const": "experiment_results",
+              "description": "Results of the user's experiments.",
+              "type": "string"
+            },
+            {
+              "const": "document_embeddings",
+              "description": "Embeddings computed from documents.",
+              "type": "string"
+            },
+            {
+              "const": "human_or_genetic",
+              "description": "Human or genetic data.",
+              "type": "string"
+            },
+            {
+              "const": "local_only",
+              "description": "Anything the user marked \"local only\".",
+              "type": "string"
+            }
+          ]
+        },
+        "Destination": {
+          "description": "Where the data goes.",
+          "oneOf": [
+            {
+              "const": "device",
+              "description": "Stays on this computer.",
+              "type": "string"
+            },
+            {
+              "const": "our_server",
+              "description": "Our own service (sync, later).",
+              "type": "string"
+            },
+            {
+              "const": "external",
+              "description": "A third-party model or service.",
+              "type": "string"
+            }
+          ]
+        },
+        "Operation": {
+          "description": "What kind of operation (§16.4 permission levels).",
+          "oneOf": [
+            {
+              "const": "read",
+              "description": "Read papers and project files.",
+              "type": "string"
+            },
+            {
+              "const": "create",
+              "description": "Create notes, notebooks or files in the project.",
+              "type": "string"
+            },
+            {
+              "const": "execute",
+              "description": "Run code or simulations locally.",
+              "type": "string"
+            },
+            {
+              "const": "remote_execute",
+              "description": "Run on HPC, SSH or cloud machines.",
+              "type": "string"
+            },
+            {
+              "const": "external_api",
+              "description": "Send data to an external model or service.",
+              "type": "string"
+            },
+            {
+              "const": "destructive",
+              "description": "Delete, overwrite or publish.",
+              "type": "string"
+            }
+          ]
+        },
+        "Permission": {
+          "description": "What the policy needs to know about a command, declared once at registration.",
+          "properties": {
+            "data": {
+              "description": "Data classes the command may touch.",
+              "items": {
+                "$ref": "#/$defs/DataClass"
+              },
+              "type": "array",
+              "uniqueItems": true
+            },
+            "destination": {
+              "$ref": "#/$defs/Destination",
+              "description": "Where data goes."
+            },
+            "operation": {
+              "$ref": "#/$defs/Operation",
+              "description": "Permission level."
+            }
+          },
+          "required": [
+            "operation",
+            "data",
+            "destination"
+          ],
+          "type": "object"
+        },
+        "Stability": {
+          "description": "How settled a command's contract is (Draft 2.2 §8.3).",
+          "oneOf": [
+            {
+              "const": "experimental",
+              "description": "May change without notice.",
+              "type": "string"
+            },
+            {
+              "const": "stable",
+              "description": "Changes only with a version bump and a migration note.",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "description": "Public description of a command (listed by `ep commands`, MCP, generated bindings).",
+      "properties": {
+        "input_schema": {
+          "description": "JSON Schema of the input."
+        },
+        "name": {
+          "description": "`engine.verb`.",
+          "type": "string"
+        },
+        "output_schema": {
+          "description": "JSON Schema of the output."
+        },
+        "permission": {
+          "$ref": "#/$defs/Permission",
+          "description": "Policy declaration."
+        },
+        "stability": {
+          "$ref": "#/$defs/Stability",
+          "description": "Contract stability."
+        },
+        "streaming": {
+          "description": "Whether it streams progress items.",
+          "type": "boolean"
+        },
+        "summary": {
+          "description": "One line for humans and agents.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "summary",
+        "stability",
+        "permission",
+        "streaming",
+        "input_schema",
+        "output_schema"
+      ],
+      "title": "CommandInfo",
+      "type": "object"
+    },
+    "Envelope": {
+      "$defs": {
+        "Actor": {
+          "description": "Who caused an action — recorded on every command envelope and provenance event.",
+          "oneOf": [
+            {
+              "description": "The person using the app.",
+              "properties": {
+                "kind": {
+                  "const": "user",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "type": "object"
+            },
+            {
+              "description": "An agent or model acting for the user, by name.",
+              "properties": {
+                "kind": {
+                  "const": "agent",
+                  "type": "string"
+                },
+                "name": {
+                  "description": "Agent or tool name.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "name"
+              ],
+              "type": "object"
+            },
+            {
+              "description": "The app itself (background preparation, migrations).",
+              "properties": {
+                "kind": {
+                  "const": "system",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "description": "One command call, as sent by any host (UI, CLI, MCP, IPC).",
+      "properties": {
+        "actor": {
+          "$ref": "#/$defs/Actor",
+          "description": "Who asks."
+        },
+        "approved": {
+          "default": [],
+          "description": "Policy rules the user approved for this call (set only by hosts after asking).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "command": {
+          "description": "Command name, `engine.verb`.",
+          "type": "string"
+        },
+        "deadline_ms": {
+          "default": null,
+          "description": "Give up after this many milliseconds.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "id": {
+          "description": "Correlation id; also used to cancel the call.",
+          "format": "uuid",
+          "type": "string"
+        },
+        "input": {
+          "default": null,
+          "description": "Input, as JSON matching the command's input schema."
+        }
+      },
+      "required": [
+        "id",
+        "command",
+        "actor"
+      ],
+      "title": "Envelope",
+      "type": "object"
+    }
+  }
+}

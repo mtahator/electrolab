@@ -1,0 +1,197 @@
+{
+  "command": "workspace.set_paper_metadata",
+  "input": {
+    "$defs": {
+      "PaperId": {
+        "description": "A paper (a PDF in the library or a project).\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `workspace.set_paper_metadata`. Fields left `None` are unchanged.",
+    "properties": {
+      "authors": {
+        "default": null,
+        "description": "Authors.",
+        "items": {
+          "type": "string"
+        },
+        "type": [
+          "array",
+          "null"
+        ]
+      },
+      "doi": {
+        "default": null,
+        "description": "DOI.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "id": {
+        "$ref": "#/$defs/PaperId",
+        "description": "Which paper."
+      },
+      "pages": {
+        "default": null,
+        "description": "Page count.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "source": {
+        "description": "Where it came from.",
+        "type": "string"
+      },
+      "title": {
+        "default": null,
+        "description": "Title.",
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "required": [
+      "id",
+      "source"
+    ],
+    "title": "SetPaperMetadata",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "BlobRef": {
+        "description": "A file in the content-addressed store: messages carry these, never large bytes (§9.4).",
+        "properties": {
+          "hash": {
+            "$ref": "#/$defs/Hash",
+            "description": "Content hash."
+          },
+          "media_type": {
+            "$ref": "#/$defs/MediaType",
+            "description": "What the bytes are."
+          },
+          "size": {
+            "description": "Size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "Hash": {
+        "description": "BLAKE3 content hash (hex)",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "MediaType": {
+        "description": "A media type such as `application/pdf`.",
+        "type": "string"
+      },
+      "PaperId": {
+        "description": "A paper (a PDF in the library or a project).\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "A paper in a library or project.",
+    "properties": {
+      "added_ms": {
+        "description": "Added, ms since the Unix epoch.",
+        "format": "int64",
+        "type": "integer"
+      },
+      "authors": {
+        "default": [],
+        "description": "Authors in order.",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "doi": {
+        "default": null,
+        "description": "DOI (lowercase, without `https://doi.org/`).",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "file": {
+        "$ref": "#/$defs/BlobRef",
+        "description": "The managed copy."
+      },
+      "id": {
+        "$ref": "#/$defs/PaperId",
+        "description": "Id."
+      },
+      "metadata_source": {
+        "default": null,
+        "description": "Where the metadata came from (e.g. `pdf-info`), when set.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "original_name": {
+        "description": "File name when added.",
+        "type": "string"
+      },
+      "original_path": {
+        "default": null,
+        "description": "Where it came from on this machine, if added from a file.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "pages": {
+        "default": null,
+        "description": "Number of pages, when known.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "title": {
+        "default": null,
+        "description": "Title, when known.",
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "required": [
+      "id",
+      "file",
+      "original_name",
+      "added_ms"
+    ],
+    "title": "Paper",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "create"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Record title, authors, DOI or page count for a paper"
+}

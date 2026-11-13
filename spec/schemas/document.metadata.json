@@ -1,0 +1,113 @@
+{
+  "command": "document.metadata",
+  "input": {
+    "$defs": {
+      "BlobRef": {
+        "description": "A file in the content-addressed store: messages carry these, never large bytes (§9.4).",
+        "properties": {
+          "hash": {
+            "$ref": "#/$defs/Hash",
+            "description": "Content hash."
+          },
+          "media_type": {
+            "$ref": "#/$defs/MediaType",
+            "description": "What the bytes are."
+          },
+          "size": {
+            "description": "Size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "Hash": {
+        "description": "BLAKE3 content hash (hex)",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "MediaType": {
+        "description": "A media type such as `application/pdf`.",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `document.metadata`.",
+    "properties": {
+      "file": {
+        "$ref": "#/$defs/BlobRef",
+        "description": "The stored PDF."
+      }
+    },
+    "required": [
+      "file"
+    ],
+    "title": "MetadataRequest",
+    "type": "object"
+  },
+  "output": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Output of `document.metadata`: what the file says about itself, cleaned. Fields are `None`\nrather than guessed when the file's values look like junk.",
+    "properties": {
+      "authors": {
+        "description": "Authors in order.",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "doi": {
+        "description": "DOI, lowercase.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "encrypted": {
+        "description": "The file is encrypted (fields may be missing).",
+        "type": "boolean"
+      },
+      "pages": {
+        "description": "Number of pages.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "subject": {
+        "description": "Subject line (often journal and year).",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "title": {
+        "description": "Title.",
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "required": [
+      "authors",
+      "pages",
+      "encrypted"
+    ],
+    "title": "PdfMetadata",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Title, authors, DOI and page count from a stored PDF"
+}

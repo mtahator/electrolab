@@ -1,0 +1,125 @@
+{
+  "command": "workspace.create_project",
+  "input": {
+    "$defs": {
+      "ProjectKind": {
+        "description": "Library (the user's collection) or project (a focused piece of work).",
+        "oneOf": [
+          {
+            "const": "library",
+            "description": "The user's library.",
+            "type": "string"
+          },
+          {
+            "const": "project",
+            "description": "A research project.",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `workspace.create_project`.",
+    "properties": {
+      "folder": {
+        "description": "Folder to create (must not exist, or be empty).",
+        "type": "string"
+      },
+      "kind": {
+        "$ref": "#/$defs/ProjectKind",
+        "description": "Library or project."
+      },
+      "name": {
+        "description": "Display name.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "folder",
+      "name",
+      "kind"
+    ],
+    "title": "CreateProject",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "ProjectId": {
+        "description": "A library or project.\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      },
+      "ProjectKind": {
+        "description": "Library (the user's collection) or project (a focused piece of work).",
+        "oneOf": [
+          {
+            "const": "library",
+            "description": "The user's library.",
+            "type": "string"
+          },
+          {
+            "const": "project",
+            "description": "A research project.",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "An open library or project.",
+    "properties": {
+      "created_ms": {
+        "description": "Created, ms since the Unix epoch.",
+        "format": "int64",
+        "type": "integer"
+      },
+      "folder": {
+        "description": "Where it is on this machine.",
+        "type": "string"
+      },
+      "format": {
+        "description": "Folder format version.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "id": {
+        "$ref": "#/$defs/ProjectId",
+        "description": "Stable id (kept when the folder moves)."
+      },
+      "kind": {
+        "$ref": "#/$defs/ProjectKind",
+        "description": "Library or project."
+      },
+      "name": {
+        "description": "Display name.",
+        "type": "string"
+      },
+      "papers": {
+        "description": "Number of papers.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "id",
+      "name",
+      "kind",
+      "folder",
+      "format",
+      "created_ms",
+      "papers"
+    ],
+    "title": "ProjectInfo",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "create"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Create a library or project folder and open it"
+}

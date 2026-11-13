@@ -1,19 +1,49 @@
-//! Committed JSON Schemas must match what the code generates (Draft 2.2 §8.6).
+//! Generated contract surfaces (Draft 2.2 §8.6, P1.M1.GEN.1/3).
 //!
-//! Generators write into `spec/schemas/`. This check regenerates and then asks Git whether
-//! anything under `spec/` changed. A difference means a contract changed without the
-//! committed schema (and its version) being updated.
-//!
-//! Until the first contract crate exists (Phase 1, M1.GEN.3) there is nothing to generate,
-//! so the check only verifies that `spec/` is clean.
+//! `gen` asks the `ep` CLI for every registered command's input and output JSON Schema
+//! (`spec/schemas/`), then writes TypeScript from them (`ui/bindings/src/`).
+//! `check` regenerates and asks Git whether anything changed: a difference means a contract
+//! changed without the committed schema (and its version) being updated.
 
 use std::path::Path;
 use std::process::Command;
 
+const GENERATED: &[&str] = &[
+    "spec/schemas",
+    "ui/bindings/src/types.ts",
+    "ui/bindings/src/commands.ts",
+];
+
+pub fn generate(root: &Path) -> anyhow::Result<()> {
+    let dir = root.join("spec").join("schemas");
+    if dir.exists() {
+        // Start clean so a removed command also disappears from the committed schemas.
+        for e in std::fs::read_dir(&dir)? {
+            let p = e?.path();
+            if p.extension().is_some_and(|x| x == "json") {
+                std::fs::remove_file(p)?;
+            }
+        }
+    }
+    let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
+    let status = Command::new(cargo)
+        .args(["run", "--quiet", "-p", "ep-cli", "--", "schemas"])
+        .arg(&dir)
+        .current_dir(root)
+        .status()?;
+    if !status.success() {
+        anyhow::bail!("`ep schemas` failed");
+    }
+    crate::ts::generate(&dir, &root.join("ui").join("bindings").join("src"))?;
+    println!("gen: schemas in spec/schemas, TypeScript in ui/bindings/src");
+    Ok(())
+}
+
 pub fn check(root: &Path) -> anyhow::Result<()> {
-    // Phase 1 adds: `cargo run -p ep-schema-gen -- spec/schemas` here.
+    generate(root)?;
     let output = Command::new("git")
-        .args(["status", "--porcelain", "--", "spec"])
+        .args(["status", "--porcelain", "--"])
+        .args(GENERATED)
         .current_dir(root)
         .output()?;
     if !output.status.success() {
@@ -28,8 +58,8 @@ pub fn check(root: &Path) -> anyhow::Result<()> {
         Ok(())
     } else {
         anyhow::bail!(
-            "schema-check: generated schemas differ from the committed ones:\n{changed}\
-             bump the contract version and commit the new schema (§8.4)"
+            "schema-check: generated schemas or bindings differ from the committed ones:\n{changed}\
+             review the contract change, bump its version and commit the regenerated files (§8.4)"
         )
     }
 }

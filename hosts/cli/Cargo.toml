@@ -1,0 +1,36 @@
+[package]
+name = "ep-cli"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "The ep command line: every registered command, JSON in and out"
+
+[[bin]]
+name = "ep"
+path = "src/main.rs"
+
+[dependencies]
+ep-bus = { path = "../../foundation/bus" }
+ep-os = { path = "../../foundation/os" }
+ep-telemetry = { path = "../../foundation/telemetry" }
+ep-types = { path = "../../foundation/types" }
+ep-workspace = { path = "../../engines/workspace/facade" }
+ep-workspace-contract = { path = "../../engines/workspace/contract" }
+ep-document = { path = "../../engines/document/facade" }
+ep-document-contract = { path = "../../engines/document/contract" }
+anyhow.workspace = true
+clap.workspace = true
+serde.workspace = true
+schemars.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+ep-os-windows = { path = "../../foundation/os-windows" }
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true
