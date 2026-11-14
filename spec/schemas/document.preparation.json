@@ -1,0 +1,231 @@
+{
+  "command": "document.preparation",
+  "input": {
+    "$defs": {
+      "BlobRef": {
+        "description": "A file in the content-addressed store: messages carry these, never large bytes (§9.4).",
+        "properties": {
+          "hash": {
+            "$ref": "#/$defs/Hash",
+            "description": "Content hash."
+          },
+          "media_type": {
+            "$ref": "#/$defs/MediaType",
+            "description": "What the bytes are."
+          },
+          "size": {
+            "description": "Size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "Hash": {
+        "description": "BLAKE3 content hash (hex)",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "MediaType": {
+        "description": "A media type such as `application/pdf`.",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input naming a file.",
+    "properties": {
+      "file": {
+        "$ref": "#/$defs/BlobRef",
+        "description": "The file."
+      }
+    },
+    "required": [
+      "file"
+    ],
+    "title": "FileOnly",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "BlobRef": {
+        "description": "A file in the content-addressed store: messages carry these, never large bytes (§9.4).",
+        "properties": {
+          "hash": {
+            "$ref": "#/$defs/Hash",
+            "description": "Content hash."
+          },
+          "media_type": {
+            "$ref": "#/$defs/MediaType",
+            "description": "What the bytes are."
+          },
+          "size": {
+            "description": "Size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "Hash": {
+        "description": "BLAKE3 content hash (hex)",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "MediaType": {
+        "description": "A media type such as `application/pdf`.",
+        "type": "string"
+      },
+      "Stage": {
+        "description": "A stage of background preparation, in the order they run.",
+        "oneOf": [
+          {
+            "const": "text",
+            "description": "Characters of every page; marks pages without a usable text layer.",
+            "type": "string"
+          },
+          {
+            "const": "outline",
+            "description": "Section headings (the generated outline).",
+            "type": "string"
+          },
+          {
+            "const": "objects",
+            "description": "Figures, tables, equations and the rest, by the layout model.",
+            "type": "string"
+          },
+          {
+            "const": "ocr",
+            "description": "Text for pages that have none (scanned).",
+            "type": "string"
+          },
+          {
+            "const": "links",
+            "description": "Reference list, citation markers and mentions of figures, tables and equations.",
+            "type": "string"
+          }
+        ]
+      },
+      "StageState": {
+        "description": "One stage's state.",
+        "properties": {
+          "done": {
+            "description": "Pages done.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "note": {
+            "default": null,
+            "description": "Why it was skipped or failed.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "stage": {
+            "$ref": "#/$defs/Stage",
+            "description": "Which stage."
+          },
+          "status": {
+            "$ref": "#/$defs/StageStatus",
+            "description": "Where it stands."
+          },
+          "total": {
+            "description": "Pages to do.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "stage",
+          "status",
+          "done",
+          "total"
+        ],
+        "type": "object"
+      },
+      "StageStatus": {
+        "description": "How a stage stands for one file.",
+        "oneOf": [
+          {
+            "const": "pending",
+            "description": "Not started.",
+            "type": "string"
+          },
+          {
+            "const": "running",
+            "description": "Running now.",
+            "type": "string"
+          },
+          {
+            "const": "done",
+            "description": "Finished.",
+            "type": "string"
+          },
+          {
+            "const": "skipped",
+            "description": "Not possible here (e.g. the layout model is not downloaded); `note` says why.",
+            "type": "string"
+          },
+          {
+            "const": "failed",
+            "description": "Failed; `note` says why. Other stages still run.",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Output of `document.prepare` (and `document.preparation`): every stage's state. The call\nstreams a `StageState` each time a stage moves.",
+    "properties": {
+      "file": {
+        "$ref": "#/$defs/BlobRef",
+        "description": "The file."
+      },
+      "image_only_pages": {
+        "description": "Pages without a usable text layer (scanned), 1-based.",
+        "items": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "type": "array"
+      },
+      "stages": {
+        "description": "Stages in order.",
+        "items": {
+          "$ref": "#/$defs/StageState"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "file",
+      "stages",
+      "image_only_pages"
+    ],
+    "title": "Preparation",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "How far preparation of a file has come"
+}

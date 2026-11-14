@@ -164,6 +164,26 @@ export interface BookmarkRef {
 /** What a mark means to the reader (Draft 2.2 §28.3). Written to `/Subj`. */
 export type Category = "definition" | "method" | "result" | "question" | "to_check";
 
+/** One table cell. */
+export type Cell = {
+  /** Box on the page. */
+  rect: PageRect;
+  /** Text. */
+  text: string;
+  /** The number in it, when the cell is numeric ("1.2e-3", "45 %", "−0.7 ± 0.1" → −0.7). */
+  value?: number | null;
+};
+
+/** An in-text citation marker ("[12]", "[3–5, 9]", "(Smith et al., 2020)"). */
+export interface CitationMarker {
+  /** Indexes into the reference list (0-based), in order. */
+  entries: number[];
+  /** Where it is. */
+  quads: PageQuad[];
+  /** The text as printed. */
+  text: string;
+}
+
 /** Output of `workspace.classify`. */
 export interface Classification {
   /** Kind. */
@@ -262,6 +282,18 @@ export interface CommandInfo {
   summary: string;
 }
 
+/** Output of `document.contents`: what the paper contains, for navigation. */
+export interface Contents {
+  /** Numbered equations in order. */
+  equations: DocObject[];
+  /** Figures in order. */
+  figures: DocObject[];
+  /** Section headings found in the text (used when the PDF has no bookmarks). */
+  sections: OutlineItem[];
+  /** Tables in order. */
+  tables: DocObject[];
+}
+
 /** What surrounds each hit. */
 export interface ContextOptions {
   /** Words after the hit (for `Words`). */
@@ -311,6 +343,28 @@ export interface DocInfo {
   sizes: PageSize[];
 }
 
+/** An object on a page. */
+export type DocObject = {
+  /** The caption's box. */
+  caption_rect?: unknown & (PageRect | null);
+  /** Stable within the file: `p<page>-<kind>-<n>`. */
+  id: string;
+  /** What it is. */
+  kind: ObjectKind;
+  /** Printed label: "Figure 3", "Table 2", "(7)", "4.2". */
+  label?: string | null;
+  /** The number alone: "3", "2", "7", "4.2". */
+  number?: string | null;
+  /** Position in reading order on the page (0 = first). */
+  order: number;
+  /** Where it is. */
+  rect: PageRect;
+  /** Detector confidence 0–1 (1 when found from the text alone). */
+  score: number;
+  /** Figures and tables: the caption text; headings: the heading text. */
+  text?: string | null;
+};
+
 /** One command call, as sent by any host (UI, CLI, MCP, IPC). */
 export type Envelope = {
   /** Who asks. */
@@ -327,8 +381,40 @@ export type Envelope = {
   input?: unknown;
 };
 
+/** Output of `document.equation`. */
+export type Equation = {
+  /** The equation as a PNG. */
+  image: BlobRef;
+  /** LaTeX from the formula model, when it is available and the conversion succeeded. */
+  latex?: string | null;
+  /** Why there is no LaTeX. */
+  note?: string | null;
+  /** The equation object. */
+  object: DocObject;
+  /** 1-based page. */
+  page: number;
+  /** Text of the equation from the PDF (often partial for math). */
+  text: string;
+};
+
+/** Input of `document.equation`: an equation object, or a printed number. */
+export type EquationRequest = {
+  /** The file. */
+  file: BlobRef;
+  /** Or the printed number ("12", "2.3"). */
+  number?: string | null;
+  /** The object, as returned by `document.objects`. */
+  object?: unknown & (ObjectRef | null);
+};
+
 /** What a file is. */
 export type FileKind = "pdf" | "unsupported";
+
+/** Input naming a file. */
+export interface FileOnly {
+  /** The file. */
+  file: BlobRef;
+}
 
 /** Input of `workspace.classify` and `workspace.add_file`. */
 export type FilePath = {
@@ -484,10 +570,41 @@ export interface MatchOptions {
 /** A media type such as `application/pdf`. */
 export type MediaType = string;
 
+/** A mention of a figure, table, equation or section in the text. */
+export type Mention = {
+  /** What kind. */
+  kind: MentionKind;
+  /** Numbers referred to ("3"; "2", "3", "4" for a range). */
+  numbers: string[];
+  /** Where it is (one quad per line piece). */
+  quads: PageQuad[];
+  /** The object it refers to (the first number's), when found: `(page, object id)`. */
+  target?: unknown & (ObjectRef | null);
+  /** The text as printed ("Fig. 3(b)"). */
+  text: string;
+};
+
+/** What a mention points at. */
+export type MentionKind = "figure" | "table" | "equation" | "section";
+
 /** Input of `document.metadata`. */
 export interface MetadataRequest {
   /** The stored PDF. */
   file: BlobRef;
+}
+
+/** Page models the engine can use, and whether each is present. */
+export interface ModelInfo {
+  /** Id ("egret-medium", "ppocrv5-det", …). */
+  id: string;
+  /** Licence. */
+  licence: string;
+  /** Present and verified. */
+  present: boolean;
+  /** What it does. */
+  purpose: string;
+  /** Download size in bytes. */
+  size: number;
 }
 
 /** One point in a notebook's history. */
@@ -509,6 +626,25 @@ export interface NotesVersion {
  */
 export type ObjectId = string;
 
+/** What an object on the page is. */
+export type ObjectKind = "figure" | "table" | "equation" | "heading" | "title" | "caption" | "text" | "list_item" | "footnote" | "page_furniture" | "code";
+
+/** A reference to an object in the same file. */
+export interface ObjectRef {
+  /** The object's id. */
+  id: string;
+  /** 1-based page. */
+  page: number;
+}
+
+/** Input naming one page of a file. */
+export interface ObjectsRequest {
+  /** The file. */
+  file: BlobRef;
+  /** 1-based page. */
+  page: number;
+}
+
 /** Input of `workspace.open_project`. */
 export interface OpenProject {
   /** The project folder. */
@@ -527,6 +663,16 @@ export type OutlineItem = {
   /** Title. */
   title: string;
 };
+
+/** Objects of one page. */
+export interface PageObjects {
+  /** The layout model ran on this page (otherwise only text-derived objects are listed). */
+  detected: boolean;
+  /** In reading order. */
+  objects: DocObject[];
+  /** 1-based page. */
+  page: number;
+}
 
 /** A point on a page. */
 export interface PagePoint {
@@ -709,6 +855,27 @@ export interface Permission {
 }
 
 /**
+ * Output of `document.prepare` (and `document.preparation`): every stage's state. The call
+ * streams a `StageState` each time a stage moves.
+ */
+export interface Preparation {
+  /** The file. */
+  file: BlobRef;
+  /** Pages without a usable text layer (scanned), 1-based. */
+  image_only_pages: number[];
+  /** Stages in order. */
+  stages: StageState[];
+}
+
+/** Input of `document.prepare`. */
+export interface PrepareRequest {
+  /** The file. */
+  file: BlobRef;
+  /** Pages to do first (the ones in view). */
+  first_pages?: number[];
+}
+
+/**
  * A library or project.
  * 
  * Serialised as the UUID's canonical hyphenated string.
@@ -774,6 +941,58 @@ export interface RecordReading {
   /** Seconds of active reading in this interval (at most 300 counted). */
   seconds: number;
 }
+
+/** One entry of the reference list. */
+export type Reference = {
+  /** arXiv identifier. */
+  arxiv?: string | null;
+  /** Authors as printed (surnames first when the entry gives them that way). */
+  authors?: string[];
+  /** DOI, lowercase. */
+  doi?: string | null;
+  /** 0-based position in the list. */
+  index: number;
+  /** Printed label: "12" for "[12]", or `None` for author–year lists. */
+  label?: string | null;
+  /** 1-based page of the entry's first line. */
+  page: number;
+  /** The entry's box on that page. */
+  rect: PageRect;
+  /** The whole entry, line breaks joined. */
+  text: string;
+  /** Title (best guess). */
+  title?: string | null;
+  /** Web address in the entry. */
+  url?: string | null;
+  /** Year. */
+  year?: string | null;
+};
+
+/** Output of `document.region`. */
+export type RegionHit = {
+  /** The region as a PNG. */
+  image: BlobRef;
+  /** The object under the point or best covering the rectangle, if any. */
+  object?: unknown & (DocObject | null);
+  /** The region (the object's box, or the dragged rectangle). */
+  rect: PageRect;
+  /** Text inside the region. */
+  text: string;
+};
+
+/** Input of `document.region`: a point (click) or a rectangle (drag) on a page. */
+export type RegionRequest = {
+  /** The file. */
+  file: BlobRef;
+  /** 1-based page. */
+  page: number;
+  /** A clicked point. */
+  point?: unknown & (PagePoint | null);
+  /** A dragged rectangle. */
+  rect?: unknown & (PageRect | null);
+  /** Width of the cropped image in pixels (default 800). */
+  width_px?: number | null;
+};
 
 /** Input of `workspace.rename_collection`. */
 export interface RenameCollection {
@@ -921,6 +1140,50 @@ export type Sort = "position" | "score";
 
 /** How settled a command's contract is (Draft 2.2 §8.3). */
 export type Stability = "experimental" | "stable";
+
+/** A stage of background preparation, in the order they run. */
+export type Stage = "text" | "outline" | "objects" | "ocr" | "links";
+
+/** One stage's state. */
+export type StageState = {
+  /** Pages done. */
+  done: number;
+  /** Why it was skipped or failed. */
+  note?: string | null;
+  /** Which stage. */
+  stage: Stage;
+  /** Where it stands. */
+  status: StageStatus;
+  /** Pages to do. */
+  total: number;
+};
+
+/** How a stage stands for one file. */
+export type StageStatus = "pending" | "running" | "done" | "skipped" | "failed";
+
+/** Output of `document.table`: cells in rows and columns, from the words inside the table box. */
+export type Table = {
+  /** The table as CSV (RFC 4180). */
+  csv: string;
+  /** How many leading rows are headers. */
+  header_rows: number;
+  /** The table object. */
+  object: DocObject;
+  /** 1-based page. */
+  page: number;
+  /** Rows of cells (every row has the same number of columns). */
+  rows: Cell[][];
+  /** Units found in header cells, per column ("K", "W/m²", "%"), when printed. */
+  units: (string | null)[];
+};
+
+/** Input of `document.table`. */
+export interface TableRequest {
+  /** The file. */
+  file: BlobRef;
+  /** The table object. */
+  object: ObjectRef;
+}
 
 /** A tag and how many papers carry it. */
 export interface TagCount {

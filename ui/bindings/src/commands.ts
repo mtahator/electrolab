@@ -13,18 +13,40 @@ export interface Commands {
   "document.annotations_redo": { input: T.AnnotationsOf; output: T.AnnotationSet };
   /** Undo the last annotation edit of a paper */
   "document.annotations_undo": { input: T.AnnotationsOf; output: T.AnnotationSet };
+  /** Citation markers on a page, linked to the reference list */
+  "document.citation_markers": { input: T.ObjectsRequest; output: T.CitationMarker[] };
+  /** Generated outline and lists of figures, tables and equations */
+  "document.contents": { input: T.FileOnly; output: T.Contents };
+  /** An equation as an image, with LaTeX when the formula model is installed */
+  "document.equation": { input: T.EquationRequest; output: T.Equation };
   /** Page count and the size of every page */
   "document.info": { input: T.FileRequest; output: T.DocInfo };
   /** Link areas of a page and where they go */
   "document.links": { input: T.PageRequest; output: T.Link[] };
+  /** Mentions of figures, tables, equations and sections on a page */
+  "document.mentions": { input: T.ObjectsRequest; output: T.Mention[] };
   /** Title, authors, DOI and page count from a stored PDF */
   "document.metadata": { input: T.MetadataRequest; output: T.PdfMetadata };
+  /** Page models and whether they are present */
+  "document.models": { input: null; output: T.ModelInfo[] };
+  /** Objects on a page: figures, tables, equations, headings */
+  "document.objects": { input: T.ObjectsRequest; output: T.PageObjects };
   /** The PDF's bookmarks */
   "document.outline": { input: T.FileRequest; output: T.OutlineItem[] };
+  /** How far preparation of a file has come */
+  "document.preparation": { input: T.FileOnly; output: T.Preparation };
+  /** Prepare a file in the background (text, outline, objects, links); streams progress */
+  "document.prepare": { input: T.PrepareRequest; output: T.Preparation };
+  /** The reference list */
+  "document.references": { input: T.FileOnly; output: T.Reference[] };
+  /** The object at a point or in a rectangle, with an image of it */
+  "document.region": { input: T.RegionRequest; output: T.RegionHit };
   /** A page as a PNG image (cached) */
   "document.render": { input: T.RenderRequest; output: T.Rendered };
   /** Notation-aware word search with context in one or more papers */
   "document.search": { input: T.SearchRequest; output: T.SearchResult };
+  /** A table as rows of cells, with CSV */
+  "document.table": { input: T.TableRequest; output: T.Table };
   /** Characters, words and lines of a page, with boxes in page space */
   "document.text": { input: T.PageRequest; output: T.PageText };
   /** Small images of pages (cached) */

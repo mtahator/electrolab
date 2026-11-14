@@ -10,6 +10,7 @@ description = "Document engine core: pure logic (no I/O, clock, randomness or ne
 ep-document-contract = { path = "../contract" }
 ep-types = { path = "../../../foundation/types" }
 unicode-normalization.workspace = true
+regex.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

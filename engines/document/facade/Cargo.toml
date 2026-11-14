@@ -11,6 +11,7 @@ ep-document-contract = { path = "../contract" }
 ep-document-core = { path = "../core" }
 ep-document-adapter-lopdf = { path = "../adapters/lopdf" }
 ep-document-adapter-pdfium = { path = "../adapters/pdfium" }
+ep-document-adapter-onnx = { path = "../adapters/onnx" }
 ep-blob = { path = "../../../foundation/blob" }
 ep-types = { path = "../../../foundation/types" }
 ep-bus = { path = "../../../foundation/bus" }

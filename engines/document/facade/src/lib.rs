@@ -6,7 +6,7 @@
 //! disposable render cache (content-addressed, in the app cache folder).
 #![deny(missing_docs)]
 
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Weak};
 
@@ -25,7 +25,10 @@ use parking_lot::{Mutex, RwLock};
 use serde_json::json;
 
 mod annotations;
+mod intel;
+mod models;
 pub use annotations::DATABASE as ANNOTATION_DATABASE;
+pub use models::{ModelSpec, find_onnxruntime};
 
 pub use ep_document_core::pdf::PdfBackend as Backend;
 
@@ -71,6 +74,12 @@ pub struct Document {
     bus: Mutex<Weak<Bus>>,
     /// Author written on new annotations (`/T`).
     author: RwLock<String>,
+    /// Paper-wide analyses (headings, references) of recent files.
+    analyses: Mutex<VecDeque<(Hash, Arc<intel::Analysis>)>>,
+    /// Files being prepared now.
+    preparing: Mutex<HashSet<Hash>>,
+    /// Page models.
+    models: RwLock<intel::Models>,
 }
 
 impl std::fmt::Debug for Document {
@@ -173,6 +182,9 @@ impl Document {
             annotation_db: Mutex::new(None),
             bus: Mutex::new(Weak::new()),
             author: RwLock::new(String::new()),
+            analyses: Mutex::new(VecDeque::new()),
+            preparing: Mutex::new(HashSet::new()),
+            models: RwLock::new(intel::Models::default()),
         }))
     }
 
@@ -236,6 +248,7 @@ impl Document {
     ///
     /// # Errors
     /// A name is already registered.
+    #[allow(clippy::too_many_lines)] // one line per command
     pub fn register(self: &Arc<Self>, bus: &Arc<Bus>) -> Result<(), RegisterError> {
         *self.bus.lock() = Arc::downgrade(bus);
         macro_rules! reg {
@@ -310,6 +323,61 @@ impl Document {
             annotations_redo,
             Permission::create()
         );
+        reg!(
+            commands::PREPARATION,
+            "How far preparation of a file has come",
+            preparation
+        );
+        reg!(
+            commands::OBJECTS,
+            "Objects on a page: figures, tables, equations, headings",
+            objects
+        );
+        reg!(
+            commands::REGION,
+            "The object at a point or in a rectangle, with an image of it",
+            region
+        );
+        reg!(
+            commands::CONTENTS,
+            "Generated outline and lists of figures, tables and equations",
+            contents
+        );
+        reg!(
+            commands::MENTIONS,
+            "Mentions of figures, tables, equations and sections on a page",
+            mentions
+        );
+        reg!(
+            commands::CITATION_MARKERS,
+            "Citation markers on a page, linked to the reference list",
+            citation_markers
+        );
+        reg!(commands::REFERENCES, "The reference list", references);
+        reg!(
+            commands::EQUATION,
+            "An equation as an image, with LaTeX when the formula model is installed",
+            equation
+        );
+        reg!(commands::TABLE, "A table as rows of cells, with CSV", table);
+        reg!(
+            commands::MODELS,
+            "Page models and whether they are present",
+            models
+        );
+        {
+            let d = self.clone();
+            let spec = Spec {
+                name: commands::PREPARE,
+                summary: "Prepare a file in the background (text, outline, objects, links); streams progress",
+                stability: Stability::Experimental,
+                permission: Permission::read(),
+            };
+            bus.register_streaming(spec, move |cx: Cx, i| {
+                let d = d.clone();
+                async move { d.prepare(cx, i).await }
+            })?;
+        }
         reg!(
             commands::ANNOTATE,
             "Write a paper's annotations into a new version of its PDF",

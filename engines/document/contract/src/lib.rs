@@ -7,14 +7,16 @@
 use serde::{Deserialize, Serialize};
 
 mod annotations;
+mod intel;
 mod pdf;
 pub use annotations::*;
+pub use intel::*;
 pub use pdf::*;
 
 pub use ep_types::PageRect;
 
 /// Contract version (semantic); experimental until used by a second engine or host (Draft 2.2 §8.3).
-pub const VERSION: &str = "0.3.0";
+pub const VERSION: &str = "0.4.0";
 
 /// A paper the caller wants searched. Placeholder for `Ref<Paper>` (Phase 1 M1.TYP).
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema)]
@@ -377,6 +379,30 @@ pub mod commands {
     pub const ANNOTATIONS_REDO: &str = "document.annotations_redo";
     /// Write a paper's annotations into a new version of its PDF (incremental update).
     pub const ANNOTATE: &str = "document.annotate";
+    /// Prepare a file in the background (text, outline, objects, OCR, links); streams progress.
+    pub const PREPARE: &str = "document.prepare";
+    /// How far preparation of a file has come.
+    pub const PREPARATION: &str = "document.preparation";
+    /// Objects on a page (figures, tables, equations, headings…).
+    pub const OBJECTS: &str = "document.objects";
+    /// The object at a point or in a rectangle, with an image of it.
+    pub const REGION: &str = "document.region";
+    /// Generated outline and lists of figures, tables and equations.
+    pub const CONTENTS: &str = "document.contents";
+    /// Mentions of figures, tables, equations and sections on a page.
+    pub const MENTIONS: &str = "document.mentions";
+    /// In-text citation markers on a page, linked to the reference list.
+    pub const CITATION_MARKERS: &str = "document.citation_markers";
+    /// The reference list.
+    pub const REFERENCES: &str = "document.references";
+    /// An equation as LaTeX and image.
+    pub const EQUATION: &str = "document.equation";
+    /// A table as cells.
+    pub const TABLE: &str = "document.table";
+    /// Add an invisible text layer to scanned pages (a new file).
+    pub const OCR: &str = "document.ocr";
+    /// Page models and whether they are present.
+    pub const MODELS: &str = "document.models";
 }
 
 /// Input of `document.metadata`.

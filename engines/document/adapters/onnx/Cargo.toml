@@ -1,0 +1,16 @@
+[package]
+name = "ep-document-adapter-onnx"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Document engine adapter: page models on ONNX Runtime (layout model; OCR and formulas later), ADR-007"
+
+[dependencies]
+ep-document-core = { path = "../../core" }
+ep-types = { path = "../../../../foundation/types" }
+ort.workspace = true
+parking_lot.workspace = true
+
+[lints]
+workspace = true

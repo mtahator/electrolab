@@ -1,0 +1,61 @@
+{
+  "command": "document.models",
+  "input": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "null",
+    "type": "null"
+  },
+  "output": {
+    "$defs": {
+      "ModelInfo": {
+        "description": "Page models the engine can use, and whether each is present.",
+        "properties": {
+          "id": {
+            "description": "Id (\"egret-medium\", \"ppocrv5-det\", …).",
+            "type": "string"
+          },
+          "licence": {
+            "description": "Licence.",
+            "type": "string"
+          },
+          "present": {
+            "description": "Present and verified.",
+            "type": "boolean"
+          },
+          "purpose": {
+            "description": "What it does.",
+            "type": "string"
+          },
+          "size": {
+            "description": "Download size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "purpose",
+          "size",
+          "present",
+          "licence"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "items": {
+      "$ref": "#/$defs/ModelInfo"
+    },
+    "title": "Array_of_ModelInfo",
+    "type": "array"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Page models and whether they are present"
+}

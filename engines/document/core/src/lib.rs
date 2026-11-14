@@ -2,6 +2,7 @@
 //! No I/O, no clock, no randomness, no network — adapters do that; the facade wires them.
 
 pub mod annotations;
+pub mod intel;
 pub mod metadata;
 pub mod pdf;
 pub mod search;

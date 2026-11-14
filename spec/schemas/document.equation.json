@@ -1,0 +1,357 @@
+{
+  "command": "document.equation",
+  "input": {
+    "$defs": {
+      "BlobRef": {
+        "description": "A file in the content-addressed store: messages carry these, never large bytes (§9.4).",
+        "properties": {
+          "hash": {
+            "$ref": "#/$defs/Hash",
+            "description": "Content hash."
+          },
+          "media_type": {
+            "$ref": "#/$defs/MediaType",
+            "description": "What the bytes are."
+          },
+          "size": {
+            "description": "Size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "Hash": {
+        "description": "BLAKE3 content hash (hex)",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "MediaType": {
+        "description": "A media type such as `application/pdf`.",
+        "type": "string"
+      },
+      "ObjectRef": {
+        "description": "A reference to an object in the same file.",
+        "properties": {
+          "id": {
+            "description": "The object's id.",
+            "type": "string"
+          },
+          "page": {
+            "description": "1-based page.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "id"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `document.equation`: an equation object, or a printed number.",
+    "properties": {
+      "file": {
+        "$ref": "#/$defs/BlobRef",
+        "description": "The file."
+      },
+      "number": {
+        "default": null,
+        "description": "Or the printed number (\"12\", \"2.3\").",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "object": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ObjectRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The object, as returned by `document.objects`."
+      }
+    },
+    "required": [
+      "file"
+    ],
+    "title": "EquationRequest",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "BlobRef": {
+        "description": "A file in the content-addressed store: messages carry these, never large bytes (§9.4).",
+        "properties": {
+          "hash": {
+            "$ref": "#/$defs/Hash",
+            "description": "Content hash."
+          },
+          "media_type": {
+            "$ref": "#/$defs/MediaType",
+            "description": "What the bytes are."
+          },
+          "size": {
+            "description": "Size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "DocObject": {
+        "description": "An object on a page.",
+        "properties": {
+          "caption_rect": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PageRect"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The caption's box."
+          },
+          "id": {
+            "description": "Stable within the file: `p<page>-<kind>-<n>`.",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/$defs/ObjectKind",
+            "description": "What it is."
+          },
+          "label": {
+            "default": null,
+            "description": "Printed label: \"Figure 3\", \"Table 2\", \"(7)\", \"4.2\".",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "number": {
+            "default": null,
+            "description": "The number alone: \"3\", \"2\", \"7\", \"4.2\".",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "order": {
+            "description": "Position in reading order on the page (0 = first).",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rect": {
+            "$ref": "#/$defs/PageRect",
+            "description": "Where it is."
+          },
+          "score": {
+            "description": "Detector confidence 0–1 (1 when found from the text alone).",
+            "format": "float",
+            "type": "number"
+          },
+          "text": {
+            "default": null,
+            "description": "Figures and tables: the caption text; headings: the heading text.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "rect",
+          "score",
+          "order"
+        ],
+        "type": "object"
+      },
+      "Hash": {
+        "description": "BLAKE3 content hash (hex)",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "MediaType": {
+        "description": "A media type such as `application/pdf`.",
+        "type": "string"
+      },
+      "ObjectKind": {
+        "description": "What an object on the page is.",
+        "oneOf": [
+          {
+            "const": "figure",
+            "description": "A figure, picture or chart.",
+            "type": "string"
+          },
+          {
+            "const": "table",
+            "description": "A table.",
+            "type": "string"
+          },
+          {
+            "const": "equation",
+            "description": "A displayed equation.",
+            "type": "string"
+          },
+          {
+            "const": "heading",
+            "description": "A section heading.",
+            "type": "string"
+          },
+          {
+            "const": "title",
+            "description": "The paper's title.",
+            "type": "string"
+          },
+          {
+            "const": "caption",
+            "description": "A figure or table caption.",
+            "type": "string"
+          },
+          {
+            "const": "text",
+            "description": "A paragraph of body text.",
+            "type": "string"
+          },
+          {
+            "const": "list_item",
+            "description": "A list item.",
+            "type": "string"
+          },
+          {
+            "const": "footnote",
+            "description": "A footnote.",
+            "type": "string"
+          },
+          {
+            "const": "page_furniture",
+            "description": "Running header or footer.",
+            "type": "string"
+          },
+          {
+            "const": "code",
+            "description": "Program code or an algorithm.",
+            "type": "string"
+          }
+        ]
+      },
+      "PageRect": {
+        "description": "A rectangle on one page.",
+        "properties": {
+          "page": {
+            "description": "1-based page number.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "x0": {
+            "description": "Left edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "x1": {
+            "description": "Right edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "y0": {
+            "description": "Top edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "y1": {
+            "description": "Bottom edge.",
+            "format": "float",
+            "type": "number"
+          }
+        },
+        "required": [
+          "page",
+          "x0",
+          "y0",
+          "x1",
+          "y1"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Output of `document.equation`.",
+    "properties": {
+      "image": {
+        "$ref": "#/$defs/BlobRef",
+        "description": "The equation as a PNG."
+      },
+      "latex": {
+        "default": null,
+        "description": "LaTeX from the formula model, when it is available and the conversion succeeded.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "note": {
+        "default": null,
+        "description": "Why there is no LaTeX.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "object": {
+        "$ref": "#/$defs/DocObject",
+        "description": "The equation object."
+      },
+      "page": {
+        "description": "1-based page.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "text": {
+        "description": "Text of the equation from the PDF (often partial for math).",
+        "type": "string"
+      }
+    },
+    "required": [
+      "object",
+      "page",
+      "image",
+      "text"
+    ],
+    "title": "Equation",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "An equation as an image, with LaTeX when the formula model is installed"
+}

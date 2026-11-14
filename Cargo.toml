@@ -20,6 +20,7 @@ members = [
     "engines/document/core",
     "engines/document/adapters/lopdf",
     "engines/document/adapters/pdfium",
+    "engines/document/adapters/onnx",
     "engines/document/facade",
     "engines/workspace/contract",
     "engines/workspace/core",
@@ -58,6 +59,9 @@ dunce = "1.0.5"
 windows-sys = "=0.61.2"
 lopdf = { version = "=0.46.0", default-features = false }
 clap = { version = "4.6.7", features = ["derive"] }
+# Milestone 4 (versions ≥ 2 weeks old on 2026-11-14)
+regex = "1.13.1"
+ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "load-dynamic", "api-31"] }
 # tests
 tempfile = "3.27.0"
 proptest = "1.12.0"

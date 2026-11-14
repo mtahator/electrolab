@@ -1,0 +1,215 @@
+{
+  "command": "document.mentions",
+  "input": {
+    "$defs": {
+      "BlobRef": {
+        "description": "A file in the content-addressed store: messages carry these, never large bytes (§9.4).",
+        "properties": {
+          "hash": {
+            "$ref": "#/$defs/Hash",
+            "description": "Content hash."
+          },
+          "media_type": {
+            "$ref": "#/$defs/MediaType",
+            "description": "What the bytes are."
+          },
+          "size": {
+            "description": "Size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "Hash": {
+        "description": "BLAKE3 content hash (hex)",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "MediaType": {
+        "description": "A media type such as `application/pdf`.",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input naming one page of a file.",
+    "properties": {
+      "file": {
+        "$ref": "#/$defs/BlobRef",
+        "description": "The file."
+      },
+      "page": {
+        "description": "1-based page.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "file",
+      "page"
+    ],
+    "title": "ObjectsRequest",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "Mention": {
+        "description": "A mention of a figure, table, equation or section in the text.",
+        "properties": {
+          "kind": {
+            "$ref": "#/$defs/MentionKind",
+            "description": "What kind."
+          },
+          "numbers": {
+            "description": "Numbers referred to (\"3\"; \"2\", \"3\", \"4\" for a range).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "quads": {
+            "description": "Where it is (one quad per line piece).",
+            "items": {
+              "$ref": "#/$defs/PageQuad"
+            },
+            "type": "array"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ObjectRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The object it refers to (the first number's), when found: `(page, object id)`."
+          },
+          "text": {
+            "description": "The text as printed (\"Fig. 3(b)\").",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "text",
+          "numbers",
+          "quads"
+        ],
+        "type": "object"
+      },
+      "MentionKind": {
+        "description": "What a mention points at.",
+        "oneOf": [
+          {
+            "const": "figure",
+            "description": "\"Fig. 3\", \"Figure 3(b)\", \"Figs. 2–4\".",
+            "type": "string"
+          },
+          {
+            "const": "table",
+            "description": "\"Table 2\".",
+            "type": "string"
+          },
+          {
+            "const": "equation",
+            "description": "\"Eq. (5)\", \"Equation 5\", \"(5)\" after \"in\".",
+            "type": "string"
+          },
+          {
+            "const": "section",
+            "description": "\"Section 4.2\", \"Sec. 4\".",
+            "type": "string"
+          }
+        ]
+      },
+      "ObjectRef": {
+        "description": "A reference to an object in the same file.",
+        "properties": {
+          "id": {
+            "description": "The object's id.",
+            "type": "string"
+          },
+          "page": {
+            "description": "1-based page.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "id"
+        ],
+        "type": "object"
+      },
+      "PagePoint": {
+        "description": "A point on a page.",
+        "properties": {
+          "x": {
+            "description": "Distance from the left edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "y": {
+            "description": "Distance from the top edge.",
+            "format": "float",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "type": "object"
+      },
+      "PageQuad": {
+        "description": "Four corners of text that may be rotated or skewed (upper-left, upper-right, lower-left,\nlower-right — the order PDF `/QuadPoints` use in practice).",
+        "properties": {
+          "p": {
+            "description": "Corners.",
+            "items": {
+              "$ref": "#/$defs/PagePoint"
+            },
+            "maxItems": 4,
+            "minItems": 4,
+            "type": "array"
+          },
+          "page": {
+            "description": "1-based page number.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "p"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "items": {
+      "$ref": "#/$defs/Mention"
+    },
+    "title": "Array_of_Mention",
+    "type": "array"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Mentions of figures, tables, equations and sections on a page"
+}

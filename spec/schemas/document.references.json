@@ -1,0 +1,199 @@
+{
+  "command": "document.references",
+  "input": {
+    "$defs": {
+      "BlobRef": {
+        "description": "A file in the content-addressed store: messages carry these, never large bytes (§9.4).",
+        "properties": {
+          "hash": {
+            "$ref": "#/$defs/Hash",
+            "description": "Content hash."
+          },
+          "media_type": {
+            "$ref": "#/$defs/MediaType",
+            "description": "What the bytes are."
+          },
+          "size": {
+            "description": "Size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "Hash": {
+        "description": "BLAKE3 content hash (hex)",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "MediaType": {
+        "description": "A media type such as `application/pdf`.",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input naming a file.",
+    "properties": {
+      "file": {
+        "$ref": "#/$defs/BlobRef",
+        "description": "The file."
+      }
+    },
+    "required": [
+      "file"
+    ],
+    "title": "FileOnly",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "PageRect": {
+        "description": "A rectangle on one page.",
+        "properties": {
+          "page": {
+            "description": "1-based page number.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "x0": {
+            "description": "Left edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "x1": {
+            "description": "Right edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "y0": {
+            "description": "Top edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "y1": {
+            "description": "Bottom edge.",
+            "format": "float",
+            "type": "number"
+          }
+        },
+        "required": [
+          "page",
+          "x0",
+          "y0",
+          "x1",
+          "y1"
+        ],
+        "type": "object"
+      },
+      "Reference": {
+        "description": "One entry of the reference list.",
+        "properties": {
+          "arxiv": {
+            "default": null,
+            "description": "arXiv identifier.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "authors": {
+            "default": [],
+            "description": "Authors as printed (surnames first when the entry gives them that way).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "doi": {
+            "default": null,
+            "description": "DOI, lowercase.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "index": {
+            "description": "0-based position in the list.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "label": {
+            "default": null,
+            "description": "Printed label: \"12\" for \"[12]\", or `None` for author–year lists.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "page": {
+            "description": "1-based page of the entry's first line.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rect": {
+            "$ref": "#/$defs/PageRect",
+            "description": "The entry's box on that page."
+          },
+          "text": {
+            "description": "The whole entry, line breaks joined.",
+            "type": "string"
+          },
+          "title": {
+            "default": null,
+            "description": "Title (best guess).",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "url": {
+            "default": null,
+            "description": "Web address in the entry.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "year": {
+            "default": null,
+            "description": "Year.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "index",
+          "text",
+          "page",
+          "rect"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "items": {
+      "$ref": "#/$defs/Reference"
+    },
+    "title": "Array_of_Reference",
+    "type": "array"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "The reference list"
+}
