@@ -15,6 +15,8 @@ import { marksFor, selectionBox, selectionRanges } from "../annotations/selectio
 import { transformed } from "../annotations/AnnotationLayer";
 import { add, change, find, isMarkup, load as loadAnnotations, pending, picked, remove, setPending, setPicked, setTool, tool, typing } from "../annotations/state";
 import { bus, openExternal } from "../host";
+import { PeekHost } from "../intel/Peek";
+import { prepare } from "../intel/state";
 import { quoteToNotes } from "../notes/state";
 import { marginView } from "../shell/frame";
 import { History, type Place } from "./history";
@@ -243,6 +245,8 @@ export function Viewer(props: ViewerProps): JSX.Element {
       setInfo(i);
       setDoc(d);
       restore(st);
+      // Prepare the paper in the background (objects, links), starting with the page in view.
+      window.setTimeout(() => void prepare(props.paper.file, [st.location?.page ?? 1]), 1200);
     } catch (e) {
       setError(String((e as Error).message ?? e));
     }
@@ -512,6 +516,9 @@ export function Viewer(props: ViewerProps): JSX.Element {
             }}
           />
         )}
+      </Show>
+      <Show when={props.active}>
+        <PeekHost paper={props.paper.id} goTo={(page, y) => goTo(page, y)} />
       </Show>
       <Show when={preview() && doc()}>{(_) => <LinkPreview doc={doc() as PDFDocumentProxy} target={preview() as { page: number; top: number | null; at: DOMRect }} />}</Show>
     </div>

@@ -14,6 +14,7 @@ import { For, type JSX, Show, createEffect, createMemo, createSignal, onCleanup 
 
 import { AnnotationLayer } from "../annotations/AnnotationLayer";
 import { bus, renderUrl } from "../host";
+import { PageLinks, RegionTool } from "../intel/PageLinks";
 import type { PDFDocumentProxy, RenderTask } from "./pdf";
 import { enqueue } from "./queue";
 
@@ -125,7 +126,9 @@ export function Page(props: PageProps): JSX.Element {
       <Show when={props.flash !== null && props.flash !== undefined}>
         <div class="flash-band" style={{ top: `${(props.flash ?? 0) * props.layoutScale - 4}px`, height: `${18 * props.layoutScale}px` }} />
       </Show>
+      <PageLinks file={props.file} page={props.page} scale={props.layoutScale} />
       <AnnotationLayer paper={props.paper} page={props.page} scale={props.layoutScale} width={props.width} height={props.height} />
+      <RegionTool file={props.file} page={props.page} scale={props.layoutScale} />
       <div class="link-layer">
         <For each={props.links ?? []}>
           {(l) => {

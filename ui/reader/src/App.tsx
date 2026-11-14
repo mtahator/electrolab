@@ -32,6 +32,7 @@ import { createStore } from "solid-js/store";
 import { ToolRail } from "./annotations/ToolRail";
 import { annotationsOf, marksHidden, onAnnotationError, picked, redo, remove, saveIntoPdf, savedAt, setMarksHidden, setPicked, setTool, typing, undo } from "./annotations/state";
 import { bus, downloadPdf, onBusEvent, onDropFiles, onOpenFiles, openPaperExternally, pickPdfs, printPaper, takePendingFiles } from "./host";
+import { download, fetchModel, layoutModel, prepare, refreshModels, running } from "./intel/state";
 import { importPdf, openDefaultLibrary, refresh } from "./library";
 import { NotesPanel } from "./notes/NotesPanel";
 import { flushAll, onNotesError } from "./notes/state";
@@ -95,6 +96,7 @@ export function App(): JSX.Element {
   const [savingPdf, setSavingPdf] = createSignal(false);
   const [showSaved, setShowSaved] = createSignal(false);
   const [peek, setPeek] = createSignal(false);
+  const [modelDialog, setModelDialog] = createSignal(false);
   const [status, setStatus] = createStore<Record<string, ViewerStatus>>({});
   const [marks, setMarks] = createStore<Record<string, Marks>>({});
   const apis = new Map<string, ViewerApi>();
@@ -298,6 +300,7 @@ export function App(): JSX.Element {
   ]);
 
   onMount(async () => {
+    void refreshModels();
     try {
       await openDefaultLibrary();
       await restore(async (id) => bus("workspace.get_paper", { id }).catch(() => null));
@@ -591,6 +594,32 @@ export function App(): JSX.Element {
                 {t("annot.not_in_pdf")}
               </StatusItem>
             </Show>
+            <Show when={reading() && current().paper && running(current().paper?.file.hash ?? "")}>
+              {(r) => (
+                <StatusItem icon="cpu">
+                  {t("intel.preparing", { stage: t(`intel.stage.${r().stage}`), done: r().done, total: r().total })}
+                </StatusItem>
+              )}
+            </Show>
+            <Show when={download()}>
+              {(d) => (
+                <Show
+                  when={!d().error}
+                  fallback={
+                    <StatusItem icon="circle-alert" tone="danger" label={t("intel.model_failed")} onClick={() => setModelDialog(true)}>
+                      {t("intel.model_failed")}
+                    </StatusItem>
+                  }
+                >
+                  <StatusItem icon="cpu">{t("intel.downloading", { percent: d().total ? Math.round((100 * d().received) / d().total) : 0 })}</StatusItem>
+                </Show>
+              )}
+            </Show>
+            <Show when={reading() && !download() && layoutModel() && !layoutModel()?.present}>
+              <StatusItem icon="cpu" label={t("intel.get_model")} onClick={() => setModelDialog(true)}>
+                {t("intel.get_model")}
+              </StatusItem>
+            </Show>
             <Show when={reading() && marksHidden()}>
               <StatusItem icon="eye-off" label={t("annot.show_all")} onClick={() => setMarksHidden(false)}>
                 {t("annot.hidden")}
@@ -634,6 +663,35 @@ export function App(): JSX.Element {
             if (url) void openUrl(url);
           }}
         />
+      </Show>
+      <Show when={modelDialog()}>
+        <Dialog
+          title={t("intel.model_title")}
+          onCancel={() => setModelDialog(false)}
+          actions={
+            <>
+              <Button onClick={() => setModelDialog(false)}>{t("intel.not_now")}</Button>
+              <Button
+                variant="primary"
+                icon="file-down"
+                onClick={() => {
+                  setModelDialog(false);
+                  void fetchModel("egret-medium").then((ok) => {
+                    // Prepare the open papers again, now with the model.
+                    if (ok) for (const pane of session.panes) for (const tab of pane.tabs) void prepare(tab.paper.file, [status[tab.id]?.page ?? 1]);
+                  });
+                }}
+              >
+                {t("intel.download", { mb: Math.round((layoutModel()?.size ?? 0) / 1e6) })}
+              </Button>
+            </>
+          }
+        >
+          <p>{t("intel.model_body")}</p>
+          <Show when={download()?.error}>
+            <p class="error">{download()?.error}</p>
+          </Show>
+        </Dialog>
       </Show>
       <Show when={confirm()}>
         {(c) => (

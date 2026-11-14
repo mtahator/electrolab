@@ -1,12 +1,12 @@
 // Side panels (P1.M2.SH.3): contents, page thumbnails, find results, bookmarks.
 
-import type { Bookmark, Hit, OutlineItem, Paper } from "@electropaper/bindings";
+import type { Bookmark, DocObject, Hit, OutlineItem, Paper } from "@electropaper/bindings";
 import { BusError } from "@electropaper/bindings";
 import { Button, Icon, IconButton, t } from "@electropaper/kit";
 import { For, type JSX, Match, Show, Switch, createEffect, createResource, createSignal, on, onCleanup, onMount } from "solid-js";
 
 import { AnnotationsPanel } from "../annotations/AnnotationsPanel";
-import { bus, renderUrl } from "../host";
+import { bus, onBusEvent, renderUrl } from "../host";
 
 export type PanelKind = "outline" | "thumbnails" | "find" | "bookmarks" | "annotations";
 
@@ -88,15 +88,61 @@ function Outline(props: { paper: Paper; onGoTo: (page: number, y: number | null)
       </li>
     );
   };
+  // The paper's own bookmarks, else the outline found from its headings (P1.M4.OBJ.4), then
+  // jump lists of figures, tables and equations. Refreshed when preparation finishes.
+  const [contents, { refetch }] = createResource(() => props.paper.file, (file) => bus("document.contents", { file }).catch(() => null));
+  const off = onBusEvent("document.prepared", (e) => {
+    if ((e.data as { file?: { hash?: string } }).file?.hash === props.paper.file.hash) void refetch();
+  });
+  onCleanup(() => void off.then((f) => f()));
+  const sections = (): OutlineItem[] => (items()?.length ? (items() as OutlineItem[]) : (contents()?.sections ?? []));
+  const Jump = (q: { title: string; list: DocObject[] }): JSX.Element => {
+    const [open, setOpen] = createSignal(false);
+    return (
+      <Show when={q.list.length > 0}>
+        <div class="jump">
+          <button type="button" class="jump-head" aria-expanded={open()} onClick={() => setOpen(!open())}>
+            <Icon name={open() ? "chevron-down" : "chevron-right"} size={14} />
+            <span>{q.title}</span>
+            <span class="muted small">{q.list.length}</span>
+          </button>
+          <Show when={open()}>
+            <ul class="outline">
+              <For each={q.list}>
+                {(o) => (
+                  <li>
+                    <button type="button" class="outline-title jump-item" onClick={() => props.onGoTo(o.rect.page, Math.max(0, o.rect.y0 - 40))}>
+                      <strong>{o.label}</strong>
+                      <span class="muted small">{(o.text ?? "").replace(o.label ?? "", "").replace(/^[\s:.]+/, "").slice(0, 90)}</span>
+                    </button>
+                  </li>
+                )}
+              </For>
+            </ul>
+          </Show>
+        </div>
+      </Show>
+    );
+  };
   return (
-    <Show when={items()} fallback={<p class="muted">{t("viewer.loading")}</p>}>
-      {(list) => (
-        <Show when={list().length > 0} fallback={<p class="muted">{t("panel.no_outline")}</p>}>
-          <ul class="outline">
-            <For each={list()}>{(item) => <Node item={item} depth={0} />}</For>
-          </ul>
+    <Show when={items() !== undefined} fallback={<p class="muted">{t("viewer.loading")}</p>}>
+      <Show when={sections().length > 0} fallback={<p class="muted">{t("panel.no_outline")}</p>}>
+        <Show when={!items()?.length}>
+          <p class="muted small">{t("intel.generated_outline")}</p>
         </Show>
-      )}
+        <ul class="outline">
+          <For each={sections()}>{(item) => <Node item={item} depth={0} />}</For>
+        </ul>
+      </Show>
+      <Show when={contents()}>
+        {(c) => (
+          <div class="jumps">
+            <Jump title={t("intel.figures")} list={c().figures} />
+            <Jump title={t("intel.tables")} list={c().tables} />
+            <Jump title={t("intel.equations")} list={c().equations} />
+          </div>
+        )}
+      </Show>
     </Show>
   );
 }

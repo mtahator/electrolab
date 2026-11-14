@@ -472,7 +472,11 @@ mod tests {
         assert_eq!(o.len(), 7, "duplicate and low-score removed: {o:#?}");
         let fig = o.iter().find(|x| x.kind == ObjectKind::Figure).unwrap();
         assert_eq!(fig.label.as_deref(), Some("Figure 2"));
-        assert!(fig.text.as_deref().unwrap().starts_with("Figure 2"));
+        assert_eq!(
+            fig.text.as_deref(),
+            Some("Figure 2: Results of the model."),
+            "words keep their spaces"
+        );
         let tab = o.iter().find(|x| x.kind == ObjectKind::Table).unwrap();
         assert_eq!(tab.number.as_deref(), Some("1"));
         let eq = o.iter().find(|x| x.kind == ObjectKind::Equation).unwrap();

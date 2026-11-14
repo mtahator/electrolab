@@ -22,7 +22,9 @@ import EyeOff from "lucide-solid/icons/eye-off";
 import FileDown from "lucide-solid/icons/file-down";
 import FilePlus from "lucide-solid/icons/file-plus";
 import Folder from "lucide-solid/icons/folder";
+import Cpu from "lucide-solid/icons/cpu";
 import Highlighter from "lucide-solid/icons/highlighter";
+import ImageIcon from "lucide-solid/icons/image";
 import History from "lucide-solid/icons/rotate-ccw-clock";
 import Keyboard from "lucide-solid/icons/keyboard";
 import LayoutGrid from "lucide-solid/icons/layout-grid";
@@ -49,12 +51,14 @@ import Quote from "lucide-solid/icons/quote";
 import Redo2 from "lucide-solid/icons/redo-2";
 import Search from "lucide-solid/icons/search";
 import Settings from "lucide-solid/icons/settings";
+import Sigma from "lucide-solid/icons/sigma";
 import Sparkles from "lucide-solid/icons/sparkles";
 import Spline from "lucide-solid/icons/spline";
 import Square from "lucide-solid/icons/square";
 import StickyNote from "lucide-solid/icons/sticky-note";
 import Strikethrough from "lucide-solid/icons/strikethrough";
 import SunMoon from "lucide-solid/icons/sun-moon";
+import TableIcon from "lucide-solid/icons/table";
 import Tag from "lucide-solid/icons/tag";
 import TextQuote from "lucide-solid/icons/text-quote";
 import Trash from "lucide-solid/icons/trash";
@@ -87,7 +91,9 @@ export const ICONS = {
   "file-down": FileDown,
   "file-plus": FilePlus,
   folder: Folder,
+  cpu: Cpu,
   highlighter: Highlighter,
+  image: ImageIcon,
   history: History,
   keyboard: Keyboard,
   "layout-grid": LayoutGrid,
@@ -114,12 +120,14 @@ export const ICONS = {
   "redo-2": Redo2,
   search: Search,
   settings: Settings,
+  sigma: Sigma,
   sparkles: Sparkles,
   spline: Spline,
   square: Square,
   "sticky-note": StickyNote,
   strikethrough: Strikethrough,
   "sun-moon": SunMoon,
+  table: TableIcon,
   tag: Tag,
   "text-quote": TextQuote,
   trash: Trash,

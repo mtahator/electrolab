@@ -29,6 +29,8 @@ serde_json.workspace = true
 uuid.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
+sha2.workspace = true
+tokio.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 ep-os-windows = { path = "../../../foundation/os-windows" }

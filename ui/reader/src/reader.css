@@ -1247,3 +1247,191 @@
 .prompt-input {
   width: 100%;
 }
+
+/* Document intelligence (P1.M4) ------------------------------------------------------------- */
+/* Mentions and citation markers: a faint dotted underline, nothing more until asked. */
+.link-marks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.mention {
+  position: absolute;
+  padding: 0;
+  border: none;
+  border-bottom: 1px dotted var(--accent);
+  border-radius: 0;
+  background: transparent;
+  opacity: 0.55;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.mention:hover,
+.mention:focus-visible {
+  opacity: 1;
+  background: var(--accent-soft);
+  mix-blend-mode: multiply;
+}
+
+:root:is([data-paper="dark"], [data-paper="night"], [data-paper="contrast"]) .mention:hover {
+  mix-blend-mode: normal;
+  opacity: 0.6;
+}
+
+.region-host {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.region-drag {
+  position: absolute;
+  border: 1.5px dashed var(--accent);
+  background: var(--accent-soft);
+  opacity: 0.6;
+}
+
+.peek {
+  position: fixed;
+  z-index: 26;
+}
+
+.peek .ep-card {
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.peek-image {
+  display: block;
+  max-width: 100%;
+  max-height: 46vh;
+  margin: 0 auto;
+  border-radius: var(--radius);
+  background: var(--page-bg);
+  box-shadow: var(--page-shadow);
+}
+
+.peek-caption {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.peek-refs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.peek-refs p {
+  margin: 0;
+  line-height: var(--leading);
+}
+
+.peek-refs .row {
+  gap: 2px;
+}
+
+.jumps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.jump-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  padding: 4px 2px;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-weight: 600;
+  text-align: start;
+  cursor: pointer;
+}
+
+.jump-head:hover {
+  background: var(--bg-hover);
+}
+
+.jump-head .muted {
+  margin-inline-start: auto;
+}
+
+.jump-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-inline-start: 22px;
+}
+
+.table-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(960px, calc(100vw - 48px));
+  max-height: 80vh;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  box-shadow: var(--shadow-2);
+}
+
+.table-scroll {
+  overflow: auto;
+}
+
+.data-table {
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.data-table th,
+.data-table td {
+  padding: 4px var(--space-2);
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.data-table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-panel);
+  font-weight: 600;
+}
+
+.data-table td.num {
+  text-align: end;
+}
+
+.data-table .sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}

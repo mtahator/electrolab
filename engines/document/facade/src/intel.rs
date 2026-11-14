@@ -29,7 +29,7 @@ use crate::models::{self, LAYOUT};
 use crate::{Document, backend_err, blocking, png};
 
 /// Version of the rules that shape objects; bump to recompute cached objects.
-const INTEL_IMPL: &str = "intel-1";
+const INTEL_IMPL: &str = "intel-2";
 /// Papers whose analysis stays in memory.
 const ANALYSES: usize = 4;
 /// Width the page is rendered at for the layout model.
@@ -174,12 +174,12 @@ impl Document {
     ) -> Result<PageObjects, CommandError> {
         let model = if use_model { self.layout_model() } else { None };
         let model_id = if model.is_some() { LAYOUT.id } else { "none" };
-        if let Some(o) = self.cached_objects(file, page, model_id) {
+        // A page done with the model is always better than text alone.
+        if let Some(o) = self.cached_objects(file, page, LAYOUT.id) {
             return Ok(o);
         }
-        // A page done with the model earlier is better than text alone.
         if model.is_none()
-            && let Some(o) = self.cached_objects(file, page, LAYOUT.id)
+            && let Some(o) = self.cached_objects(file, page, "none")
         {
             return Ok(o);
         }

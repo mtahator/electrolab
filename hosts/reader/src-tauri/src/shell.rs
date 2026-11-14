@@ -159,3 +159,18 @@ pub fn clean_downloads() {
         }
     }
 }
+
+/// Write text the user chose to save (a table as CSV, notes as Markdown) to the path they picked
+/// in the save dialog. Only text formats are written.
+#[tauri::command]
+pub fn save_text_file(path: String, contents: String) -> Result<(), String> {
+    let p = std::path::Path::new(&path);
+    let ext = p
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(str::to_ascii_lowercase);
+    if !matches!(ext.as_deref(), Some("csv" | "md" | "txt" | "bib" | "typ")) {
+        return Err("only .csv, .md, .txt, .bib and .typ files can be saved here".into());
+    }
+    std::fs::write(p, contents).map_err(|e| e.to_string())
+}

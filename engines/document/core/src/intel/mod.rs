@@ -132,6 +132,10 @@ pub fn text_in(pt: &PageText, rect: &PageRect) -> String {
         let (s, e) = (line.start as usize, (line.end as usize).min(chars.len()));
         for (i, &ch) in chars.iter().enumerate().take(e).skip(s) {
             let Some(b) = pt.boxes.get(i).copied().flatten() else {
+                // Spaces have no box: keep one between words already taken from this line.
+                if ch.is_whitespace() && last_line == Some(li) && !out.ends_with(' ') {
+                    out.push(' ');
+                }
                 continue;
             };
             let (cx, cy) = (f32::midpoint(b[0], b[2]), f32::midpoint(b[1], b[3]));

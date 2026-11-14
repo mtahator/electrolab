@@ -6,6 +6,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod blob;
+mod models;
 mod shell;
 
 use std::collections::HashSet;
@@ -22,6 +23,9 @@ use uuid::Uuid;
 
 struct AppState {
     bus: Arc<Bus>,
+    document: Arc<Document>,
+    /// Where page models are kept.
+    models_dir: PathBuf,
     allowed: HashSet<String>,
     workspace: Arc<Workspace>,
     shell: Arc<dyn ep_os::ShellOpen>,
@@ -122,6 +126,7 @@ fn main() -> anyhow::Result<()> {
 
     let bus = Arc::new(Bus::default());
     let renders = dirs.cache().join("renders");
+    let dirs_for_models = dirs.clone();
     let workspace = Workspace::new(dirs);
     workspace.register(&bus)?;
     let pdfium = ep_document::find_pdfium().and_then(|d| match ep_document::start_pdfium(&d) {
@@ -141,6 +146,11 @@ fn main() -> anyhow::Result<()> {
         document.set_author(&name.to_string_lossy());
     }
     document.register(&bus)?;
+    // Page models (layout) load when present; preparation works from the text alone otherwise.
+    let models_dir = models::models_dir(dirs_for_models.as_ref());
+    if let Err(e) = document.load_page_models(&models_dir) {
+        tracing::warn!(%e, "page models could not be loaded");
+    }
 
     #[cfg(windows)]
     let os_shell: Arc<dyn ep_os::ShellOpen> = Arc::new(ep_os_windows::WinShell);
@@ -159,6 +169,8 @@ fn main() -> anyhow::Result<()> {
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState {
             bus,
+            document: document.clone(),
+            models_dir,
             allowed: allowed_commands()?,
             workspace: workspace.clone(),
             shell: os_shell,
@@ -175,7 +187,9 @@ fn main() -> anyhow::Result<()> {
             shell::open_paper_externally,
             shell::print_paper,
             shell::take_pending_files,
-            shell::download_pdf
+            shell::download_pdf,
+            models::fetch_model,
+            shell::save_text_file
         ])
         .setup(move |app| {
             // Hub events go to the window; the publisher never waits for the UI.

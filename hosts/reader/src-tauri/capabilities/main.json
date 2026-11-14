@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "The Reader window: core events, the open-file dialog, and the bus bridge (bus commands are further limited by allowed-commands.json).",
+  "description": "The Reader window: core events, the open and save dialogs, and the bus bridge (bus commands are further limited by allowed-commands.json).",
   "windows": ["main"],
-  "permissions": ["core:default", "dialog:allow-open"]
+  "permissions": ["core:default", "dialog:allow-open", "dialog:allow-save"]
 }
