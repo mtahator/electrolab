@@ -29,6 +29,7 @@ Read before changing anything:
 - Commands are small, typed, idempotent, cancellable, and stream when long.
 - Keep tasks small: one task, one session, one commit.
 - Record any decision as an ADR in `docs/adr/`.
+- Build UI only from `ui/kit` and follow the design language: `docs/design/design-language.md` (ADR-012). Run its checklist (§16) on every UI change: reading first, nothing appears by itself, icons from the one set with tooltips, tokens only, all five themes, keyboard.
 - Write UI text only in the English string table (`ui/kit/src/i18n.ts`). The app is English-only until Phase 3; do not add other languages or right-to-left UI before then.
 
 ## Check your work

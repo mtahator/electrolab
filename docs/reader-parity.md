@@ -203,6 +203,15 @@ Legend: **P** = parity with today's reader · **+** = improvement or new in T1
 - [ ] `notes.export` Export highlights and notes to Markdown or Typst with citations and pages (M7)
 - [ ] `notes.bibtex` Copy BibTeX for the paper; cite selection with page number (M7)
 
+### Notes and interface — MD (founder request, 2026-11-14)
+- [ ] `notes.paper` Paper notes: one notebook per paper in the right panel, saved as you type (MD)
+- [ ] `notes.quote` "Add to notes" from a selection or mark, with a chip that jumps back to the place (MD)
+- [ ] `notes.sticky` Sticky notes: small icon on the page, hover preview, card on click (MD)
+- [ ] `notes.margin` Margin view of sticky notes, off by default (MD)
+- [ ] `ui.hide-marks` Hide/show all annotations for clean reading (MD)
+- [ ] `ui.focus` Focus mode: page only (MD)
+- [ ] `ui.icons` Tools as icons with tooltips and shortcuts; one-row top bar; status line (MD)
+
 ### Bridges to the Lab — M7 / Phase 2
 - [ ] `bridge.experiment` "Make an experiment from this method" — contract in M7, live in Phase 2
 - [ ] `bridge.add` "Add to project", "Add to collection" (M7)
