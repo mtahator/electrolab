@@ -9,7 +9,8 @@
     clippy::cast_precision_loss,
     clippy::cast_possible_truncation,
     clippy::items_after_statements,
-    clippy::used_underscore_binding
+    clippy::used_underscore_binding,
+    clippy::too_many_lines
 )] // tests stop loudly and read top to bottom
 
 use std::path::{Path, PathBuf};
