@@ -2,13 +2,13 @@
 
 import type { Bookmark, Hit, OutlineItem, Paper } from "@electropaper/bindings";
 import { BusError } from "@electropaper/bindings";
-import { Button, t } from "@electropaper/kit";
+import { Button, Icon, IconButton, t } from "@electropaper/kit";
 import { For, type JSX, Match, Show, Switch, createEffect, createResource, createSignal, on, onCleanup, onMount } from "solid-js";
 
-import { NotesPanel } from "../annotations/NotesPanel";
+import { AnnotationsPanel } from "../annotations/AnnotationsPanel";
 import { bus, renderUrl } from "../host";
 
-export type PanelKind = "outline" | "thumbnails" | "find" | "bookmarks" | "notes";
+export type PanelKind = "outline" | "thumbnails" | "find" | "bookmarks" | "annotations";
 
 export interface FindOptions {
   query: string;
@@ -46,8 +46,8 @@ export function SidePanel(props: SidePanelProps): JSX.Element {
         <Match when={props.kind === "find"}>
           <Find paper={props.paper} openPapers={props.openPapers} onHits={props.onHits} focus={props.findFocus} />
         </Match>
-        <Match when={props.kind === "notes"}>
-          <NotesPanel paper={props.paper as Paper} current={props.current} onGoTo={props.onGoTo} />
+        <Match when={props.kind === "annotations"}>
+          <AnnotationsPanel paper={props.paper as Paper} current={props.current} onGoTo={props.onGoTo} />
         </Match>
         <Match when={props.kind === "bookmarks"}>
           <Bookmarks paper={props.paper as Paper} current={props.current} onGoTo={props.onGoTo} />
@@ -67,8 +67,8 @@ function Outline(props: { paper: Paper; onGoTo: (page: number, y: number | null)
       <li>
         <div class="outline-row" style={{ "padding-inline-start": `${p.depth * 12}px` }}>
           <Show when={children.length > 0} fallback={<span class="twisty" />}>
-            <button type="button" class="twisty" onClick={() => setOpen(!open())} aria-expanded={open()}>
-              {open() ? "▾" : "▸"}
+            <button type="button" class="twisty" onClick={() => setOpen(!open())} aria-expanded={open()} aria-label={p.item.title}>
+              <Icon name={open() ? "chevron-down" : "chevron-right"} size={14} />
             </button>
           </Show>
           <button
@@ -288,7 +288,7 @@ function Bookmarks(props: { paper: Paper; current: number; onGoTo: (page: number
   };
   return (
     <div class="bookmarks">
-      <Button onClick={() => void add()}>{t("panel.add_bookmark")}</Button>
+      <Button icon="bookmark-plus" onClick={() => void add()}>{t("panel.add_bookmark")}</Button>
       <Show when={list().length > 0} fallback={<p class="muted">{t("panel.no_bookmarks")}</p>}>
         <ul>
           <For each={list()}>
@@ -297,9 +297,7 @@ function Bookmarks(props: { paper: Paper; current: number; onGoTo: (page: number
                 <button type="button" class="outline-title" onClick={() => props.onGoTo(b.location.page, b.location.target?.y0 ?? null)}>
                   {b.name}
                 </button>
-                <button type="button" class="icon" aria-label={t("common.close")} onClick={() => void remove(b)}>
-                  ×
-                </button>
+                <IconButton icon="trash" size="sm" class="row-action" label={t("panel.remove_bookmark")} onClick={() => void remove(b)} />
               </li>
             )}
           </For>

@@ -27,6 +27,7 @@ use ep_workspace_core::{
 use parking_lot::RwLock;
 
 mod library;
+mod notes;
 use serde_json::json;
 
 /// An open library or project.
@@ -381,6 +382,30 @@ impl Workspace {
             "Record title, authors, DOI or page count for a paper",
             Permission::create(),
             set_paper_metadata
+        );
+        reg!(
+            cmd::GET_NOTES,
+            "The notebook of a paper",
+            Permission::read(),
+            get_notes
+        );
+        reg!(
+            cmd::SAVE_NOTES,
+            "Save the notebook of a paper (a new version; earlier ones stay in the history)",
+            Permission::create(),
+            save_notes
+        );
+        reg!(
+            cmd::NOTES_HISTORY,
+            "Earlier versions of a paper's notebook",
+            Permission::read(),
+            notes_history
+        );
+        reg!(
+            cmd::RESTORE_NOTES,
+            "Bring back an earlier version of a paper's notebook",
+            Permission::create(),
+            restore_notes
         );
         reg!(
             cmd::SET_PAPER_FILE,

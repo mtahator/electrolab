@@ -381,3 +381,118 @@ async fn a_saved_version_replaces_the_managed_copy() {
     .await;
     assert!(matches!(missing, Err(CommandError::Failed { ref kind, .. }) if kind == "not_found"));
 }
+
+#[tokio::test]
+async fn paper_notes_save_history_restore_and_restart() {
+    use ep_workspace_contract::{NotesVersion, PaperNotes};
+    let d = tempfile::tempdir().unwrap();
+    let e = env(d.path());
+    let _: ProjectInfo = call(&e.bus, "workspace.open_default_library", json!(null))
+        .await
+        .unwrap();
+    let p = add(&e, d.path(), "n.pdf", "Notes paper", &[]).await;
+
+    let empty: PaperNotes = call(&e.bus, "workspace.get_notes", json!({ "paper": p.id }))
+        .await
+        .unwrap();
+    assert_eq!((empty.version, empty.text.as_str()), (0, ""));
+
+    // Typing: saves a second apart are one history entry; a minute later starts a new one.
+    let mut v = 0;
+    for (i, text) in [
+        "# Notes",
+        "# Notes\n\nFirst idea",
+        "# Notes\n\nFirst idea, refined",
+    ]
+    .iter()
+    .enumerate()
+    {
+        if i > 0 {
+            e.clock.advance(1_000);
+        }
+        let n: PaperNotes = call(
+            &e.bus,
+            "workspace.save_notes",
+            json!({ "paper": p.id, "text": text, "base_version": v }),
+        )
+        .await
+        .unwrap();
+        v = n.version;
+    }
+    assert_eq!(v, 3);
+    e.clock.advance(120_000);
+    let n: PaperNotes = call(
+        &e.bus,
+        "workspace.save_notes",
+        json!({ "paper": p.id, "text": "Rewritten", "base_version": v }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(n.version, 4);
+    let hist: Vec<NotesVersion> = call(&e.bus, "workspace.notes_history", json!({ "paper": p.id }))
+        .await
+        .unwrap();
+    assert_eq!(
+        hist.iter().map(|h| h.version).collect::<Vec<_>>(),
+        vec![4, 3, 1],
+        "{hist:?}"
+    );
+
+    // A save from an old version is refused and changes nothing.
+    let stale = call::<PaperNotes>(
+        &e.bus,
+        "workspace.save_notes",
+        json!({ "paper": p.id, "text": "lost?", "base_version": 2 }),
+    )
+    .await;
+    assert!(
+        matches!(stale, Err(CommandError::Failed { ref kind, .. }) if kind == "conflict"),
+        "{stale:?}"
+    );
+    // Saving the same text is not a new version.
+    let same: PaperNotes = call(
+        &e.bus,
+        "workspace.save_notes",
+        json!({ "paper": p.id, "text": "Rewritten" }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(same.version, 4);
+
+    // Restore version 3: a new version with the old text, itself in the history.
+    let r: PaperNotes = call(
+        &e.bus,
+        "workspace.restore_notes",
+        json!({ "paper": p.id, "version": 3 }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        (r.version, r.text.as_str()),
+        (5, "# Notes\n\nFirst idea, refined")
+    );
+    let hist: Vec<NotesVersion> = call(&e.bus, "workspace.notes_history", json!({ "paper": p.id }))
+        .await
+        .unwrap();
+    assert_eq!(hist[0].version, 5);
+    assert_eq!(hist[1].version, 4, "the version before the restore is kept");
+    assert!(hist[0].preview.starts_with("# Notes First idea"));
+
+    // After a restart the notebook is there.
+    drop(e);
+    let e2 = env(d.path());
+    let _: ProjectInfo = call(&e2.bus, "workspace.open_default_library", json!(null))
+        .await
+        .unwrap();
+    let back: PaperNotes = call(&e2.bus, "workspace.get_notes", json!({ "paper": p.id }))
+        .await
+        .unwrap();
+    assert_eq!(back.version, 5);
+    let missing = call::<PaperNotes>(
+        &e2.bus,
+        "workspace.save_notes",
+        json!({ "paper": "00000000-0000-0000-0000-000000000009", "text": "x" }),
+    )
+    .await;
+    assert!(matches!(missing, Err(CommandError::Failed { ref kind, .. }) if kind == "not_found"));
+}

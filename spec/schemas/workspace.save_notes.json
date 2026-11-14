@@ -1,0 +1,91 @@
+{
+  "command": "workspace.save_notes",
+  "input": {
+    "$defs": {
+      "PaperId": {
+        "description": "A paper (a PDF in the library or a project).\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `workspace.save_notes`.",
+    "properties": {
+      "base_version": {
+        "default": null,
+        "description": "The version the text was edited from. When given and the notebook has moved on (another\nwindow saved in between), the save is refused with `conflict` and nothing changes.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "paper": {
+        "$ref": "#/$defs/PaperId",
+        "description": "The paper."
+      },
+      "text": {
+        "description": "The whole text.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "paper",
+      "text"
+    ],
+    "title": "SaveNotes",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "PaperId": {
+        "description": "A paper (a PDF in the library or a project).\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "The notebook of a paper.",
+    "properties": {
+      "modified_ms": {
+        "default": null,
+        "description": "Last saved, ms since the Unix epoch.",
+        "format": "int64",
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "paper": {
+        "$ref": "#/$defs/PaperId",
+        "description": "The paper."
+      },
+      "text": {
+        "description": "Markdown text. Location chips are links of the form `[p. 4](loc:4/120)` (page / y in\npage space), optionally `loc:4/120/<annotation id>`.",
+        "type": "string"
+      },
+      "version": {
+        "description": "Increases with every save; 0 when nothing was written yet.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "paper",
+      "text",
+      "version"
+    ],
+    "title": "PaperNotes",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "create"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Save the notebook of a paper (a new version; earlier ones stay in the history)"
+}

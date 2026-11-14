@@ -490,6 +490,18 @@ export interface MetadataRequest {
   file: BlobRef;
 }
 
+/** One point in a notebook's history. */
+export interface NotesVersion {
+  /** Length in characters. */
+  chars: number;
+  /** The first words, for the history list. */
+  preview: string;
+  /** When it was saved. */
+  saved_ms: number;
+  /** Version number. */
+  version: number;
+}
+
 /**
  * A research object of any kind.
  * 
@@ -646,6 +658,21 @@ export interface PaperInput {
   paper: PaperId;
 }
 
+/** The notebook of a paper. */
+export type PaperNotes = {
+  /** Last saved, ms since the Unix epoch. */
+  modified_ms?: number | null;
+  /** The paper. */
+  paper: PaperId;
+  /**
+   * Markdown text. Location chips are links of the form `[p. 4](loc:4/120)` (page / y in
+   * page space), optionally `loc:4/120/<annotation id>`.
+   */
+  text: string;
+  /** Increases with every save; 0 when nothing was written yet. */
+  version: number;
+};
+
 /** A paper the caller wants searched. Placeholder for `Ref<Paper>` (Phase 1 M1.TYP). */
 export type PaperRef = string;
 
@@ -777,6 +804,30 @@ export interface Rendered {
   /** Width in pixels. */
   width_px: number;
 }
+
+/**
+ * Input of `workspace.restore_notes`: bring back an earlier version (saved as a new version, so
+ * restoring can itself be undone by restoring again).
+ */
+export interface RestoreNotes {
+  /** The paper. */
+  paper: PaperId;
+  /** The version to bring back. */
+  version: number;
+}
+
+/** Input of `workspace.save_notes`. */
+export type SaveNotes = {
+  /**
+   * The version the text was edited from. When given and the notebook has moved on (another
+   * window saved in between), the save is refused with `conflict` and nothing changes.
+   */
+  base_version?: number | null;
+  /** The paper. */
+  paper: PaperId;
+  /** The whole text. */
+  text: string;
+};
 
 /** Input of `workspace.save_reading_state` (also marks the paper as opened now). */
 export type SaveReadingState = {

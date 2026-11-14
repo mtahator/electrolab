@@ -9,7 +9,7 @@ import { For, type JSX, Show, createMemo, createSignal, onCleanup, onMount } fro
 
 import { Editor, PendingEditor } from "./Editor";
 import { boundsOf, hits, simplify } from "./geometry";
-import { add, annotationsOf, change, draft, isMarkup, pending, picked, remove, repliesOf, setPending, setPicked, setTool, tool } from "./state";
+import { add, annotationsOf, change, draft, isMarkup, marksHidden, pending, picked, remove, repliesOf, setPending, setPicked, setTool, tool } from "./state";
 
 export interface LayerProps {
   paper: string;
@@ -20,7 +20,7 @@ export interface LayerProps {
   height: number;
 }
 
-type Drag =
+export type Drag =
   | { kind: "draw"; start: PagePoint; cur: PagePoint; points: PagePoint[] }
   | { kind: "erase"; ids: Set<string> }
   | { kind: "move"; id: string; start: PagePoint; dx: number; dy: number; moved: boolean }
@@ -62,10 +62,37 @@ export function transformed(a: Annotation, drag: Drag | null): Annotation {
 }
 
 /** One annotation as SVG (page space). */
-function Shape(props: { a: Annotation; picked: boolean; fading: boolean }): JSX.Element {
+/** The author's initial (or a dot when unknown). */
+function initial(author: string | null | undefined): string {
+  const c = (author ?? "").trim().charAt(0);
+  return c ? c.toUpperCase() : "•";
+}
+
+/** A comment pin: a round bubble whose bottom-left corner points at the spot, with a short label
+ *  (author initial or the number of comments in the thread). */
+export function Pin(props: { x: number; y: number; size: number; color: string; label?: string }): JSX.Element {
+  const r = (): number => props.size / 2;
+  return (
+    <g class="pin">
+      <path
+        class="pin-body"
+        d={`M${f(props.x)} ${f(props.y + props.size)} V${f(props.y + r())} A${f(r())} ${f(r())} 0 1 1 ${f(props.x + r())} ${f(props.y + props.size)} Z`}
+        fill={props.color}
+      />
+      <Show when={props.label}>
+        <text class="pin-text" x={props.x + r()} y={props.y + r()} style={{ "font-size": `${props.size * 0.52}px` }}>
+          {props.label ?? ""}
+        </text>
+      </Show>
+    </g>
+  );
+}
+
+function Shape(props: { a: Annotation; picked: boolean; fading: boolean; replies: number }): JSX.Element {
   const a = (): Annotation => props.a;
   const w = (): number => a().width ?? 1;
-  const op = (): number => (props.fading ? 0.25 : (a().opacity ?? 1));
+  // Resolved notes step back (guideline §10.1).
+  const op = (): number => (props.fading ? 0.25 : a().kind === "note" && a().resolved ? 0.4 : (a().opacity ?? 1));
   const quads = (): Annotation["quads"] => a().quads ?? [];
   const markupLine = (q: NonNullable<Annotation["quads"]>[number], at: "bottom" | "middle"): { x1: number; y1: number; x2: number; y2: number; t: number } => {
     const [ul, ur, ll, lr] = q.p;
@@ -146,16 +173,8 @@ function Shape(props: { a: Annotation; picked: boolean; fading: boolean }): JSX.
         if (k === "note") {
           const r = a().rect;
           return (
-            <g class="note-icon">
-              <path
-                d={`M${f(r.x0 + 1)} ${f(r.y0 + 1)} H${f(r.x1 - 1)} V${f(r.y0 + 14)} H${f(r.x0 + 9)} L${f(r.x0 + 5)} ${f(r.y1 - 1)} V${f(r.y0 + 14)} H${f(r.x0 + 1)} Z`}
-                fill={a().color}
-                stroke="#444"
-                stroke-width="0.8"
-              />
-              <line x1={r.x0 + 4} y1={r.y0 + 5.5} x2={r.x1 - 4} y2={r.y0 + 5.5} stroke="#444" stroke-width="0.8" />
-              <line x1={r.x0 + 4} y1={r.y0 + 9.5} x2={r.x1 - 7} y2={r.y0 + 9.5} stroke="#444" stroke-width="0.8" />
-            </g>
+            // A comment pin (guideline §10.1): small, round, pointing at its spot.
+            <Pin x={r.x0 + 2} y={r.y0 + 2} size={16} color={a().color} label={props.replies > 0 ? String(props.replies + 1) : initial(a().author)} />
           );
         }
         return null;
@@ -167,7 +186,8 @@ function Shape(props: { a: Annotation; picked: boolean; fading: boolean }): JSX.
 export function AnnotationLayer(props: LayerProps): JSX.Element {
   let host!: HTMLDivElement;
   const [drag, setDrag] = createSignal<Drag | null>(null);
-  const all = createMemo(() => (annotationsOf(props.paper)?.annotations ?? []).filter((a) => a.page === props.page));
+  // Ctrl+H hides every mark for clean reading.
+  const all = createMemo(() => (marksHidden() ? [] : (annotationsOf(props.paper)?.annotations ?? []).filter((a) => a.page === props.page)));
   // Replies are listed in their note's card, not drawn.
   const shown = createMemo(() => all().filter((a) => !a.parent));
   const pickedHere = createMemo(() => {
@@ -367,16 +387,17 @@ export function AnnotationLayer(props: LayerProps): JSX.Element {
   return (
     <div class="annot-host" ref={host} classList={{ drawing: drawing(), [`tool-${tool()}`]: true }} onPointerDown={(e) => drawing() && onDown(e)}>
       <svg class="annot-layer" width={props.width} height={props.height} viewBox={`0 0 ${vw()} ${vh()}`} aria-hidden="true">
-        <For each={shown()}>{(a) => <Shape a={transformed(a, drag())} picked={pickedHere()?.id === a.id} fading={fading(a.id)} />}</For>
-        <Show when={pendingHere()}>{(a) => <Shape a={a()} picked={true} fading={false} />}</Show>
+        <For each={shown()}>{(a) => <Shape a={transformed(a, drag())} picked={pickedHere()?.id === a.id} fading={fading(a.id)} replies={repliesOf(props.paper, a.id).length} />}</For>
+        <Show when={pendingHere()}>{(a) => <Shape a={a()} picked={true} fading={false} replies={0} />}</Show>
         {preview()}
-        {/* Comment markers on marks that carry a comment, like other PDF readers show. */}
+        {/* A small pin on marks that carry a comment, so comments are visible without opening. */}
         <For each={shown().filter((a) => isMarkup(a.kind) && (a.body || repliesOf(props.paper, a.id).length > 0))}>
           {(a) => {
             const q = (a.quads ?? [])[(a.quads ?? []).length - 1];
             const x = q ? Math.max(...q.p.map((p) => p.x)) + 1 : a.rect.x1;
-            const y = q ? Math.min(...q.p.map((p) => p.y)) - 6 : a.rect.y0;
-            return <path class="comment-marker" d={`M${f(x)} ${f(y)} h7 v5 h-4 l-2 2 v-2 h-1 z`} fill={a.color} stroke="#444" stroke-width="0.5" />;
+            const y = q ? Math.min(...q.p.map((p) => p.y)) - 9 : a.rect.y0 - 9;
+            const n = repliesOf(props.paper, a.id).length + (a.body ? 1 : 0);
+            return <Pin x={x} y={y} size={10} color={a.color} label={n > 1 ? String(n) : undefined} />;
           }}
         </For>
         {/* Click targets for drawn annotations (text marks are picked through the page click). */}
@@ -395,7 +416,9 @@ export function AnnotationLayer(props: LayerProps): JSX.Element {
                 }
                 const r = x.rect;
                 if (x.kind === "rectangle" || x.kind === "ellipse") return <rect {...common} x={r.x0} y={r.y0} width={r.x1 - r.x0} height={r.y1 - r.y0} fill="none" stroke="transparent" stroke-width={pad * 2} />;
-                return <rect {...common} x={r.x0} y={r.y0} width={r.x1 - r.x0} height={r.y1 - r.y0} fill="transparent" />;
+                // Notes preview their first lines on hover (guideline §10.1).
+                const tip = x.kind === "note" ? (x.body ?? "").replace(/\s+/g, " ").slice(0, 140) || undefined : undefined;
+                return <rect {...common} x={r.x0} y={r.y0} width={r.x1 - r.x0} height={r.y1 - r.y0} fill="transparent" data-tip={tip} aria-label={tip} />;
               })();
             }}
           </For>

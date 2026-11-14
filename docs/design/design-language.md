@@ -1,6 +1,6 @@
 # ElectroPaper design language and UX guideline
 
-Version 1.0 · 2026-11-14 · applies to **every ElectroPaper app**: the Reader, the Lab desktop app, later the web and server consoles, and any panel an engine contributes. Owner: `ui/kit`. Decision: [ADR-012](../adr/ADR-012-design-language-and-icons.md).
+Version 1.2 · 2026-11-14 · applies to **every ElectroPaper app**: the Reader, the Lab desktop app, later the web and server consoles, and any panel an engine contributes. Owner: `ui/kit`. Decision: [ADR-012](../adr/ADR-012-design-language-and-icons.md).
 
 > **In one sentence:** the paper is the hero; the app is a quiet, well-made desk around it that shows tools when you reach for them and puts them away when you don't.
 
@@ -49,7 +49,7 @@ Every app uses the same frame. Regions may be empty, never rearranged.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│ Top bar (40 px): app menu · tabs · ─────────── · page / zoom · search · ⋯       │
+│ Top bar (40 px): library · panels · add ─── back · page / zoom ─── find · notes · ⋯ │
 ├──┬──────────────┬───────────────────────────────────────────┬──────────────────┤
 │T │ Left panel   │                                           │ Right panel      │
 │o │ (navigation) │            Canvas (the document)          │ (work on it)     │
@@ -67,7 +67,7 @@ Every app uses the same frame. Regions may be empty, never rearranged.
 
 | Region | Holds | Rules |
 |---|---|---|
-| **Top bar** | App menu, document tabs, page and zoom, global search, overflow menu `⋯` | One row, 40 px. Never wraps: items that do not fit go into `⋯`. No more than two text buttons; the rest are icons. |
+| **Top bar** | Library, panel switches, add PDF, back/forward, page and zoom, find, split, notes, theme, command palette, overflow menu `⋯` | One row, 40 px. Never wraps: items that do not fit go into `⋯`. No more than two text buttons; the rest are icons. Document tabs sit at the top of each pane, so split view keeps one tab strip per pane. |
 | **Tool rail** | Annotation and page tools (Reader); mode tools (Lab) | Vertical, 44 px wide, icons only (20 px) with tooltips and shortcuts. Grouped with 8 px gaps, no labels. The active tool has a filled background in the accent tint. Tool options (colour, width, category) appear in a small flyout next to the rail when a tool is chosen, not as a permanent bar. |
 | **Left panel** | Navigation: contents, page thumbnails, find results, bookmarks, the list of annotations | 240–480 px, resizable, remembers its width. Chosen with a vertical icon strip at its edge. Closes with the same icon or `Ctrl+B`. |
 | **Canvas** | The document | Neutral surround (`--viewer-bg`). Pages have a soft shadow and no border. Nothing is drawn on the canvas except the document, its annotations, the selection bar and cards the user opened. |
@@ -106,8 +106,13 @@ Rules:
 - **Contrast:** text ≥ 4.5 : 1, large text and icons ≥ 3 : 1, in every theme (checked in CI by the theme test, §15).
 - **No gradients, no glow, no coloured shadows.** Shadows are neutral and only for things that float (§5.3).
 
-### 3.2 Themes
-Five themes, all from the same token set: **Light** (default), **Sepia**, **Dark**, **Night** (warm, dim pages for low light), **High contrast**. A new screen is checked in all five before it is merged. Themes change the frame and, in Dark/Night/High contrast, recolour page text; figures keep their own colours.
+### 3.2 Themes and paper
+Two separate choices, both in the theme menu (`sun-moon`):
+
+- **App theme** — the frame: **Light** (default), **Sepia**, **Dark**, **Night** (warm, dim for low light), **High contrast**. A new screen is checked in all five before it is merged.
+- **Paper** — how pages look: **Match the app** (default), **Original colours** (the PDF exactly as printed), **Sepia** (warm paper, ink keeps its colours), **Dark**, **Night**, **High contrast** (text and lines redrawn; figures keep their own colours).
+
+So a dark app can show pages in their true colours, and a light app can show dark pages. Paper colours are tokens set by `data-paper` (`--page-bg`, `--page-ink`); nothing on the page reads the app theme.
 
 ### 3.3 Annotation colours
 Annotation colours are a separate palette, chosen to read well over text on both white and recoloured pages and to stay distinct for common colour-vision deficiencies:
@@ -184,8 +189,8 @@ Rules:
 | Highlight | `highlighter` | H |
 | Underline | `underline` | U |
 | Strike out | `strikethrough` | S |
-| Squiggly | `spline` | — |
-| Sticky note | `sticky-note` | N |
+| Squiggly | `spline` | — (selection bar, rail) |
+| Sticky note (comment pin) | `message-circle-plus` | N |
 | Text on page | `type` | T |
 | Draw | `pen-line` | D |
 | Rectangle | `square` | R |
@@ -195,11 +200,12 @@ Rules:
 | Eraser | `eraser` | E |
 | Undo / redo | `undo-2` / `redo-2` | Ctrl+Z / Ctrl+Y |
 | Save into PDF | `file-down` | Ctrl+S |
-| Comment | `message-square` | — |
+| Comment | `message-circle-plus` | — |
+| Notes in the margin | `messages-square` | Ctrl+Shift+M |
 | Copy | `copy` | Ctrl+C |
 | Cite | `quote` | Ctrl+Shift+C |
 | Explain (AI) | `sparkles` | double-click a term |
-| Ask the paper (AI) | `message-circle-question` | Ctrl+J |
+| Ask the paper (AI) | `message-circle-question-mark` | Ctrl+J |
 | Notes panel | `notebook-pen` | Ctrl+Shift+N |
 | Contents | `list-tree` | — |
 | Pages | `layout-grid` | — |
@@ -216,7 +222,11 @@ Rules:
 | Focus mode | `maximize-2` | F11, Ctrl+. |
 | More | `ellipsis` | — |
 | Close | `x` | Ctrl+W (tab), Esc (card) |
-| Delete | `trash-2` | Delete |
+| Delete | `trash` | Delete |
+| Earlier versions | `rotate-ccw-clock` | — |
+| Hide / show annotations | `eye-off` / `eye` | Ctrl+H |
+| Side panel / notes panel | `panel-left` / `notebook-pen` | Ctrl+B / Ctrl+Shift+N |
+| Command palette | `command` | Ctrl+K |
 | Resolved | `circle-check` | — |
 | Settings | `settings` | Ctrl+, |
 
@@ -309,16 +319,17 @@ Three ways to write about a paper, each with one clear job:
 | **In the PDF** | Yes (standard annotation) | Yes (`/Text` note with popup) | Exported (Markdown now; in the PDF as an attached page later) |
 
 ### 10.1 Sticky notes: present, not loud
-- On the page a sticky note is a **small icon** (16 px at 100 % zoom) in the note's colour at the spot where it was placed. Its text is not shown on the page by default.
+- On the page a sticky note is a **comment pin**: a small round bubble (16 px at 100 % zoom) in the note's colour whose one sharp corner points at the spot, with the author's initial inside, or the number of comments when the thread has replies. Marks that carry a comment show a smaller pin at their end. Text is not shown on the page by default.
 - **Hover** shows the first two lines in a tooltip-like preview; **click** opens its card (text, replies, resolve).
-- **Margin view** (toggle in the Notes panel or `Ctrl+Shift+M`): notes are shown as small cards in a margin column beside the page, aligned to their spot and stacked without overlap, with a thin leader line. Off by default; remembered per paper.
+- **Margin view** (toggle in the Notes panel or `Ctrl+Shift+M`): sticky notes and marks that carry a comment are shown as small cards in a margin column beside the page, aligned to their spot and stacked without overlap, with a thin leader line. Off by default; remembered per paper.
 - **Show/hide all** (`Ctrl+H`): hides every annotation and note on the page for clean reading; the status line shows "Annotations hidden" so it is never a mystery.
 - Resolved notes fade to 40 % and collapse to the icon; they can be filtered out.
 - Sticky-note colours use the annotation palette; the default is Yellow.
 
 ### 10.2 Paper notes: a quiet notebook
 - One notebook per paper, in the right panel's **Notes** tab; saved as you type; undoable.
-- Writing surface: plain text with light formatting (headings, bold, italic, lists, quotes, links, inline math `$…$`), shown as formatted text while editing — no toolbar by default; formatting via Markdown-style typing or `Ctrl+B/I`, and a small format menu on selection.
+- Writing surface: Markdown with light formatting (headings, bold, italic, lists, quotes, links, inline math `$…$`), shown formatted while typing: marks such as `#`, `**` and `>` are hidden on every line except the one being edited. No toolbar; formatting by typing Markdown or with `Ctrl+B/I`.
+- Every save is kept as a version (one per minute of typing, 200 per paper); *Earlier versions* brings any of them back.
 - **Quotes keep their place:** "Add to notes" inserts the selected text as a quote with a location chip (`p. 4`); clicking the chip goes to that spot and flashes the passage once. Marks can be added the same way (the chip opens the mark).
 - **Backlinks:** a mark that is quoted in the notes shows a small note icon in its card; the Notes list can show "quoted in notes".
 - Notes are searchable with the paper's annotations (one search box in the Notes panel) and exported in M7 (Markdown, Typst, BibTeX with notes).

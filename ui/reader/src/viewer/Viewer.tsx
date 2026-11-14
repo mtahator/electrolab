@@ -4,15 +4,19 @@
 // (P1.M3): the selection bar, text-mark tools and the annotation keys.
 
 import type { DocInfo, Link, PageRect, PageText, Paper, ReadingState } from "@electropaper/bindings";
-import { t, theme } from "@electropaper/kit";
+import { paper, t } from "@electropaper/kit";
 import { For, type JSX, Show, createEffect, createMemo, createSignal, on, onCleanup, onMount, untrack } from "solid-js";
 import { createStore, produce } from "solid-js/store";
 
 import { citation } from "../annotations/geometry";
+import { MARGIN_W, MarginNotes } from "../annotations/MarginNotes";
 import { SelectionBar } from "../annotations/SelectionBar";
 import { marksFor, selectionBox, selectionRanges } from "../annotations/selection";
-import { add, isMarkup, load as loadAnnotations, pending, picked, remove, setPending, setPicked, setTool, tool, typing } from "../annotations/state";
+import { transformed } from "../annotations/AnnotationLayer";
+import { add, change, find, isMarkup, load as loadAnnotations, pending, picked, remove, setPending, setPicked, setTool, tool, typing } from "../annotations/state";
 import { bus, openExternal } from "../host";
+import { quoteToNotes } from "../notes/state";
+import { marginView } from "../shell/frame";
 import { History, type Place } from "./history";
 import { type Layout, type ViewMode, type Zoom, clamp, layout, pageAt, scaleFor, toPage, toScreen, visible } from "./layout";
 import { Page, selectedText } from "./Page";
@@ -29,6 +33,8 @@ export interface ViewerApi {
   focus: () => void;
   /** Copy the selected text with its citation and page; false when nothing is selected. */
   copyCitation: () => boolean;
+  /** Briefly mark the line at page-space `y` (after going to a place from the notes). */
+  flash: (page: number, y: number) => void;
 }
 
 /** What the viewer tells the shell. */
@@ -83,20 +89,23 @@ export function Viewer(props: ViewerProps): JSX.Element {
   const [links, setLinks] = createStore<Record<number, Link[]>>({});
   const [preview, setPreview] = createSignal<{ page: number; top: number | null; at: DOMRect } | null>(null);
   const [selBar, setSelBar] = createSignal<DOMRect | null>(null);
+  const [flashAt, setFlashAt] = createSignal<{ page: number; y: number; n: number } | null>(null);
+  const margin = (): number => (marginView(props.paper.id) ? MARGIN_W : 0);
   const history = new History();
   const [histTick, setHistTick] = createSignal(0);
   let restored = false;
   let saveTimer: number | undefined;
 
   const sizes = (): DocInfo["sizes"] => info()?.sizes ?? [];
-  const scale = createMemo(() => scaleFor(zoom(), sizes(), mode(), view().w, view().h));
+  const scale = createMemo(() => scaleFor(zoom(), sizes(), mode(), view().w - margin(), view().h));
   // Only the single-page layout depends on the current page; in the other layouts a page change
   // must not rebuild (and redraw) every page.
   const layoutPage = createMemo(() => (mode() === "single" ? current() : 1));
-  const lay = createMemo<Layout>(() => layout(sizes(), scale(), mode(), view().w, layoutPage()));
+  const lay = createMemo<Layout>(() => layout(sizes(), scale(), mode(), view().w - margin(), layoutPage()));
   const shown = createMemo(() => visible(lay(), view().top - view().h, view().top + 2 * view().h));
+  // Page colours follow the paper setting (independent of the app theme).
   const colors = createMemo(() => {
-    theme();
+    paper();
     return pageColors();
   });
 
@@ -177,6 +186,11 @@ export function Viewer(props: ViewerProps): JSX.Element {
       if (!text || ranges.length === 0) return false;
       void navigator.clipboard.writeText(citation(text, props.paper, ranges[0]?.page ?? current())).catch(() => {});
       return true;
+    },
+    flash: (page, y) => {
+      const n = (flashAt()?.n ?? 0) + 1;
+      setFlashAt({ page, y, n });
+      window.setTimeout(() => setFlashAt((f) => (f?.n === n ? null : f)), 1400);
     },
   };
 
@@ -354,6 +368,16 @@ export function Viewer(props: ViewerProps): JSX.Element {
         void remove(p.paper, p.id);
         return;
       }
+      // Arrow keys move the picked drawing by 1 pt (Shift: 10 pt) — the keyboard way to drag.
+      const step = e.shiftKey ? 10 : 1;
+      const delta = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[key];
+      const a = p && p.paper === props.paper.id ? find(p.paper, p.id) : undefined;
+      if (delta && a && !isMarkup(a.kind)) {
+        e.preventDefault();
+        const [dx, dy] = delta as [number, number];
+        void change(p!.paper, transformed(a, { kind: "move", id: a.id, start: { x: 0, y: 0 }, dx, dy, moved: true }));
+        return;
+      }
     }
     const step = (dir: number): void => {
       if (single) goTo(current() + dir, 0, false);
@@ -424,10 +448,10 @@ export function Viewer(props: ViewerProps): JSX.Element {
       </Show>
       <div class="scroller" ref={scroller} tabIndex={0} onScroll={onScroll} onWheel={onWheel} onKeyDown={onKey} onCopy={onCopy} onMouseUp={onMouseUp}>
         <Show when={doc() && info()} fallback={<p class="muted center">{t("viewer.loading")}</p>}>
-          <div class="canvas-area" style={{ width: `${lay().width}px`, height: `${lay().height}px` }}>
+          <div class="canvas-area" style={{ width: `${Math.max(lay().width + margin(), view().w)}px`, height: `${lay().height}px` }}>
             <For each={shown()}>
               {(s) => (
-                <div class="slot" style={{ left: `${s.left}px`, top: `${s.top}px` }}>
+                <div class="slot" classList={{ raised: (picked()?.paper === props.paper.id && find(props.paper.id, picked()?.id ?? "")?.page === s.page) || pending()?.annotation.page === s.page }} style={{ left: `${s.left}px`, top: `${s.top}px` }}>
                   <Page
                     paper={props.paper.id}
                     file={props.paper.file}
@@ -450,7 +474,11 @@ export function Viewer(props: ViewerProps): JSX.Element {
                     onInternalLink={(page, top) => goTo(page, top)}
                     onLinkHover={(target, at) => setPreview(target && at ? { ...target, at } : null)}
                     onExternalLink={(url) => void openExternal(url).catch((e: unknown) => setError(String(e)))}
+                    flash={flashAt()?.page === s.page ? (flashAt()?.y ?? null) : null}
                   />
+                  <Show when={margin() > 0}>
+                    <MarginNotes paper={props.paper.id} page={s.page} scale={lay().scale} pageWidth={s.width} />
+                  </Show>
                 </div>
               )}
             </For>
@@ -472,6 +500,15 @@ export function Viewer(props: ViewerProps): JSX.Element {
             onCite={() => {
               api.copyCitation();
               setSelBar(null);
+            }}
+            onAddToNotes={() => {
+              const ranges = selectionRanges((p) => texts[p]);
+              const text = selectedText((p) => texts[p]);
+              const first = ranges[0];
+              const quads = first ? marksFor("highlight", [first], (p) => texts[p])[0]?.rect : undefined;
+              window.getSelection()?.removeAllRanges();
+              setSelBar(null);
+              if (first && text) void quoteToNotes(props.paper.id, { text, page: first.page, y: quads?.y0 ?? 0 });
             }}
           />
         )}

@@ -1,0 +1,76 @@
+{
+  "command": "workspace.notes_history",
+  "input": {
+    "$defs": {
+      "PaperId": {
+        "description": "A paper (a PDF in the library or a project).\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input naming one paper.",
+    "properties": {
+      "paper": {
+        "$ref": "#/$defs/PaperId",
+        "description": "The paper."
+      }
+    },
+    "required": [
+      "paper"
+    ],
+    "title": "PaperInput",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "NotesVersion": {
+        "description": "One point in a notebook's history.",
+        "properties": {
+          "chars": {
+            "description": "Length in characters.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "preview": {
+            "description": "The first words, for the history list.",
+            "type": "string"
+          },
+          "saved_ms": {
+            "description": "When it was saved.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "version": {
+            "description": "Version number.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "saved_ms",
+          "chars",
+          "preview"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "items": {
+      "$ref": "#/$defs/NotesVersion"
+    },
+    "title": "Array_of_NotesVersion",
+    "type": "array"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Earlier versions of a paper's notebook"
+}

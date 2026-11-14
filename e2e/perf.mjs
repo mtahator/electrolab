@@ -59,7 +59,7 @@ for (const theme of themes) for (const name of papers) {
     }
     const firstPage = Date.now() - t0;
     // Pick the theme in the theme menu, as a user would, and let the pages redraw.
-    await js(`(() => { const sel = [...document.querySelectorAll(".topbar select")].at(-1); sel.value = "${theme}"; sel.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+    await js(`(() => { document.querySelector('.topbar [aria-label="Theme"]').click(); [...document.querySelectorAll(".ep-menu-item")].find((b) => b.textContent.trim().toLowerCase() === "${theme}").click(); })()`);
     await sleep(2000);
     results[`${theme} ${name}`] = await js(`(async () => {
       const longTasks = [];

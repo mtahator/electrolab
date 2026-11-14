@@ -10,10 +10,12 @@ use serde::{Deserialize, Serialize};
 pub use ep_types::{BlobRef, CollectionId, Hash, MediaType, PaperId, ProjectId};
 
 mod library;
+mod notes;
 pub use library::*;
+pub use notes::*;
 
 /// Contract version; experimental until a second host uses it (Draft 2.2 §8.3).
-pub const VERSION: &str = "0.3.0";
+pub const VERSION: &str = "0.4.0";
 
 /// Project folder format written by this version (ADR-010).
 pub const PROJECT_FORMAT: u32 = 1;
@@ -68,6 +70,14 @@ pub mod commands {
     pub const RECORD_READING: &str = "workspace.record_reading";
     /// Reading time and pages read.
     pub const READING_STATS: &str = "workspace.reading_stats";
+    /// The notebook of a paper.
+    pub const GET_NOTES: &str = "workspace.get_notes";
+    /// Save the notebook of a paper.
+    pub const SAVE_NOTES: &str = "workspace.save_notes";
+    /// Earlier versions of a paper's notebook.
+    pub const NOTES_HISTORY: &str = "workspace.notes_history";
+    /// Bring back an earlier version of a paper's notebook.
+    pub const RESTORE_NOTES: &str = "workspace.restore_notes";
 }
 
 /// Library (the user's collection) or project (a focused piece of work).
@@ -276,10 +286,14 @@ pub mod errors {
     pub const BAD_FORMAT: &str = "bad_format";
     /// Disk or database failure.
     pub const IO: &str = "io";
+    /// The notebook changed since the version the edit started from.
+    pub const CONFLICT: &str = "conflict";
 }
 
 /// Events published on the hub.
 pub mod events {
+    /// A paper's notebook was saved. Data: `{ paper, version }`.
+    pub const NOTES_CHANGED: &str = "workspace.notes_changed";
     /// A library or project was opened. Data: `ProjectInfo`.
     pub const OPENED: &str = "workspace.opened";
     /// A paper was added. Data: `Paper`.

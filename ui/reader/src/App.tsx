@@ -1,36 +1,100 @@
+// The Reader window (guideline §2): one-row top bar, tool rail, left panel (navigation), the
+// panes with the document, right panel (notes), status line; focus mode shows only the page.
+
 import type { Hit, Paper } from "@electropaper/bindings";
 import { BusError } from "@electropaper/bindings";
-import { Button, THEMES, type Theme, setTheme, t, theme } from "@electropaper/kit";
-import { For, type JSX, Show, createSignal, onCleanup, onMount } from "solid-js";
+import {
+  Banner,
+  Button,
+  Dialog,
+  IconButton,
+  type MenuItem,
+  Panel,
+  StatusItem,
+  StatusLine,
+  PAPERS,
+  TEXT_SIZES,
+  THEMES,
+  density,
+  openMenu,
+  paperChoice,
+  setDensity,
+  setPaper,
+  setTextSize,
+  setTheme,
+  t,
+  textSize,
+  theme,
+} from "@electropaper/kit";
+import { For, type JSX, Show, createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
 import { createStore } from "solid-js/store";
 
-import { onAnnotationError, picked, redo, remove, saveIntoPdf, setTool, typing, undo } from "./annotations/state";
-import { Toolbar } from "./annotations/Toolbar";
+import { ToolRail } from "./annotations/ToolRail";
+import { annotationsOf, marksHidden, onAnnotationError, picked, redo, remove, saveIntoPdf, savedAt, setMarksHidden, setPicked, setTool, typing, undo } from "./annotations/state";
 import { bus, downloadPdf, onBusEvent, onDropFiles, onOpenFiles, openPaperExternally, pickPdfs, printPaper, takePendingFiles } from "./host";
 import { importPdf, openDefaultLibrary, refresh } from "./library";
+import { NotesPanel } from "./notes/NotesPanel";
+import { flushAll, onNotesError } from "./notes/state";
 import { registerActions } from "./shell/actions";
+import {
+  type LeftTab,
+  focusMode,
+  leftPanel,
+  leftWidth,
+  marginView,
+  onNavigate,
+  rightPanel,
+  rightWidth,
+  setFocusMode,
+  setLeftPanel,
+  setLeftWidth,
+  setRightPanel,
+  setRightWidth,
+  toggleMarginView,
+} from "./shell/frame";
 import { LibraryView } from "./shell/LibraryView";
-import { Confirm, KeymapSettings, Palette, Prompt } from "./shell/Overlays";
+import { KeymapSettings, Palette, Prompt } from "./shell/Overlays";
 import { activate, activeTab, closeTab, moveTab, openPapers, openTab, restore, session, setShowLibrary, toggleSplit, updatePaper } from "./shell/session";
-import { type PanelKind, SidePanel } from "./shell/SidePanel";
+import { SidePanel } from "./shell/SidePanel";
 import type { Marks, ViewerApi, ViewerStatus } from "./viewer/Viewer";
 import { Viewer } from "./viewer/Viewer";
 
-const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 5];
-const PANELS: PanelKind[] = ["outline", "thumbnails", "find", "bookmarks", "notes"];
+const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
+const LEFT_TABS: { id: LeftTab; icon: Parameters<typeof IconButton>[0]["icon"]; label: () => string; shortcut?: string }[] = [
+  { id: "outline", icon: "list-tree", label: () => t("panel.outline") },
+  { id: "thumbnails", icon: "layout-grid", label: () => t("panel.thumbnails") },
+  { id: "find", icon: "search", label: () => t("panel.find"), shortcut: "Ctrl+F" },
+  { id: "bookmarks", icon: "bookmark", label: () => t("panel.bookmarks") },
+  { id: "annotations", icon: "list-checks", label: () => t("panel.annotations") },
+];
+const TOOL_KEYS = [
+  ["select", "V"],
+  ["highlight", "H"],
+  ["underline", "U"],
+  ["strike_out", "S"],
+  ["note", "N"],
+  ["free_text", "T"],
+  ["ink", "D"],
+  ["rectangle", "R"],
+  ["ellipse", "O"],
+  ["line", "L"],
+  ["arrow", "A"],
+  ["eraser", "E"],
+  ["squiggly", ""],
+] as const;
 
 export function App(): JSX.Element {
   const [error, setError] = createSignal<string | null>(null);
   const [busy, setBusy] = createSignal(false);
   const [dragging, setDragging] = createSignal(false);
-  const [panel, setPanel] = createSignal<PanelKind | null>("outline");
-  const [panelWidth, setPanelWidth] = createSignal(280);
   const [findFocus, setFindFocus] = createSignal(0);
   const [palette, setPalette] = createSignal(false);
   const [keymap, setKeymap] = createSignal(false);
   const [confirm, setConfirm] = createSignal<{ message: string; answer: (ok: boolean) => void } | null>(null);
   const [urlPrompt, setUrlPrompt] = createSignal(false);
   const [savingPdf, setSavingPdf] = createSignal(false);
+  const [showSaved, setShowSaved] = createSignal(false);
+  const [peek, setPeek] = createSignal(false);
   const [status, setStatus] = createStore<Record<string, ViewerStatus>>({});
   const [marks, setMarks] = createStore<Record<string, Marks>>({});
   const apis = new Map<string, ViewerApi>();
@@ -39,6 +103,23 @@ export function App(): JSX.Element {
     setError(e instanceof BusError ? e.message : String((e as Error)?.message ?? e));
   };
   onAnnotationError(report);
+  onNotesError(report);
+  const ask = (message: string): Promise<boolean> => new Promise((answer) => setConfirm({ message, answer }));
+  const current = (): { api: ViewerApi | undefined; status: ViewerStatus | undefined; paper: Paper | null } => {
+    const tab = activeTab();
+    return { api: tab ? apis.get(tab.id) : undefined, status: tab ? status[tab.id] : undefined, paper: tab?.paper ?? null };
+  };
+  const reading = (): boolean => !session.showLibrary && !!current().paper;
+
+  // "Saved" shows for two seconds after each change (guideline §9.3).
+  createEffect(
+    on(savedAt, (at) => {
+      if (!at) return;
+      setShowSaved(true);
+      const id = window.setTimeout(() => setShowSaved(false), 2000);
+      onCleanup(() => window.clearTimeout(id));
+    }),
+  );
 
   // Save into PDF (Ctrl+S): the paper gets a new managed copy; open tabs keep showing the same
   // pages (annotations are drawn from the store), so nothing reloads.
@@ -50,11 +131,6 @@ export function App(): JSX.Element {
     } finally {
       setSavingPdf(false);
     }
-  };
-  const ask = (message: string): Promise<boolean> => new Promise((answer) => setConfirm({ message, answer }));
-  const current = (): { api: ViewerApi | undefined; status: ViewerStatus | undefined; paper: Paper | null } => {
-    const tab = activeTab();
-    return { api: tab ? apis.get(tab.id) : undefined, status: tab ? status[tab.id] : undefined, paper: tab?.paper ?? null };
   };
 
   async function importAndOpen(paths: string[]): Promise<void> {
@@ -108,9 +184,33 @@ export function App(): JSX.Element {
     }
   };
 
+  // Location chips in notes go back to the place: the paper's tab comes forward, the passage
+  // flashes once, a quoted mark opens its card.
+  onNavigate((paper, page, y, annotation) => {
+    let found: { pane: number; tab: string } | null = null;
+    session.panes.forEach((pane, pi) => {
+      const tab = pane.tabs.find((tb) => tb.paper.id === paper);
+      if (tab && !found) found = { pane: pi, tab: tab.id };
+    });
+    const f = found as { pane: number; tab: string } | null;
+    if (!f) return;
+    activate(f.pane, f.tab);
+    queueMicrotask(() => {
+      const api = apis.get(f.tab);
+      api?.goTo(page, Math.max(0, y - 60));
+      if (annotation) setPicked({ paper, id: annotation, edit: true });
+      else api?.flash(page, y);
+    });
+  });
+
   const withPaper = (f: (p: Paper) => void) => (): void => {
     const p = current().paper;
     if (p) f(p);
+  };
+  const toggleLeft = (tab: LeftTab): void => setLeftPanel(leftPanel() === tab ? null : tab);
+  const openFind = (): void => {
+    setLeftPanel("find");
+    setFindFocus((v) => v + 1);
   };
 
   registerActions([
@@ -119,16 +219,12 @@ export function App(): JSX.Element {
     { id: "view.library", title: () => t("library.title"), keys: "Ctrl+L", run: () => setShowLibrary(!session.showLibrary) },
     { id: "palette", title: () => t("palette.title"), keys: "Ctrl+K", run: () => setPalette(true) },
     { id: "keymap", title: () => t("keymap.title"), run: () => setKeymap(true) },
-    {
-      id: "find",
-      title: () => t("panel.find"),
-      keys: "Ctrl+F",
-      run: () => {
-        setPanel("find");
-        setFindFocus((v) => v + 1);
-      },
-    },
-    ...PANELS.filter((k) => k !== "find").map((k) => ({ id: `panel.${k}`, title: () => t(`panel.${k}`), run: () => setPanel(panel() === k ? null : k) })),
+    { id: "find", title: () => t("panel.find"), keys: "Ctrl+F", run: openFind },
+    { id: "panel.left", title: () => t("frame.left_panel"), keys: "Ctrl+B", enabled: () => !typing(), run: () => setLeftPanel(leftPanel() ? null : "outline") },
+    ...LEFT_TABS.filter((x) => x.id !== "find").map((x) => ({ id: `panel.${x.id}`, title: x.label, run: () => toggleLeft(x.id) })),
+    { id: "panel.notes", title: () => t("panel.notes"), keys: "Ctrl+Shift+N", run: () => setRightPanel(rightPanel() ? null : "notes") },
+    { id: "view.focus", title: () => t("frame.focus_mode"), keys: "F11", run: () => setFocusMode(!focusMode()) },
+    { id: "view.focus2", title: () => t("frame.focus_mode"), keys: "Ctrl+.", run: () => setFocusMode(!focusMode()) },
     {
       id: "bookmark.add",
       title: () => t("panel.add_bookmark"),
@@ -136,7 +232,7 @@ export function App(): JSX.Element {
       enabled: () => !!current().paper,
       run: withPaper((paper) => {
         const page = current().status?.page ?? 1;
-        void bus("workspace.add_bookmark", { name: "", location: { paper: paper.id, page } }).then(() => setPanel("bookmarks"), report);
+        void bus("workspace.add_bookmark", { name: "", location: { paper: paper.id, page } }).then(() => setLeftPanel("bookmarks"), report);
       }),
     },
     { id: "view.split", title: () => (session.panes.length > 1 ? t("tabs.unsplit") : t("tabs.split")), keys: "Ctrl+\\", run: toggleSplit },
@@ -175,6 +271,8 @@ export function App(): JSX.Element {
     { id: "annot.redo", title: () => t("annot.redo"), keys: "Ctrl+Y", enabled: () => !!current().paper && !typing(), run: withPaper((p) => void redo(p.id)) },
     { id: "annot.redo2", title: () => t("annot.redo"), keys: "Ctrl+Shift+Z", enabled: () => !!current().paper && !typing(), run: withPaper((p) => void redo(p.id)) },
     { id: "annot.save_pdf", title: () => t("annot.save_pdf"), keys: "Ctrl+S", enabled: () => !!current().paper && !savingPdf(), run: withPaper((p) => void savePdf(p)) },
+    { id: "annot.hide", title: () => (marksHidden() ? t("annot.show_all") : t("annot.hide_all")), keys: "Ctrl+H", run: () => setMarksHidden(!marksHidden()) },
+    { id: "notes.margin", title: () => t("notes.margin_view"), keys: "Ctrl+Shift+M", enabled: () => !!current().paper, run: withPaper((p) => toggleMarginView(p.id)) },
     {
       id: "annot.delete",
       title: () => t("annot.delete"),
@@ -186,23 +284,7 @@ export function App(): JSX.Element {
       },
     },
     { id: "annot.copy_cite", title: () => t("annot.copy_cite"), keys: "Ctrl+Shift+C", enabled: () => !!current().api, run: () => void current().api?.copyCitation() },
-    { id: "annot.panel", title: () => t("panel.notes"), run: () => setPanel(panel() === "notes" ? null : "notes") },
-    ...(
-      [
-        ["select", "V"],
-        ["highlight", "H"],
-        ["note", "N"],
-        ["free_text", "T"],
-        ["ink", "D"],
-        ["eraser", "E"],
-        ["underline", ""],
-        ["strike_out", ""],
-        ["rectangle", ""],
-        ["ellipse", ""],
-        ["line", ""],
-        ["arrow", ""],
-      ] as const
-    ).map(([tl, key]) => ({
+    ...TOOL_KEYS.map(([tl, key]) => ({
       id: `tool.${tl}`,
       title: () => `${t("annot.tools")}: ${t(tl === "select" ? "annot.tool.select" : tl === "eraser" ? "annot.tool.eraser" : `annot.kind.${tl}`)}`,
       ...(key ? { keys: key } : {}),
@@ -210,6 +292,9 @@ export function App(): JSX.Element {
       run: () => setTool(tl),
     })),
     ...THEMES.map((th) => ({ id: `theme.${th}`, title: () => `${t("settings.theme")}: ${t(`theme.${th}`)}`, run: () => setTheme(th) })),
+    { id: "paper.auto", title: () => `${t("settings.paper")}: ${t("paper.auto")}`, run: () => setPaper("auto") },
+    ...PAPERS.map((p) => ({ id: `paper.${p}`, title: () => `${t("settings.paper")}: ${t(`paper.${p}`)}`, run: () => setPaper(p) })),
+    { id: "view.density", title: () => t("settings.compact"), run: () => setDensity(density() === "compact" ? "comfortable" : "compact") },
   ]);
 
   onMount(async () => {
@@ -230,19 +315,82 @@ export function App(): JSX.Element {
     ]);
     onCleanup(() => offs.forEach((off) => off()));
   });
+  onCleanup(() => void flushAll());
 
   const st = (): ViewerStatus | undefined => current().status;
   const zoomLabel = (): string => {
     const s = st();
-    if (!s) return "";
-    return s.zoom.kind === "fit_width" ? t("viewer.fit_width") : s.zoom.kind === "fit_page" ? t("viewer.fit_page") : `${Math.round(s.scale * 100)}%`;
+    return s ? `${Math.round(s.scale * 100)} %` : "";
   };
 
-  const startResize = (e: PointerEvent): void => {
+  const zoomMenu = (at: DOMRect): void => {
+    const z = st()?.zoom;
+    openMenu(
+      t("viewer.zoom"),
+      [
+        { label: t("viewer.fit_width"), checked: z?.kind === "fit_width", run: () => current().api?.setZoom({ kind: "fit_width" }) },
+        { label: t("viewer.fit_page"), checked: z?.kind === "fit_page", run: () => current().api?.setZoom({ kind: "fit_page" }) },
+        { separator: true },
+        ...ZOOM_STEPS.map((f) => ({ label: `${Math.round(f * 100)} %`, checked: z?.kind === "scale" && Math.abs(z.factor - f) < 0.001, run: () => current().api?.setZoom({ kind: "scale", factor: f }) })),
+      ],
+      at,
+    );
+  };
+
+  // App theme and paper colour are separate (e.g. a dark app with pages in their true colours).
+  const themeMenu = (at: DOMRect): void =>
+    openMenu(
+      t("settings.theme"),
+      [
+        { heading: t("settings.app_theme") },
+        ...THEMES.map((th) => ({ label: t(`theme.${th}`), checked: theme() === th, run: () => setTheme(th) })),
+        { separator: true },
+        { heading: t("settings.paper") },
+        { label: t("paper.auto"), checked: paperChoice() === "auto", run: () => setPaper("auto") },
+        ...PAPERS.map((p) => ({ label: t(`paper.${p}`), checked: paperChoice() === p, run: () => setPaper(p) })),
+      ],
+      at,
+    );
+
+  const moreMenu = (at: DOMRect): void => {
+    const s = st();
+    const p = current().paper;
+    const items: MenuItem[] = [];
+    if (s && p) {
+      items.push(
+        { heading: t("viewer.mode") },
+        { label: t("viewer.mode_continuous"), checked: s.mode === "continuous", run: () => current().api?.setMode("continuous") },
+        { label: t("viewer.mode_single"), checked: s.mode === "single", run: () => current().api?.setMode("single") },
+        { label: t("viewer.mode_two_page"), checked: s.mode === "two_page", run: () => current().api?.setMode("two_page") },
+        { separator: true },
+        { label: t("frame.focus_mode"), icon: "maximize-2", shortcut: "F11", run: () => setFocusMode(true) },
+        { label: marksHidden() ? t("annot.show_all") : t("annot.hide_all"), icon: marksHidden() ? "eye" : "eye-off", shortcut: "Ctrl+H", run: () => setMarksHidden(!marksHidden()) },
+        { label: t("notes.margin_view"), icon: "messages-square", shortcut: "Ctrl+Shift+M", checked: marginView(p.id), run: () => toggleMarginView(p.id) },
+        { label: t("annot.save_pdf"), icon: "file-down", shortcut: "Ctrl+S", disabled: !annotationsOf(p.id)?.unsaved, run: () => void savePdf(p) },
+        { separator: true },
+        { label: t("viewer.open_external"), icon: "external-link", run: () => void openPaperExternally(p.file.hash).catch(report) },
+        { label: t("viewer.print"), icon: "printer", shortcut: "Ctrl+P", run: () => void printPaper(p.file.hash).catch(report) },
+        { separator: true },
+      );
+    }
+    items.push(
+      { label: t("settings.compact"), checked: density() === "compact", run: () => setDensity(density() === "compact" ? "comfortable" : "compact") },
+      { heading: t("settings.text_size") },
+      ...TEXT_SIZES.map((n) => ({ label: `${n} %`, checked: textSize() === n, run: () => setTextSize(n) })),
+      { separator: true },
+      { label: t("keymap.title"), icon: "keyboard", run: () => setKeymap(true) },
+    );
+    openMenu(t("frame.more"), items, at);
+  };
+
+  const resize = (e: PointerEvent, side: "left" | "right"): void => {
     const startX = e.clientX;
-    const startW = panelWidth();
+    const startW = side === "left" ? leftWidth() : rightWidth();
     const move = (m: PointerEvent): void => {
-      setPanelWidth(Math.min(560, Math.max(180, startW + m.clientX - startX)));
+      const d = side === "left" ? m.clientX - startX : startX - m.clientX;
+      const w = Math.min(side === "left" ? 480 : 560, Math.max(side === "left" ? 220 : 300, startW + d));
+      if (side === "left") setLeftWidth(w);
+      else setRightWidth(w);
     };
     const up = (): void => {
       window.removeEventListener("pointermove", move);
@@ -252,126 +400,98 @@ export function App(): JSX.Element {
     window.addEventListener("pointerup", up);
   };
 
+  const unsaved = (): boolean => !!(current().paper && annotationsOf(current().paper?.id ?? "")?.unsaved);
+
   return (
-    <div class="app">
-      <header class="topbar">
-        <strong>{t("app.title")}</strong>
-        <Button onClick={() => setShowLibrary(!session.showLibrary)} title="Ctrl+L" data-pressed={session.showLibrary}>
-          {t("library.title")}
-        </Button>
-        <Button variant="primary" disabled={busy()} onClick={() => void addPdfs()} title="Ctrl+O">
-          {busy() ? t("library.adding") : t("library.add")}
-        </Button>
-        <Button disabled={busy()} onClick={() => setUrlPrompt(true)} title="Ctrl+Shift+O">
-          {t("library.open_url")}
-        </Button>
-        <Show when={!session.showLibrary && st()}>
+    <div class="app" classList={{ "focus-mode": focusMode(), peek: focusMode() && peek() }}>
+      <Show when={focusMode()}>
+        <div class="peek-zone" onPointerEnter={() => setPeek(true)} />
+      </Show>
+      <header class="topbar" onPointerLeave={() => setPeek(false)}>
+        <div class="bar-group">
+          <IconButton icon="library" label={t("library.title")} shortcut="Ctrl+L" pressed={session.showLibrary} onClick={() => setShowLibrary(!session.showLibrary)} />
+          <IconButton icon="panel-left" label={t("frame.left_panel")} shortcut="Ctrl+B" pressed={!!leftPanel()} disabled={session.showLibrary} onClick={() => setLeftPanel(leftPanel() ? null : "outline")} />
+          <span class="bar-sep" />
+          <IconButton icon="file-plus" label={busy() ? t("library.adding") : t("library.add")} shortcut="Ctrl+O" disabled={busy()} onClick={() => void addPdfs()} />
+          <IconButton icon="link" label={t("library.open_url")} shortcut="Ctrl+Shift+O" disabled={busy()} onClick={() => setUrlPrompt(true)} />
+        </div>
+        <span class="ep-spacer" />
+        <Show when={reading() && st()}>
           {(s) => (
-            <div class="viewer-tools">
-              <button type="button" class="icon" disabled={!s().canBack} title={`${t("viewer.back")} (Alt+Left)`} onClick={() => current().api?.back()}>
-                ←
-              </button>
-              <button type="button" class="icon" disabled={!s().canForward} title={`${t("viewer.forward")} (Alt+Right)`} onClick={() => current().api?.forward()}>
-                →
-              </button>
-              <label class="field">
-                {t("viewer.page_box")}
+            <div class="bar-group viewer-tools">
+              <IconButton icon="arrow-left" label={t("viewer.back")} shortcut="Alt+←" disabled={!s().canBack} onClick={() => current().api?.back()} />
+              <IconButton icon="arrow-right" label={t("viewer.forward")} shortcut="Alt+→" disabled={!s().canForward} onClick={() => current().api?.forward()} />
+              <label class="page-field">
                 <input
                   class="ep-input page-box"
+                  aria-label={t("viewer.page_box")}
                   value={s().page}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") current().api?.goTo(Number(e.currentTarget.value) || 1, null);
                   }}
                   onFocus={(e) => e.currentTarget.select()}
                 />
-                / {s().pages}
+                <span class="muted">/ {s().pages}</span>
               </label>
-              <button type="button" class="icon" title={`${t("viewer.zoom_out")} (Ctrl+-)`} onClick={() => current().api?.zoomBy(1 / 1.2)}>
-                −
+              <span class="bar-sep" />
+              <IconButton icon="zoom-out" label={t("viewer.zoom_out")} shortcut="Ctrl+−" onClick={() => current().api?.zoomBy(1 / 1.2)} />
+              <button type="button" class="zoom-button" aria-label={`${t("viewer.zoom")}: ${zoomLabel()}`} data-tip={t("viewer.zoom")} onClick={(e) => zoomMenu(e.currentTarget.getBoundingClientRect())}>
+                {zoomLabel()}
               </button>
-              <select
-                class="ep-select"
-                value=""
-                onChange={(e) => {
-                  const v = e.currentTarget.value;
-                  e.currentTarget.value = "";
-                  if (v === "fit_width" || v === "fit_page") current().api?.setZoom({ kind: v });
-                  else if (v) current().api?.setZoom({ kind: "scale", factor: Number(v) });
-                }}
-              >
-                <option value="">{zoomLabel()}</option>
-                <option value="fit_width">{t("viewer.fit_width")}</option>
-                <option value="fit_page">{t("viewer.fit_page")}</option>
-                <For each={ZOOM_STEPS}>{(z) => <option value={z}>{Math.round(z * 100)}%</option>}</For>
-              </select>
-              <button type="button" class="icon" title={`${t("viewer.zoom_in")} (Ctrl+=)`} onClick={() => current().api?.zoomBy(1.2)}>
-                +
-              </button>
-              <select class="ep-select" value={s().mode} aria-label={t("viewer.mode")} onChange={(e) => current().api?.setMode(e.currentTarget.value as ViewerStatus["mode"])}>
-                <option value="continuous">{t("viewer.mode_continuous")}</option>
-                <option value="single">{t("viewer.mode_single")}</option>
-                <option value="two_page">{t("viewer.mode_two_page")}</option>
-              </select>
+              <IconButton icon="zoom-in" label={t("viewer.zoom_in")} shortcut="Ctrl+=" onClick={() => current().api?.zoomBy(1.2)} />
             </div>
           )}
         </Show>
-        <span class="spacer" />
-        <Show when={!session.showLibrary}>
-          <div class="panel-tabs">
-            <For each={PANELS}>
-              {(k) => (
-                <button type="button" class="panel-tab" classList={{ active: panel() === k }} onClick={() => setPanel(panel() === k ? null : k)}>
-                  {t(`panel.${k}`)}
-                </button>
-              )}
-            </For>
-          </div>
-          <Button onClick={toggleSplit} title="Ctrl+\">
-            {session.panes.length > 1 ? t("tabs.unsplit") : t("tabs.split")}
-          </Button>
-        </Show>
-        <label class="field">
-          {t("settings.theme")}
-          <select class="ep-select" value={theme()} onChange={(e) => setTheme(e.currentTarget.value as Theme)}>
-            <For each={THEMES}>{(th) => <option value={th}>{t(`theme.${th}`)}</option>}</For>
-          </select>
-        </label>
-        <Button onClick={() => setPalette(true)} title={`${t("palette.title")} (Ctrl+K)`}>
-          {t("palette.title")}
-        </Button>
-      </header>
-      <Show when={!session.showLibrary && current().paper}>
-        {(p) => <Toolbar paper={p().id} saving={savingPdf()} onSave={() => void savePdf(p())} />}
-      </Show>
-      <Show when={error()}>
-        <div class="banner" role="alert">
-          <strong>{t("error.title")}:</strong> {error()}
-          <button type="button" class="icon" onClick={() => setError(null)} aria-label={t("common.close")}>
-            ×
-          </button>
+        <span class="ep-spacer" />
+        <div class="bar-group">
+          <Show when={!session.showLibrary}>
+            <IconButton icon="search" label={t("panel.find")} shortcut="Ctrl+F" pressed={leftPanel() === "find"} onClick={() => (leftPanel() === "find" ? setLeftPanel(null) : openFind())} />
+            <IconButton icon="columns-2" label={session.panes.length > 1 ? t("tabs.unsplit") : t("tabs.split")} shortcut="Ctrl+\" pressed={session.panes.length > 1} onClick={toggleSplit} />
+            <IconButton icon="notebook-pen" label={t("panel.notes")} shortcut="Ctrl+Shift+N" pressed={rightPanel() === "notes"} disabled={!current().paper} onClick={() => setRightPanel(rightPanel() ? null : "notes")} />
+            <span class="bar-sep" />
+          </Show>
+          <IconButton icon="sun-moon" label={t("settings.theme")} onClick={(e) => themeMenu(e.currentTarget.getBoundingClientRect())} />
+          <IconButton icon="command" label={t("palette.title")} shortcut="Ctrl+K" onClick={() => setPalette(true)} />
+          <IconButton icon="ellipsis" label={t("frame.more")} onClick={(e) => moreMenu(e.currentTarget.getBoundingClientRect())} />
         </div>
+      </header>
+      <Show when={error()}>
+        <Banner onClose={() => setError(null)} closeLabel={t("common.close")}>
+          {error()}
+        </Banner>
       </Show>
       <Show
         when={!session.showLibrary}
         fallback={<LibraryView onOpen={openTab} onAdd={() => void addPdfs()} onError={report} confirm={(name) => ask(t("confirm.delete_collection", { name }))} />}
       >
-        <div class="workspace">
-          <Show when={panel()}>
+        <div class="frame">
+          <Show when={current().paper}>{(p) => <ToolRail paper={p().id} saving={savingPdf()} onSave={() => void savePdf(p())} />}</Show>
+          <Show when={leftPanel()}>
             {(k) => (
               <>
-                <aside class="side" style={{ width: `${panelWidth()}px` }}>
-                  <SidePanel
-                    kind={k()}
-                    paper={current().paper}
-                    pages={st()?.pages ?? 0}
-                    current={st()?.page ?? 1}
-                    openPapers={openPapers()}
-                    onGoTo={(page, y) => current().api?.goTo(page, y)}
-                    onHits={showHits}
-                    findFocus={findFocus()}
-                  />
-                </aside>
-                <div class="resizer" onPointerDown={startResize} />
+                <div class="side left" style={{ width: `${leftWidth()}px` }}>
+                  <Panel
+                    side="left"
+                    label={t("frame.left_panel")}
+                    tabs={LEFT_TABS.map((x) => ({ id: x.id, icon: x.icon, label: x.label(), shortcut: x.shortcut }))}
+                    active={k()}
+                    onTab={(id) => (id === "find" ? openFind() : setLeftPanel(id as LeftTab))}
+                    onClose={() => setLeftPanel(null)}
+                    closeLabel={t("common.close")}
+                  >
+                    <SidePanel
+                      kind={k()}
+                      paper={current().paper}
+                      pages={st()?.pages ?? 0}
+                      current={st()?.page ?? 1}
+                      openPapers={openPapers()}
+                      onGoTo={(page, y) => current().api?.goTo(page, y)}
+                      onHits={showHits}
+                      findFocus={findFocus()}
+                    />
+                  </Panel>
+                </div>
+                <div class="resizer" role="separator" aria-orientation="vertical" onPointerDown={(e) => resize(e, "left")} />
               </>
             )}
           </Show>
@@ -390,30 +510,31 @@ export function App(): JSX.Element {
                     }
                   }}
                 >
-                  <div class="tab-strip">
+                  <div class="tab-strip" role="tablist">
                     <For each={pane.tabs}>
                       {(tab) => (
                         <div
                           class="tab"
+                          role="tab"
+                          aria-selected={pane.active === tab.id}
                           classList={{ active: pane.active === tab.id }}
                           draggable={true}
                           onDragStart={(e) => e.dataTransfer?.setData("application/x-ep-tab", JSON.stringify({ pane: pi(), id: tab.id }))}
                           onClick={() => activate(pi(), tab.id)}
-                          title={tab.paper.title ?? tab.paper.original_name}
+                          data-tip={tab.paper.title ?? tab.paper.original_name}
                         >
                           <span class="tab-title">{tab.paper.title ?? tab.paper.original_name}</span>
-                          <button
-                            type="button"
-                            class="icon"
-                            aria-label={t("tabs.close")}
+                          <IconButton
+                            icon="x"
+                            size="sm"
+                            label={t("tabs.close")}
+                            class="tab-close"
                             onClick={(e) => {
                               e.stopPropagation();
                               apis.delete(tab.id);
                               closeTab(pi(), tab.id);
                             }}
-                          >
-                            ×
-                          </button>
+                          />
                         </div>
                       )}
                     </For>
@@ -435,7 +556,65 @@ export function App(): JSX.Element {
               )}
             </For>
           </div>
+          <Show when={rightPanel() && current().paper}>
+            <div class="resizer" role="separator" aria-orientation="vertical" onPointerDown={(e) => resize(e, "right")} />
+            <div class="side right" style={{ width: `${rightWidth()}px` }}>
+              <Panel
+                side="right"
+                label={t("frame.right_panel")}
+                tabs={[{ id: "notes", icon: "notebook-pen", label: t("panel.notes"), shortcut: "Ctrl+Shift+N" }]}
+                active="notes"
+                onTab={() => setRightPanel("notes")}
+                onClose={() => setRightPanel(null)}
+                closeLabel={t("common.close")}
+              >
+                <NotesPanel paper={current().paper as Paper} />
+              </Panel>
+            </div>
+          </Show>
         </div>
+      </Show>
+      <StatusLine
+        left={
+          <>
+            <Show when={busy()}>
+              <StatusItem icon="file-plus">{t("library.adding")}</StatusItem>
+            </Show>
+            <Show when={savingPdf()}>
+              <StatusItem icon="file-down">{t("annot.saving_pdf")}</StatusItem>
+            </Show>
+            <Show when={showSaved() && !savingPdf()}>
+              <StatusItem icon="check">{t("annot.saved")}</StatusItem>
+            </Show>
+            <Show when={reading() && unsaved() && !savingPdf()}>
+              <StatusItem icon="file-down" tone="accent" label={t("annot.save_pdf")} onClick={() => current().paper && void savePdf(current().paper as Paper)}>
+                {t("annot.not_in_pdf")}
+              </StatusItem>
+            </Show>
+            <Show when={reading() && marksHidden()}>
+              <StatusItem icon="eye-off" label={t("annot.show_all")} onClick={() => setMarksHidden(false)}>
+                {t("annot.hidden")}
+              </StatusItem>
+            </Show>
+          </>
+        }
+        right={
+          <Show when={reading() && st()}>
+            {(s) => (
+              <>
+                <StatusItem>{t("viewer.page", { n: s().page, total: s().pages })}</StatusItem>
+                <StatusItem>{zoomLabel()}</StatusItem>
+              </>
+            )}
+          </Show>
+        }
+      />
+      <Show when={focusMode() && st()}>
+        {(s) => (
+          <div class="focus-indicator" aria-hidden="true">
+            {s().page} / {s().pages}
+          </div>
+        )}
       </Show>
       <Show when={dragging()}>
         <div class="drop-overlay">{t("library.drop_here")}</div>
@@ -458,13 +637,37 @@ export function App(): JSX.Element {
       </Show>
       <Show when={confirm()}>
         {(c) => (
-          <Confirm
-            message={c().message}
-            onAnswer={(ok) => {
+          <Dialog
+            title={c().message}
+            onCancel={() => {
               setConfirm(null);
-              c().answer(ok);
+              c().answer(false);
             }}
-          />
+            actions={
+              <>
+                <Button
+                  onClick={() => {
+                    setConfirm(null);
+                    c().answer(false);
+                  }}
+                >
+                  {t("common.cancel")}
+                </Button>
+                <Button
+                  variant="danger"
+                  data-autofocus
+                  onClick={() => {
+                    setConfirm(null);
+                    c().answer(true);
+                  }}
+                >
+                  {t("common.delete")}
+                </Button>
+              </>
+            }
+          >
+            {t("confirm.papers_stay")}
+          </Dialog>
         )}
       </Show>
     </div>

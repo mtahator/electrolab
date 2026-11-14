@@ -1,110 +1,203 @@
-/* Design tokens. Components use only these variables, never raw colours. */
+/* Design tokens (docs/design/design-language.md §3–§7). Components use only these variables:
+   no raw colours, sizes or fonts outside this file (checked by scripts/check-tokens.mjs). */
 
 :root {
-  --font-ui: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  /* Type (§4). Sizes are in rem so the text size setting scales them. */
+  --font-ui: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-read: Charter, "Bitstream Charter", Georgia, serif;
   --font-mono: "Cascadia Mono", Consolas, monospace;
+  /* Free text on the page uses the font written into the PDF (Helvetica), so both look alike. */
+  --font-annot: Helvetica, Arial, sans-serif;
+  --text-xs: 0.75rem; /* 12 px: status, meta */
+  --text-sm: 0.8125rem; /* 13 px: UI text */
+  --text-md: 0.875rem; /* 14 px: panel titles, reading text in panels */
+  --text-lg: 1rem; /* 16 px: dialog titles */
+  --leading: 1.4;
+  --leading-read: 1.6;
 
+  /* Space and size (§5). */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
   --space-6: 24px;
+  --control-h: 32px;
+  --row-h: 32px;
+  --icon: 20px;
+  --icon-sm: 16px;
+  --bar-h: 40px;
+  --rail-w: 44px;
+  --status-h: 24px;
   --radius: 6px;
-  --text-sm: 12px;
-  --text-md: 14px;
-  --text-lg: 16px;
+  --radius-lg: 10px;
 
+  /* Depth (§5.3): only for what floats. */
+  --shadow-1: 0 4px 16px rgb(0 0 0 / 14%);
+  --shadow-2: 0 8px 32px rgb(0 0 0 / 22%);
+
+  /* Motion (§7). */
+  --dur-fast: 120ms;
+  --dur: 180ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Light theme (default). */
   --bg: #ffffff;
-  --bg-panel: #f5f6f8;
-  --bg-sunken: #e9ebef;
+  --bg-panel: #f6f7f9;
+  --bg-sunken: #eceef2;
+  --bg-hover: #e8eaef;
   --fg: #1d2129;
-  --fg-muted: #5c6370;
-  --border: #d9dce2;
-  --accent: #2f6fdf;
+  --fg-muted: #5a616d;
+  --border: #dfe2e7;
+  --accent: #2a64d6;
   --accent-fg: #ffffff;
-  --danger: #c4372b;
+  --accent-soft: #e7eefc;
+  --danger: #b8322a;
+  --success: #2c7a3f;
+  --warning: #9a6200;
   --page-bg: #ffffff;
-  --page-shadow: 0 1px 4px rgb(0 0 0 / 18%);
-  --viewer-bg: #e3e5e9;
+  --page-shadow: 0 1px 3px rgb(0 0 0 / 16%), 0 0 0 1px rgb(0 0 0 / 4%);
+  --viewer-bg: #e9ebee;
+  --hit: rgb(255 200 0 / 35%);
+  --hit-active: rgb(255 120 0 / 55%);
+  --hit-active-ring: #ff7800;
+  --selection: rgb(42 100 214 / 30%);
+  --scrim: rgb(0 0 0 / 30%);
   color-scheme: light;
 }
 
+:root[data-density="compact"] {
+  --control-h: 28px;
+  --row-h: 28px;
+  --bar-h: 36px;
+  --rail-w: 40px;
+}
+
 :root[data-theme="dark"] {
-  --bg: #1b1d22;
-  --bg-panel: #23262d;
-  --bg-sunken: #15171b;
+  --bg: #1c1e23;
+  --bg-panel: #22252b;
+  --bg-sunken: #16181c;
+  --bg-hover: #2c3038;
   --fg: #e6e8ec;
-  --fg-muted: #a0a6b1;
-  --border: #353942;
-  --accent: #6b9cf5;
+  --fg-muted: #a3a9b4;
+  --border: #33373f;
+  --accent: #7aa7f7;
   --accent-fg: #0d1117;
-  --danger: #ef6b5f;
-  --page-bg: #ffffff;
+  --accent-soft: #233149;
+  --danger: #f0786d;
+  --success: #6cc785;
+  --warning: #e6b450;
   --page-shadow: 0 1px 6px rgb(0 0 0 / 55%);
-  --viewer-bg: #111316;
+  --viewer-bg: #121417;
+  --selection: rgb(122 167 247 / 35%);
+  --scrim: rgb(0 0 0 / 50%);
+  --shadow-1: 0 4px 16px rgb(0 0 0 / 45%);
+  --shadow-2: 0 8px 32px rgb(0 0 0 / 60%);
   color-scheme: dark;
 }
 
-/* Night: low light. Dark, warm UI and dimmed warm pages (less glare than white pages). */
+/* Night: low light. Dark, warm frame and dimmed warm pages (less glare than white pages). */
 :root[data-theme="night"] {
-  --bg: #17130f;
+  --bg: #18140f;
   --bg-panel: #1e1913;
-  --bg-sunken: #110e0b;
-  --fg: #d9cbb4;
-  --fg-muted: #9c8d77;
+  --bg-sunken: #120f0b;
+  --bg-hover: #2a231a;
+  --fg: #ddd0b9;
+  --fg-muted: #a8987f;
   --border: #33291f;
-  --accent: #d39a4f;
+  --accent: #d9a35a;
   --accent-fg: #17130f;
-  --danger: #e07a5f;
-  --page-bg: #d8ccb6;
+  --accent-soft: #33281a;
+  --danger: #e6876d;
+  --success: #9cbf72;
+  --warning: #e0b257;
   --page-shadow: 0 1px 6px rgb(0 0 0 / 60%);
-  --viewer-bg: #0d0b08;
+  --viewer-bg: #0e0b08;
+  --selection: rgb(217 163 90 / 35%);
+  --scrim: rgb(0 0 0 / 55%);
+  --shadow-1: 0 4px 16px rgb(0 0 0 / 50%);
+  --shadow-2: 0 8px 32px rgb(0 0 0 / 65%);
   color-scheme: dark;
-}
-
-/* Page ink: when set, the viewer redraws text and lines in --page-ink on --page-bg (PDF.js page
-   colours); images keep their own colours, so figures stay readable. */
-:root[data-theme="dark"] {
-  --page-bg: #1f2126;
-  --page-ink: #e2e4e8;
-}
-
-:root[data-theme="night"] {
-  --page-bg: #1c1712;
-  --page-ink: #cdb99a;
 }
 
 :root[data-theme="contrast"] {
   --bg: #000000;
-  --bg-panel: #0a0a0a;
-  --bg-sunken: #1a1a1a;
+  --bg-panel: #000000;
+  --bg-sunken: #141414;
+  --bg-hover: #262626;
   --fg: #ffffff;
-  --fg-muted: #e0e0e0;
+  --fg-muted: #e6e6e6;
   --border: #ffffff;
   --accent: #ffd400;
   --accent-fg: #000000;
-  --danger: #ff6b6b;
-  --page-bg: #000000;
-  --page-ink: #ffffff;
+  --accent-soft: #332b00;
+  --danger: #ff7b7b;
+  --success: #6ee787;
+  --warning: #ffd400;
   --page-shadow: 0 0 0 1px #ffffff;
   --viewer-bg: #000000;
+  --selection: rgb(255 212 0 / 40%);
+  --scrim: rgb(0 0 0 / 70%);
+  --shadow-1: 0 0 0 1px #ffffff;
+  --shadow-2: 0 0 0 2px #ffffff;
   color-scheme: dark;
 }
 
 :root[data-theme="sepia"] {
-  --bg: #f6efe2;
-  --bg-panel: #efe5d2;
-  --bg-sunken: #e6d9c0;
+  --bg: #f7f0e3;
+  --bg-panel: #f0e7d5;
+  --bg-sunken: #e8dcc5;
+  --bg-hover: #e4d6bb;
   --fg: #3b3024;
-  --fg-muted: #6d5d49;
-  --border: #d8c8aa;
-  --accent: #8a5a24;
+  --fg-muted: #66553f;
+  --border: #dccdb1;
+  --accent: #85541c;
   --accent-fg: #fffaf0;
-  --danger: #a33a24;
-  --page-bg: #fbf6ea;
-  --page-shadow: 0 1px 4px rgb(60 40 10 / 22%);
-  --viewer-bg: #e9dfcb;
+  --accent-soft: #eddcbf;
+  --danger: #9e3620;
+  --success: #3f6f2a;
+  --warning: #85541c;
+  --page-shadow: 0 1px 3px rgb(60 40 10 / 22%);
+  --viewer-bg: #ebe1cd;
+  --selection: rgb(133 84 28 / 25%);
   color-scheme: light;
+}
+
+/* Paper (§3.2): how pages look, chosen apart from the app theme. Original keeps the PDF's true
+   colours; sepia tints the paper and keeps ink colours; dark, night and high contrast redraw text
+   and lines in --page-ink (images keep their colours). */
+:root[data-paper="original"] {
+  --page-bg: #ffffff;
+}
+
+:root[data-paper="sepia"] {
+  --page-bg: #f6ecd6;
+}
+
+:root[data-paper="dark"] {
+  --page-bg: #1f2126;
+  --page-ink: #e2e4e8;
+}
+
+:root[data-paper="night"] {
+  --page-bg: #1c1712;
+  --page-ink: #cdb99a;
+}
+
+:root[data-paper="contrast"] {
+  --page-bg: #000000;
+  --page-ink: #ffffff;
+}
+
+/* Text drawn on annotation colours (always light pastels or saturated ink): one dark ink. */
+:root {
+  --on-annot: #1d2129;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur: 0ms;
+  }
 }
 
 html,
@@ -114,7 +207,9 @@ body {
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-ui);
-  font-size: var(--text-md);
+  font-size: var(--text-sm);
+  line-height: var(--leading);
+  -webkit-font-smoothing: antialiased;
 }
 
 *,
@@ -128,39 +223,6 @@ body {
   outline-offset: 1px;
 }
 
-.ep-button {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg);
-  color: var(--fg);
-  font: inherit;
-  cursor: pointer;
-}
-
-.ep-button:hover {
-  background: var(--bg-sunken);
-}
-
-.ep-button[data-variant="primary"] {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-fg);
-}
-
-.ep-button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.ep-select {
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg);
-  color: var(--fg);
-  font: inherit;
+::selection {
+  background: var(--selection);
 }

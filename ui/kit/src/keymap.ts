@@ -37,6 +37,8 @@ const TEXT_KEYS = new Set(["ctrl+z", "ctrl+y", "ctrl+shift+z", "ctrl+a", "ctrl+c
 /** Install the global listener once. */
 export function installKeymap(target: Window = window): void {
   target.addEventListener("keydown", (e) => {
+    // A focused editor or control that handled the key keeps it.
+    if (e.defaultPrevented) return;
     const k = chord(e);
     // In a text field, typing and its editing keys (undo, select all, copy, delete…) belong to
     // the field; only other shortcuts with Ctrl or Alt reach the app.

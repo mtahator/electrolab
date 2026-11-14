@@ -2,7 +2,7 @@
 // title, authors or DOI; sort; per-paper tags and collections.
 
 import type { Paper, PaperSort } from "@electropaper/bindings";
-import { Button, t } from "@electropaper/kit";
+import { Button, EmptyState, IconButton, t } from "@electropaper/kit";
 import { For, type JSX, Show, createSignal } from "solid-js";
 
 import { addToCollection, collections, createCollection, deleteCollection, filter, papers, project, setFilter, setPaperTags, tags } from "../library";
@@ -37,18 +37,16 @@ export function LibraryView(props: LibraryViewProps): JSX.Element {
               <button type="button" class="nav-item" classList={{ active: filter().collection === c.id }} onClick={() => setFilter({ collection: c.id, tag: null })}>
                 {c.name} <span class="muted">{c.papers}</span>
               </button>
-              <button type="button" class="icon" aria-label={t("common.close")} onClick={() => safe(() => deleteCollection(c, props.confirm))}>
-                ×
-              </button>
+              <IconButton icon="trash" size="sm" class="row-action" label={t("library.delete_collection")} onClick={() => safe(() => deleteCollection(c, props.confirm))} />
             </div>
           )}
         </For>
         <Show
           when={naming()}
           fallback={
-            <button type="button" class="nav-item muted" onClick={() => setNaming(true)}>
-              + {t("library.new_collection")}
-            </button>
+            <Button variant="quiet" icon="plus" class="nav-new" onClick={() => setNaming(true)}>
+              {t("library.new_collection")}
+            </Button>
           }
         >
           <input
@@ -81,7 +79,7 @@ export function LibraryView(props: LibraryViewProps): JSX.Element {
       </nav>
       <section class="library-main">
         <div class="library-tools">
-          <input class="ep-input grow" type="search" placeholder={t("library.search")} value={filter().query} onInput={(e) => setFilter({ query: e.currentTarget.value })} />
+          <input class="ep-input grow" type="search" aria-label={t("library.search")} placeholder={t("library.search")} value={filter().query} onInput={(e) => setFilter({ query: e.currentTarget.value })} />
           <label class="field">
             {t("library.sort")}
             <select class="ep-select" value={filter().sort} onChange={(e) => setFilter({ sort: e.currentTarget.value as PaperSort })}>
@@ -90,11 +88,11 @@ export function LibraryView(props: LibraryViewProps): JSX.Element {
               <option value="title">{t("library.sort_title")}</option>
             </select>
           </label>
-          <Button variant="primary" onClick={props.onAdd}>
+          <Button variant="primary" icon="file-plus" onClick={props.onAdd}>
             {t("library.add")}
           </Button>
         </div>
-        <Show when={papers().length > 0} fallback={<p class="muted center-text">{filter().query || filter().collection || filter().tag ? t("library.no_match") : t("library.empty")}</p>}>
+        <Show when={papers().length > 0} fallback={<EmptyState icon="library" text={filter().query || filter().collection || filter().tag ? t("library.no_match") : t("library.empty")} />}>
           <ul class="paper-list">
             <For each={papers()}>
               {(p) => (
@@ -113,7 +111,7 @@ export function LibraryView(props: LibraryViewProps): JSX.Element {
                       fallback={
                         <button type="button" class="tags-line" onClick={() => setEditingTags(p.id)} title={t("library.edit_tags")}>
                           <For each={p.tags ?? []}>{(tg) => <span class="tag small">{tg}</span>}</For>
-                          <span class="muted small">+ {t("library.tags")}</span>
+                          <span class="muted small">{(p.tags ?? []).length ? "" : t("library.add_tags")}</span>
                         </button>
                       }
                     >

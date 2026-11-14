@@ -37,7 +37,8 @@ Read before changing anything:
 ```
 pnpm install                                   # once, and after UI dependency changes
 pnpm -r typecheck
-pnpm --filter @electropaper/reader-ui test     # UI helpers (node --test)
+pnpm -r test                                  # UI helpers and theme contrast (node --test)
+pnpm -r lint                                  # tokens only: no raw colours or fonts in CSS
 pnpm --filter @electropaper/reader-ui build    # the Reader host embeds the built UI
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
@@ -69,6 +70,7 @@ After `pnpm --filter @electropaper/reader-host tauri build --no-bundle` and `car
 node e2e/reader.mjs      target/release/electropaper-reader.exe <scratch> <scratch>/out   # reading (M1–M2)
 node e2e/annotations.mjs target/release/electropaper-reader.exe <scratch> <scratch>/out   # annotations (M3)
 node e2e/perf.mjs        target/release/electropaper-reader.exe <scratch>                 # scrolling and memory
+node e2e/screens.mjs     target/release/electropaper-reader.exe <scratch> <scratch>/out   # design review: every screen in all five themes, control names
 ```
 
 Each prints a JSON report and exits non-zero on a failed check; screenshots go to the out folder.

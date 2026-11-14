@@ -1,4 +1,4 @@
-// End-to-end check of the Reader (Milestones 1–2) on the real, built app.
+// End-to-end check of the Reader (Milestones 1–2, frame of MD) on the real, built app.
 //
 //   node e2e/reader.mjs <reader.exe> <scratch-dir> <out-dir>
 //
@@ -27,6 +27,13 @@ const check = (name, ok, detail) => {
 
 const launch = (args) => launchApp({ exe, args, data, webview: join(scratch, "webview"), port, out, consoleLog });
 
+/** Choose a theme the way a user does: the theme button, then the menu item. */
+const pickTheme = (s, label) =>
+  s.js(`(() => { document.querySelector('.topbar [aria-label="Theme"]').click(); const it = [...document.querySelectorAll(".ep-menu-item")].find((b) => b.textContent.trim() === ${JSON.stringify(label)}); it?.click(); return !!it; })()`);
+/** Choose an item of a top-bar menu (by the button's name and the item's text). */
+const pickMenu = (s, button, item) =>
+  s.js(`(() => { document.querySelector('.topbar [aria-label="${button}"]').click(); const it = [...document.querySelectorAll(".ep-menu-item")].find((b) => b.textContent.trim().startsWith(${JSON.stringify(item)})); it?.click(); return !!it; })()`);
+
 mkdirSync(out, { recursive: true });
 rmSync(data, { recursive: true, force: true });
 rmSync(join(scratch, "webview"), { recursive: true, force: true });
@@ -51,16 +58,16 @@ try {
 
   // Zoom in and back to fit width.
   const before = await s.js(`document.querySelector(".pane.focused .page").offsetWidth`);
-  await s.js(`[...document.querySelectorAll(".viewer-tools .icon")].find(b => b.textContent.trim() === "+").click()`);
+  await s.js(`document.querySelector('.topbar [aria-label="Zoom in"]').click()`);
   const after = await s.until(`(() => { const w = document.querySelector(".pane.focused .page").offsetWidth; return w > ${before} + 10 ? w : null })()`);
   check("zoom_in", after !== null, { before, after });
 
   // Two-page layout puts pages 1 and 2 side by side.
-  await s.js(`(() => { const sel = document.querySelector(".viewer-tools select[aria-label='Layout']"); sel.value = "two_page"; sel.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+  await pickMenu(s, "More", "Two pages");
   const side = await s.until(`(() => { const sl = [...document.querySelectorAll(".pane.focused .slot")]; return sl.length > 1 && sl[0].style.top === sl[1].style.top ? sl.length : null })()`);
   check("two_page_layout", side !== null, side);
-  await s.js(`(() => { const sel = document.querySelector(".viewer-tools select[aria-label='Layout']"); sel.value = "continuous"; sel.dispatchEvent(new Event("change", { bubbles: true })); })()`);
-  await s.js(`(() => { const sel = document.querySelectorAll(".viewer-tools select")[0]; sel.value = "fit_width"; sel.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+  await pickMenu(s, "More", "Continuous");
+  await s.js(`(() => { document.querySelector(".zoom-button").click(); [...document.querySelectorAll(".ep-menu-item")].find((b) => b.textContent.trim() === "Fit width").click(); })()`);
 
   // Contents panel: the first paper has bookmarks; clicking one moves and enables Back.
   await s.js(`document.querySelectorAll(".pane.focused .tab")[0].click()`);
@@ -70,7 +77,7 @@ try {
   await s.js(`[...document.querySelectorAll(".outline .outline-title")].at(-1).click()`);
   const moved = await s.until(`document.querySelector(".page-box").value !== "1" ? document.querySelector(".page-box").value : null`);
   check("outline_navigates", moved !== null, moved);
-  const canBack = await s.js(`!document.querySelector(".viewer-tools .icon").disabled`);
+  const canBack = await s.js(`!document.querySelector('.topbar [aria-label="Back"]').disabled`);
   await s.scrollerKey("ArrowLeft", { alt: true });
   const backTo = await s.until(`document.querySelector(".page-box").value === "1" ? "1" : null`);
   check("back_returns", canBack && backTo === "1", { canBack, backTo });
@@ -96,9 +103,9 @@ try {
   check("copy_from_engine", typeof copied === "string" && copied.split(" ").length >= 10 && !copied.includes("\\n"), copied);
 
   // Split view, then the dark theme, then a screenshot.
-  await s.js(`[...document.querySelectorAll(".topbar button")].find(b => b.textContent.trim() === "Split view").click()`);
+  await s.js(`document.querySelector('.topbar [aria-label="Split view"]').click()`);
   check("split_view", (await s.until(`document.querySelectorAll(".pane").length === 2 ? 2 : null`)) === 2);
-  await s.js(`(() => { const sel = [...document.querySelectorAll(".topbar select")].at(-1); sel.value = "dark"; sel.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+  await pickTheme(s, "Dark");
   await sleep(1500);
   await s.shot("m2-viewer-dark.png");
 
@@ -109,7 +116,7 @@ try {
   await s.js(`(() => { const i = document.querySelector(".library-tools input"); i.value = "thermal"; i.dispatchEvent(new InputEvent("input", { bubbles: true })); })()`);
   const narrowed = await s.until(`document.querySelectorAll(".paper-item").length === 1 ? 1 : null`);
   check("library_search", listed === 2 && narrowed === 1, { listed, narrowed });
-  await s.js(`(() => { const sel = [...document.querySelectorAll(".topbar select")].at(-1); sel.value = "light"; sel.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+  await pickTheme(s, "Light");
   await s.shot("m2-library.png");
   await s.key("l", { ctrl: true });
   await s.until(`document.querySelectorAll(".pane canvas.page-canvas").length > 0 && document.querySelector(".page-box")`);

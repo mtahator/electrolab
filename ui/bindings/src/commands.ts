@@ -45,6 +45,8 @@ export interface Commands {
   "workspace.current": { input: null; output: T.ProjectInfo | null };
   /** Delete a collection (its papers stay in the library) */
   "workspace.delete_collection": { input: T.CollectionRef; output: null };
+  /** The notebook of a paper */
+  "workspace.get_notes": { input: T.PaperInput; output: T.PaperNotes };
   /** One paper */
   "workspace.get_paper": { input: T.GetPaper; output: T.Paper };
   /** Where the reader was in a paper, its zoom, layout and bookmarks */
@@ -55,6 +57,8 @@ export interface Commands {
   "workspace.list_papers": { input: T.ListPapers; output: T.Paper[] };
   /** Every tag in use, with counts */
   "workspace.list_tags": { input: null; output: T.TagCount[] };
+  /** Earlier versions of a paper's notebook */
+  "workspace.notes_history": { input: T.PaperInput; output: T.NotesVersion[] };
   /** Open the default library, creating it on first run */
   "workspace.open_default_library": { input: null; output: T.ProjectInfo };
   /** Open a library or project folder */
@@ -69,6 +73,10 @@ export interface Commands {
   "workspace.remove_from_collection": { input: T.CollectionPapers; output: T.Collection };
   /** Rename a collection */
   "workspace.rename_collection": { input: T.RenameCollection; output: T.Collection };
+  /** Bring back an earlier version of a paper's notebook */
+  "workspace.restore_notes": { input: T.RestoreNotes; output: T.PaperNotes };
+  /** Save the notebook of a paper (a new version; earlier ones stay in the history) */
+  "workspace.save_notes": { input: T.SaveNotes; output: T.PaperNotes };
   /** Remember where the reader is in a paper */
   "workspace.save_reading_state": { input: T.SaveReadingState; output: null };
   /** Point a paper at a new version of its managed copy (the previous one is kept) */

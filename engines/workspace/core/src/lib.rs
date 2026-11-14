@@ -180,6 +180,17 @@ pub const MIGRATIONS: &[(u32, &str, &str)] = &[
             hash TEXT NOT NULL, size INTEGER NOT NULL, replaced_ms INTEGER NOT NULL,
             PRIMARY KEY (paper, hash));",
     ),
+    (
+        5,
+        "paper notes and their history",
+        "CREATE TABLE paper_note (
+            paper TEXT PRIMARY KEY REFERENCES paper(id) ON DELETE CASCADE,
+            text TEXT NOT NULL, version INTEGER NOT NULL, modified_ms INTEGER NOT NULL);
+         CREATE TABLE paper_note_version (
+            paper TEXT NOT NULL REFERENCES paper(id) ON DELETE CASCADE,
+            version INTEGER NOT NULL, text TEXT NOT NULL, saved_ms INTEGER NOT NULL,
+            PRIMARY KEY (paper, version));",
+    ),
 ];
 
 /// Seconds counted from one `record_reading` report at most (the UI reports every few seconds;

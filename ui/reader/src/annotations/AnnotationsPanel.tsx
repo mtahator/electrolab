@@ -1,4 +1,4 @@
-// The annotations side panel (P1.M3.UI.7): every mark and comment of the paper, filtered by
+// The Annotations tab of the left panel (P1.M3.UI.7, guideline §10.4): every mark and comment of the paper, filtered by
 // colour, category, page or author, searchable; a click goes to the mark and opens its card.
 
 import type { Annotation, Category, Paper } from "@electropaper/bindings";
@@ -6,9 +6,9 @@ import { t } from "@electropaper/kit";
 import { For, type JSX, Show, createMemo, createSignal } from "solid-js";
 
 import { categoryLabel, kindLabel } from "./Editor";
-import { CATEGORIES, annotationsOf, repliesOf, setPicked } from "./state";
+import { CATEGORIES, annotationsOf, colorNames, repliesOf, setPicked } from "./state";
 
-export function NotesPanel(props: { paper: Paper; current: number; onGoTo: (page: number, y: number | null) => void }): JSX.Element {
+export function AnnotationsPanel(props: { paper: Paper; current: number; onGoTo: (page: number, y: number | null) => void }): JSX.Element {
   const [query, setQuery] = createSignal("");
   const [colors, setColors] = createSignal<Set<string>>(new Set());
   const [cat, setCat] = createSignal<Category | "">("");
@@ -49,9 +49,9 @@ export function NotesPanel(props: { paper: Paper; current: number; onGoTo: (page
     <div class="notes-panel">
       <input class="ep-input" type="search" placeholder={t("annot.search")} value={query()} onInput={(e) => setQuery(e.currentTarget.value)} />
       <div class="filters">
-        <div class="swatches">
+        <div class="ep-swatches">
           <For each={usedColors()}>
-            {(c) => <button type="button" class="swatch" aria-pressed={colors().has(c)} aria-label={c} style={{ background: c }} onClick={() => toggleColor(c)} />}
+            {(c) => <button type="button" class="ep-swatch" aria-pressed={colors().has(c)} aria-label={colorNames[c] ?? c} data-tip={colorNames[c] ?? c} style={{ background: c }} onClick={() => toggleColor(c)} />}
           </For>
         </div>
         <select class="ep-select" aria-label={t("annot.category")} value={cat()} onChange={(e) => setCat(e.currentTarget.value as Category | "")}>

@@ -54,6 +54,13 @@ created_ms = 1763000000000  # ms since the Unix epoch
 |---|---|
 | `paper_version` | `paper`, `hash`, `size`, `replaced_ms`: earlier managed copies (e.g. before "Save into PDF"); their blobs stay |
 
+### Migration 5 (paper notes)
+
+| Table | Columns |
+|---|---|
+| `paper_note` | `paper`, `text` (Markdown; chips are `[p. 4](loc:4/120)` links), `version`, `modified_ms` |
+| `paper_note_version` | `paper`, `version`, `text`, `saved_ms`: history, one entry per minute of editing, last 200 kept |
+
 ## `document.sqlite` (Document engine, migration 1)
 
 | Table | Columns |

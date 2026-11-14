@@ -1,11 +1,12 @@
-// Command palette and keyboard-shortcut settings (P1.M2.SH.6), and a confirmation dialog.
+// Command palette and keyboard-shortcut settings (P1.M2.SH.6), and a one-line prompt; built on
+// the kit's dialog (guideline §8).
 
-import { Button, chord, t } from "@electropaper/kit";
-import { For, type JSX, createMemo, createSignal } from "solid-js";
+import { Button, Dialog, Icon, Kbd, chord, t } from "@electropaper/kit";
+import { For, type JSX, Show, createMemo, createSignal } from "solid-js";
 
 import { type Action, actions, keysOf, setKeys } from "./actions";
 
-function pretty(keys: string | undefined): string {
+export function pretty(keys: string | undefined): string {
   return (keys ?? "")
     .split("+")
     .map((k) => (k.length === 1 ? k.toUpperCase() : k.charAt(0).toUpperCase() + k.slice(1)))
@@ -25,33 +26,36 @@ export function Palette(props: { onClose: () => void }): JSX.Element {
     queueMicrotask(a.run);
   };
   return (
-    <div class="overlay" onClick={(e) => e.target === e.currentTarget && props.onClose()}>
+    <div class="ep-scrim" onPointerDown={(e) => e.target === e.currentTarget && props.onClose()}>
       <div class="palette" role="dialog" aria-label={t("palette.title")}>
-        <input
-          class="ep-input"
-          placeholder={t("palette.placeholder")}
-          ref={(el) => queueMicrotask(() => el.focus())}
-          onInput={(e) => {
-            setQ(e.currentTarget.value);
-            setSel(0);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") props.onClose();
-            else if (e.key === "ArrowDown") setSel(Math.min(sel() + 1, list().length - 1));
-            else if (e.key === "ArrowUp") setSel(Math.max(sel() - 1, 0));
-            else if (e.key === "Enter") run(list()[sel()]);
-            else return;
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-        />
-        <ul>
+        <div class="palette-input">
+          <Icon name="command" size={16} />
+          <input
+            aria-label={t("palette.placeholder")}
+            placeholder={t("palette.placeholder")}
+            ref={(el) => queueMicrotask(() => el.focus())}
+            onInput={(e) => {
+              setQ(e.currentTarget.value);
+              setSel(0);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") props.onClose();
+              else if (e.key === "ArrowDown") setSel(Math.min(sel() + 1, list().length - 1));
+              else if (e.key === "ArrowUp") setSel(Math.max(sel() - 1, 0));
+              else if (e.key === "Enter") run(list()[sel()]);
+              else return;
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          />
+        </div>
+        <ul role="listbox">
           <For each={list()}>
             {(a, i) => (
               <li>
-                <button type="button" classList={{ active: i() === sel() }} onMouseEnter={() => setSel(i())} onClick={() => run(a)}>
+                <button type="button" role="option" aria-selected={i() === sel()} classList={{ active: i() === sel() }} onMouseEnter={() => setSel(i())} onClick={() => run(a)}>
                   <span>{a.title()}</span>
-                  <kbd>{pretty(keysOf(a))}</kbd>
+                  <Show when={keysOf(a)}>{(k) => <Kbd>{pretty(k())}</Kbd>}</Show>
                 </button>
               </li>
             )}
@@ -74,34 +78,32 @@ export function KeymapSettings(props: { onClose: () => void }): JSX.Element {
     setCapturing(null);
   };
   return (
-    <div class="overlay" onClick={(e) => e.target === e.currentTarget && props.onClose()} onKeyDown={capture}>
-      <div class="dialog wide" role="dialog" aria-label={t("keymap.title")}>
-        <h2>{t("keymap.title")}</h2>
-        <table class="keymap">
-          <tbody>
-            <For each={actions()}>
-              {(a) => (
-                <tr>
-                  <td>{a.title()}</td>
-                  <td>
-                    <button type="button" class="key-button" onClick={() => setCapturing(a.id)} tabIndex={0}>
-                      {capturing() === a.id ? t("keymap.press") : pretty(keysOf(a)) || "—"}
-                    </button>
-                  </td>
-                  <td>
-                    <button type="button" class="link-button" onClick={() => setKeys(a.id, null)}>
-                      {t("keymap.reset")}
-                    </button>
-                  </td>
-                </tr>
-              )}
-            </For>
-          </tbody>
-        </table>
-        <div class="dialog-actions">
-          <Button onClick={props.onClose}>{t("common.close")}</Button>
+    <div onKeyDown={capture}>
+      <Dialog title={t("keymap.title")} onCancel={() => (capturing() ? setCapturing(null) : props.onClose())} actions={<Button onClick={props.onClose}>{t("common.close")}</Button>}>
+        <div class="keymap-list">
+          <table class="keymap">
+            <tbody>
+              <For each={actions()}>
+                {(a) => (
+                  <tr>
+                    <td>{a.title()}</td>
+                    <td>
+                      <button type="button" class="key-button" onClick={() => setCapturing(a.id)}>
+                        {capturing() === a.id ? t("keymap.press") : pretty(keysOf(a)) || "—"}
+                      </button>
+                    </td>
+                    <td>
+                      <Button variant="quiet" onClick={() => setKeys(a.id, null)}>
+                        {t("keymap.reset")}
+                      </Button>
+                    </td>
+                  </tr>
+                )}
+              </For>
+            </tbody>
+          </table>
         </div>
-      </div>
+      </Dialog>
     </div>
   );
 }
@@ -109,47 +111,28 @@ export function KeymapSettings(props: { onClose: () => void }): JSX.Element {
 export function Prompt(props: { message: string; placeholder: string; onAnswer: (value: string | null) => void }): JSX.Element {
   let input!: HTMLInputElement;
   return (
-    <div class="overlay" onClick={(e) => e.target === e.currentTarget && props.onAnswer(null)}>
-      <div class="dialog" role="dialog" aria-modal="true">
-        <label class="prompt-label">
-          {props.message}
-          <input
-            class="ep-input"
-            ref={(el) => {
-              input = el;
-              queueMicrotask(() => el.focus());
-            }}
-            placeholder={props.placeholder}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") props.onAnswer(e.currentTarget.value.trim() || null);
-              if (e.key === "Escape") props.onAnswer(null);
-            }}
-          />
-        </label>
-        <div class="dialog-actions">
+    <Dialog
+      title={props.message}
+      onCancel={() => props.onAnswer(null)}
+      actions={
+        <>
           <Button onClick={() => props.onAnswer(null)}>{t("common.cancel")}</Button>
           <Button variant="primary" onClick={() => props.onAnswer(input.value.trim() || null)}>
-            {t("common.ok")}
+            {t("common.open")}
           </Button>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    >
+      <input
+        class="ep-input prompt-input"
+        aria-label={props.message}
+        ref={input}
+        data-autofocus
+        placeholder={props.placeholder}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") props.onAnswer(e.currentTarget.value.trim() || null);
+        }}
+      />
+    </Dialog>
   );
 }
-
-export function Confirm(props: { message: string; onAnswer: (ok: boolean) => void }): JSX.Element {
-  return (
-    <div class="overlay">
-      <div class="dialog" role="alertdialog" aria-modal="true">
-        <p>{props.message}</p>
-        <div class="dialog-actions">
-          <Button onClick={() => props.onAnswer(false)}>{t("common.cancel")}</Button>
-          <Button variant="primary" onClick={() => props.onAnswer(true)} ref={(el: HTMLButtonElement) => queueMicrotask(() => el.focus())}>
-            {t("common.ok")}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-

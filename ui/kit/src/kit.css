@@ -1,0 +1,595 @@
+/* Kit component styles (guideline §8). Tokens only. */
+
+.ep-icon {
+  flex: none;
+  display: block;
+}
+
+.ep-spacer {
+  flex: 1;
+}
+
+/* Buttons ------------------------------------------------------------------------------------ */
+.ep-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+
+.ep-button:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.ep-button[data-variant="primary"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+
+.ep-button[data-variant="primary"]:hover:not(:disabled) {
+  background: var(--accent);
+  filter: brightness(1.08);
+}
+
+.ep-button[data-variant="quiet"] {
+  border-color: transparent;
+  background: transparent;
+}
+
+.ep-button[data-variant="danger"] {
+  color: var(--danger);
+}
+
+.ep-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.ep-icon-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--control-h);
+  height: var(--control-h);
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.ep-icon-button[data-size="sm"] {
+  width: calc(var(--control-h) - 6px);
+  height: calc(var(--control-h) - 6px);
+}
+
+.ep-icon-button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+.ep-icon-button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.ep-icon-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.ep-dot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--bg-panel);
+}
+
+.ep-swatch-bar {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 3px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+/* Choices ------------------------------------------------------------------------------------ */
+.ep-segmented {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+}
+
+.ep-segmented button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: calc(var(--control-h) - 4px);
+  height: calc(var(--control-h) - 4px);
+  padding: 0 var(--space-2);
+  border: none;
+  border-radius: calc(var(--radius) - 2px);
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ep-segmented button[aria-checked="true"] {
+  background: var(--bg);
+  color: var(--fg);
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.ep-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ep-swatch {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.ep-swatch[aria-checked="true"],
+.ep-swatch[aria-pressed="true"] {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ep-kbd {
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+}
+
+/* Inputs ------------------------------------------------------------------------------------- */
+.ep-input,
+.ep-select {
+  height: var(--control-h);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  min-width: 0;
+}
+
+textarea.ep-input {
+  height: auto;
+  padding: var(--space-2);
+  line-height: var(--leading);
+  resize: vertical;
+}
+
+.ep-input::placeholder {
+  color: var(--fg-muted);
+}
+
+/* Cards and panels --------------------------------------------------------------------------- */
+.ep-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  color: var(--fg);
+  box-shadow: var(--shadow-1);
+  animation: ep-in var(--dur) var(--ease);
+}
+
+.ep-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) 0 var(--space-3);
+  color: var(--fg-muted);
+}
+
+.ep-card-head strong {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.ep-card-meta {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+}
+
+.ep-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+}
+
+.ep-card-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3) var(--space-3);
+}
+
+.ep-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  background: var(--bg-panel);
+}
+
+.ep-panel-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: var(--space-1) var(--space-2);
+}
+
+.ep-panel-title {
+  padding: var(--space-1) var(--space-3) var(--space-2);
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.ep-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 var(--space-3) var(--space-3);
+}
+
+.ep-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-3);
+  color: var(--fg-muted);
+  text-align: center;
+}
+
+.ep-empty p {
+  margin: 0;
+  max-width: 28ch;
+}
+
+.ep-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+}
+
+.ep-skeleton span {
+  height: 10px;
+  border-radius: 4px;
+  background: var(--bg-sunken);
+  animation: ep-pulse 1.4s ease-in-out infinite;
+}
+
+.ep-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.ep-banner[data-tone="error"] > .ep-icon {
+  color: var(--danger);
+}
+
+.ep-banner-text {
+  flex: 1;
+}
+
+/* Status line -------------------------------------------------------------------------------- */
+.ep-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  height: var(--status-h);
+  padding: 0 var(--space-3);
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
+
+.ep-status-side {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.ep-status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+}
+
+button.ep-status-item {
+  cursor: pointer;
+}
+
+button.ep-status-item:hover {
+  color: var(--fg);
+}
+
+.ep-status-item[data-tone="accent"] {
+  color: var(--accent);
+}
+
+.ep-status-item[data-tone="danger"] {
+  color: var(--danger);
+}
+
+.ep-status-item[data-tone="success"] {
+  color: var(--success);
+}
+
+/* Overlays ----------------------------------------------------------------------------------- */
+.ep-tooltip {
+  position: fixed;
+  z-index: 100;
+  max-width: 280px;
+  padding: 3px 8px;
+  border-radius: var(--radius);
+  background: var(--fg);
+  color: var(--bg);
+  font-size: var(--text-xs);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.ep-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 14vh;
+  background: var(--scrim);
+  animation: ep-fade var(--dur) var(--ease);
+}
+
+.ep-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: min(440px, calc(100vw - 32px));
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  box-shadow: var(--shadow-2);
+  animation: ep-in var(--dur) var(--ease);
+}
+
+.ep-dialog h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.ep-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.ep-menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 220px;
+  max-width: 320px;
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  box-shadow: var(--shadow-2);
+  animation: ep-in var(--dur-fast) var(--ease);
+}
+
+.ep-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: 30px;
+  padding: 0 var(--space-2);
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.ep-menu-item:hover,
+.ep-menu-item:focus-visible {
+  background: var(--bg-hover);
+  outline: none;
+}
+
+.ep-menu-item[data-danger] {
+  color: var(--danger);
+}
+
+.ep-menu-item:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.ep-menu-icon {
+  display: inline-flex;
+  width: 16px;
+  color: var(--fg-muted);
+}
+
+.ep-menu-label {
+  flex: 1;
+}
+
+.ep-menu-key {
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
+
+.ep-menu-sep {
+  height: 1px;
+  margin: var(--space-1) var(--space-2);
+  background: var(--border);
+}
+
+.ep-menu-heading {
+  padding: var(--space-1) var(--space-2) 2px;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
+
+.ep-toast {
+  position: fixed;
+  z-index: 70;
+  left: 50%;
+  bottom: calc(var(--status-h) + 16px);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--fg);
+  color: var(--bg);
+  box-shadow: var(--shadow-2);
+  animation: ep-fade var(--dur) var(--ease);
+}
+
+.ep-toast-action {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+@keyframes ep-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@keyframes ep-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes ep-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ep-skeleton span {
+    animation: none;
+  }
+}
+
+/* Gallery (development page) ---------------------------------------------------------------- */
+.gallery {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-height: 100vh;
+  padding: var(--space-4) var(--space-6) 0;
+  background: var(--bg-panel);
+}
+
+.gallery-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.gallery-section h2 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.gallery-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.gallery-row .ep-card {
+  width: 320px;
+}
+
+.gallery-box {
+  width: 300px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+}
+
+.gallery-quote {
+  margin: 0;
+  padding-inline-start: var(--space-2);
+  border-inline-start: 3px solid var(--border);
+  color: var(--fg-muted);
+  font-style: italic;
+}

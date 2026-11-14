@@ -34,8 +34,10 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: ui typecheck
         run: pnpm -r typecheck
-      - name: ui tests
-        run: pnpm --filter @electropaper/reader-ui test
+      - name: ui tests (helpers, theme contrast)
+        run: pnpm -r test
+      - name: ui tokens only
+        run: pnpm -r lint
       - name: ui build
         run: pnpm --filter @electropaper/reader-ui build
       # PDFium for the Document engine tests and the installer (llama.cpp is not needed here).

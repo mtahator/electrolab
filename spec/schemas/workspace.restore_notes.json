@@ -1,0 +1,83 @@
+{
+  "command": "workspace.restore_notes",
+  "input": {
+    "$defs": {
+      "PaperId": {
+        "description": "A paper (a PDF in the library or a project).\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `workspace.restore_notes`: bring back an earlier version (saved as a new version, so\nrestoring can itself be undone by restoring again).",
+    "properties": {
+      "paper": {
+        "$ref": "#/$defs/PaperId",
+        "description": "The paper."
+      },
+      "version": {
+        "description": "The version to bring back.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "paper",
+      "version"
+    ],
+    "title": "RestoreNotes",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "PaperId": {
+        "description": "A paper (a PDF in the library or a project).\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "The notebook of a paper.",
+    "properties": {
+      "modified_ms": {
+        "default": null,
+        "description": "Last saved, ms since the Unix epoch.",
+        "format": "int64",
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "paper": {
+        "$ref": "#/$defs/PaperId",
+        "description": "The paper."
+      },
+      "text": {
+        "description": "Markdown text. Location chips are links of the form `[p. 4](loc:4/120)` (page / y in\npage space), optionally `loc:4/120/<annotation id>`.",
+        "type": "string"
+      },
+      "version": {
+        "description": "Increases with every save; 0 when nothing was written yet.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "paper",
+      "text",
+      "version"
+    ],
+    "title": "PaperNotes",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "create"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Bring back an earlier version of a paper's notebook"
+}

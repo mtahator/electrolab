@@ -1,6 +1,6 @@
 # Workspace engine — contract
 
-Version: 0.3.0      Stability: experimental      Tier: T1
+Version: 0.4.0      Stability: experimental      Tier: T1
 Crates: `ep-workspace-contract` (types), `ep-workspace-core` (format, classification, schema), `ep-workspace` (facade)
 
 ## Purpose
@@ -20,6 +20,10 @@ All experimental. Errors are `CommandError::Failed { kind }` with the kinds belo
 | `workspace.get_paper` | `{ id }` → `Paper` | read |
 | `workspace.list_papers` | `{ limit?, offset, collection?, tag?, query?, sort }` → `[Paper]` | read |
 | `workspace.set_paper_file` | `{ id, file }` → `Paper` (a new version of the managed copy, already in the blob store, e.g. from `document.annotate`; the previous version is kept and listed in `paper_version`) | create |
+| `workspace.get_notes` | `{ paper }` → `PaperNotes { paper, text, version, modified_ms? }` (empty, version 0, when nothing was written) | read |
+| `workspace.save_notes` | `{ paper, text, base_version? }` → `PaperNotes` (a new version; refused with `conflict` when `base_version` is given and the notes moved on) | create |
+| `workspace.notes_history` | `{ paper }` → `[NotesVersion { version, saved_ms, chars, preview }]`, newest first (one entry per minute of editing, at most 200) | read |
+| `workspace.restore_notes` | `{ paper, version }` → `PaperNotes` (the old text as a new version) | create |
 | `workspace.set_paper_metadata` | `{ id, title?, authors?, doi?, pages?, source }` → `Paper` | create |
 | `workspace.create_collection` / `rename_collection` | `{ name }` / `{ id, name }` → `Collection` | create |
 | `workspace.delete_collection` | `{ id }` → `null` (papers stay in the library) | **destructive** (the policy asks first) |
@@ -38,10 +42,10 @@ All experimental. Errors are `CommandError::Failed { kind }` with the kinds belo
 `ProjectInfo { id, name, kind, folder, format, created_ms, papers }`
 `Paper { id, file: BlobRef, original_name, original_path?, source_url?, title?, authors, doi?, pages?, metadata_source?, tags, added_ms, opened_ms? }`
 
-Error kinds: `no_project_open`, `not_found`, `unsupported_file`, `folder_in_use`, `bad_format`, `exists` (collection name taken), `io`.
+Error kinds: `no_project_open`, `not_found`, `unsupported_file`, `folder_in_use`, `bad_format`, `exists` (collection name taken), `conflict` (notes changed meanwhile), `io`.
 
 ## Events (hub)
-- `workspace.opened` (`ProjectInfo`), `workspace.paper_added` (`Paper`), `workspace.paper_changed` (`Paper`).
+- `workspace.opened` (`ProjectInfo`), `workspace.paper_added` (`Paper`), `workspace.paper_changed` (`Paper`), `workspace.notes_changed` (`{ paper, version }`).
 
 The same facts are appended to the project's event log; opening a project also makes its log the bus's provenance log.
 
@@ -59,6 +63,7 @@ The same facts are appended to the project's event log; opening a project also m
 - Conformance suite: `engines/workspace/facade/tests/conformance.rs` (through the bus).
 
 ## Changelog
+- 0.4.0 (2026-11-14): paper notes — `get_notes`, `save_notes`, `notes_history`, `restore_notes`; migration 5 (P1.MD.NOTE.1).
 - 0.3.0 (2026-11-14): `set_paper_file` and migration 4 (`paper_version`); `Workspace::project_folder` and `store_blob` for the hosts' Document port (P1.M3.PDF.3).
 - 0.2.0 (2026-11-13): collections, tags, library search and sort, reading state, bookmarks, reading time, source address (P1.M2.WSP.1–3, SH.7); migrations 2–3.
 - 0.1.0 (2026-11-13): first slice (P1.M1.WSP.1–3).

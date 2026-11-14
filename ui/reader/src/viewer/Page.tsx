@@ -43,6 +43,8 @@ export interface PageProps {
   onInternalLink: (page: number, top: number | null) => void;
   onLinkHover: (target: { page: number; top: number | null } | null, at: DOMRect | null) => void;
   onExternalLink: (url: string) => void;
+  /** Page-space y of a line to mark briefly, or null. */
+  flash?: number | null;
 }
 
 function box(r: PageRect, scale: number): JSX.CSSProperties {
@@ -120,6 +122,9 @@ export function Page(props: PageProps): JSX.Element {
         <For each={props.highlights}>{(r) => <div class="hit" classList={{ active: props.activeHighlight === r }} style={box(r, props.layoutScale)} />}</For>
       </div>
       <TextLayer text={props.text} scale={props.layoutScale} />
+      <Show when={props.flash !== null && props.flash !== undefined}>
+        <div class="flash-band" style={{ top: `${(props.flash ?? 0) * props.layoutScale - 4}px`, height: `${18 * props.layoutScale}px` }} />
+      </Show>
       <AnnotationLayer paper={props.paper} page={props.page} scale={props.layoutScale} width={props.width} height={props.height} />
       <div class="link-layer">
         <For each={props.links ?? []}>

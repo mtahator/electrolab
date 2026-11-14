@@ -54,7 +54,8 @@ window.__t = {
     }
     window.dispatchEvent(new PointerEvent("pointerup", at(x1, y1)));
   },
-  button(text, scope = document) { return [...scope.querySelectorAll("button")].find((b) => b.textContent.trim() === text); },
+  button(text, scope = document) { return [...scope.querySelectorAll("button")].find((b) => b.textContent.trim() === text || b.getAttribute("aria-label") === text); },
+  tool(name) { document.querySelector('.tool-rail [data-tool="' + name + '"]').click(); },
   type(el, text) { el.value = text; el.dispatchEvent(new InputEvent("input", { bubbles: true })); },
   async list() {
     const tab = await window.__TAURI_INTERNALS__.invoke("bus_call", { command: "workspace.list_papers", input: {}, deadlineMs: null, approved: [] });
@@ -72,13 +73,13 @@ let paperBefore;
 try {
   await s.until(`document.querySelectorAll(".pane.focused .page[data-page='1'] .text-layer span").length > 100`, 30000);
   await s.js(HELPERS);
-  check("tool_bar", !!(await s.until(`document.querySelector(".annot-bar") ? true : null`)));
+  check("tool_rail", !!(await s.until(`document.querySelectorAll(".tool-rail [data-tool]").length >= 12 ? true : null`)));
   paperBefore = await s.js(`window.__TAURI_INTERNALS__.invoke("bus_call", { command: "workspace.list_papers", input: {}, deadlineMs: null, approved: [] }).then((p) => p[0].file.hash)`);
 
   // 1. Select text → the bar → a green highlight, stored at once (Scholar parity, UI.9).
   await s.js(`window.__t.select(30, 36)`);
   const bar = await s.until(`document.querySelector(".selection-bar") ? true : null`);
-  await s.js(`document.querySelectorAll(".selection-bar .swatch")[1].click()`);
+  await s.js(`document.querySelectorAll(".selection-bar .ep-swatch")[1].click()`);
   const hl = await s.until(`document.querySelectorAll(".pane.focused .annot-layer polygon.hl").length || null`);
   const first = await s.js(`window.__t.list().then((x) => x.annotations[0])`);
   check("highlight_from_selection", !!bar && hl > 0 && first?.kind === "highlight" && first.color === "#7bd88f" && (first.quads ?? []).length > 0 && (first.text ?? "").length > 3, {
@@ -87,7 +88,7 @@ try {
     text: first?.text,
     quads: first?.quads?.length,
   });
-  check("saved_indicator", (await s.until(`document.querySelector(".annot-bar .saved")?.textContent === "Saved" ? true : null`)) === true);
+  check("saved_indicator", (await s.until(`document.querySelector(".ep-status")?.textContent.includes("Saved") ? true : null`)) === true);
 
   // 2. Comment on a selection: the card, then Save.
   await s.js(`window.__t.select(60, 64)`);
@@ -106,9 +107,9 @@ try {
   await s.js(`(() => { window.__t.type(document.querySelector(".annot-card.pending textarea"), "A note on the margin"); window.__t.button("Save", document.querySelector(".annot-card.pending")).click(); })()`);
   await s.key("d");
   await s.js(`window.__t.drag(0.1, 0.92, 0.4, 0.95, 1, 40)`);
-  await s.js(`window.__t.button("Rectangle", document.querySelector(".annot-bar")).click()`);
+  await s.js(`window.__t.tool("rectangle")`);
   await s.js(`window.__t.drag(0.1, 0.05, 0.9, 0.12)`);
-  await s.js(`window.__t.button("Arrow", document.querySelector(".annot-bar")).click()`);
+  await s.js(`window.__t.tool("arrow")`);
   await s.js(`window.__t.drag(0.05, 0.4, 0.2, 0.35)`);
   await s.key("t");
   await s.js(`window.__t.drag(0.55, 0.85, 0.9, 0.9)`);
@@ -132,15 +133,17 @@ try {
   check("undo_redo", n1 === n0 - 1 && n2 === n0, { n0, n1, n2 });
 
   // 5. The Notes panel: search, click → the card; reply and resolve there.
-  await s.js(`window.__t.button("Notes", document.querySelector(".panel-tabs")).click()`);
+  await s.js(`(() => { if (!document.querySelector(".side.left")) document.querySelector('.topbar [aria-label="Side panel"]').click(); })()`);
+  await s.until(`document.querySelector('.side.left .ep-panel-tabs [aria-label="Annotations"]')`);
+  await s.js(`document.querySelector('.side.left .ep-panel-tabs [aria-label="Annotations"]').click()`);
   const rows = await s.until(`document.querySelectorAll(".notes-list .note-row").length || null`);
   await s.js(`window.__t.type(document.querySelector(".notes-panel input[type=search]"), "assumption")`);
   const filtered = await s.until(`document.querySelectorAll(".notes-list .note-row").length === 1 ? 1 : null`);
   await s.js(`document.querySelector(".notes-list .note-row").click()`);
   const card = await s.until(`document.querySelector(".annot-card:not(.pending)") ? true : null`);
-  await s.js(`(() => { const c = document.querySelector(".annot-card"); const i = c.querySelector(".row input.ep-input"); window.__t.type(i, "Because of the boundary layer."); i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })); })()`);
+  await s.js(`(() => { const c = document.querySelector(".annot-card"); const i = c.querySelector(".reply-row input.ep-input"); window.__t.type(i, "Because of the boundary layer."); i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })); })()`);
   const replied = await s.until(`document.querySelectorAll(".annot-card .replies li").length || null`);
-  await s.js(`document.querySelector(".annot-card footer input[type=checkbox]").click()`);
+  await s.js(`document.querySelector(".annot-card .ep-card-foot input[type=checkbox]").click()`);
   const resolved = await s.until(`window.__t.list().then((x) => x.annotations.find((a) => a.body === "Why this assumption?")?.resolved || null)`);
   check("notes_panel", rows >= 6 && filtered === 1 && card && replied === 1 && resolved === true, { rows, filtered, card, replied, resolved });
   await s.js(`window.__t.type(document.querySelector(".notes-panel input[type=search]"), "")`);
@@ -169,17 +172,46 @@ try {
   // 7. Save into PDF (Ctrl+S): a new managed copy, nothing duplicated, the indicator says so.
   const nSave = await count(s);
   await s.key("s", { ctrl: true });
-  const inPdf = await s.until(`document.querySelector(".annot-bar .ep-button")?.textContent.includes("Saved in PDF") ? true : null`, 20000);
+  const inPdf = await s.until(`document.querySelector('.tool-rail [data-action="save-pdf"]')?.getAttribute("aria-label") === "Saved in PDF" ? true : null`, 20000);
   const after = await s.js(`window.__TAURI_INTERNALS__.invoke("bus_call", { command: "workspace.list_papers", input: {}, deadlineMs: null, approved: [] }).then((p) => p[0].file.hash)`);
   const nAfter = await count(s);
   check("save_into_pdf", inPdf && after !== paperBefore && nAfter === nSave, { inPdf, before: paperBefore, after, nSave, nAfter });
   report.saved_hash = after;
 
+  // 8. Paper notes (MD.NOTE): "Add to notes" from a selection, typing, the chip goes back.
+  await s.js(`window.__t.select(100, 106)`);
+  await s.until(`document.querySelector(".selection-bar")`);
+  await s.js(`window.__t.button("Add to notes", document.querySelector(".selection-bar")).click()`);
+  const chipShown = await s.until(`document.querySelector(".side.right .notes-editor .loc-chip") ? true : null`);
+  await s.js(`(() => { const c = document.querySelector(".side.right .cm-content"); c.focus(); document.execCommand("insertText", false, "My own thought about this."); })()`);
+  const stored = await s.until(`(async () => { const call = (command, input) => window.__TAURI_INTERNALS__.invoke("bus_call", { command, input, deadlineMs: null, approved: [] }); const p = (await call("workspace.list_papers", {}))[0]; const n = await call("workspace.get_notes", { paper: p.id }); return n.text.includes("My own thought") && n.text.includes("(loc:1/") ? n.version : null; })()`, 8000);
+  await s.scrollerKey("End");
+  await s.until(`document.querySelector(".page-box").value !== "1"`);
+  await s.js(`document.querySelector(".side.right .loc-chip").click()`);
+  const back = await s.until(`document.querySelector(".page-box").value === "1" && document.querySelector(".pane.focused .flash-band") ? true : null`);
+  check("notes_quote_type_and_jump", !!chipShown && !!stored && !!back, { chipShown, stored, back });
+
+  // 9. Margin view, hide all marks, focus mode.
+  await s.key("m", { ctrl: true, shift: true });
+  const cards = await s.until(`document.querySelectorAll(".pane.focused .page[data-page='1'] ~ .margin-notes .margin-card").length || null`);
+  const overlap = await s.js(`(() => { const r = [...document.querySelectorAll(".pane.focused .margin-card")].map((c) => c.getBoundingClientRect()).sort((a, b) => a.top - b.top); return r.some((x, i) => i > 0 && x.top < r[i - 1].bottom); })()`);
+  await s.key("m", { ctrl: true, shift: true });
+  check("margin_view", cards >= 2 && overlap === false, { cards, overlap });
+  await s.key("h", { ctrl: true });
+  const hidden = await s.until(`document.querySelectorAll(".pane.focused .annot-layer g[data-annotation]").length === 0 && document.querySelector(".ep-status").textContent.includes("Annotations hidden") ? true : null`);
+  await s.key("h", { ctrl: true });
+  const shownAgain = await s.until(`document.querySelectorAll(".pane.focused .annot-layer g[data-annotation]").length > 0 ? true : null`);
+  check("hide_marks", !!hidden && !!shownAgain, { hidden, shownAgain });
+  await s.key("F11");
+  const focus = await s.until(`document.querySelector(".app.focus-mode") && !document.querySelector(".tool-rail")?.offsetParent ? true : null`);
+  await s.key("F11");
+  check("focus_mode", !!focus, focus);
+
   // Dark theme with annotations.
-  await s.js(`(() => { const sel = [...document.querySelectorAll(".topbar select")].at(-1); sel.value = "dark"; sel.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+  await s.js(`(() => { document.querySelector('.topbar [aria-label="Theme"]').click(); [...document.querySelectorAll(".ep-menu-item")].find((b) => b.textContent.trim() === "Dark").click(); })()`);
   await sleep(1500);
   await s.shot("m3-annotations-dark.png");
-  await s.js(`(() => { const sel = [...document.querySelectorAll(".topbar select")].at(-1); sel.value = "light"; sel.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+  await s.js(`(() => { document.querySelector('.topbar [aria-label="Theme"]').click(); [...document.querySelectorAll(".ep-menu-item")].find((b) => b.textContent.trim() === "Light").click(); })()`);
   await sleep(500);
 } catch (e) {
   report.error = String(e?.stack ?? e);
@@ -227,6 +259,8 @@ try {
   const drawn = await s.until(`document.querySelectorAll(".pane.focused .page[data-page='1'] .annot-layer g[data-annotation]").length || null`);
   const st = await s.js(`window.__t.list()`);
   check("annotations_after_restart", drawn >= 7 && st.annotations.length >= 8 && st.can_undo === true && st.unsaved === false, { drawn, stored: st.annotations.length, can_undo: st.can_undo, unsaved: st.unsaved });
+  const notes = await s.until(`document.querySelector(".side.right .cm-content")?.textContent.includes("My own thought") ? true : null`, 8000);
+  check("notes_after_restart", !!notes, notes);
   await s.shot("m3-restored.png");
 } catch (e) {
   report.restart_error = String(e?.stack ?? e);

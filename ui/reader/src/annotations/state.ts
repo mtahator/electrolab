@@ -17,6 +17,19 @@ export type Tool = "select" | AnnotationKind | "eraser";
 export const COLORS = ["#ffd400", "#7bd88f", "#74c0fc", "#ff8787", "#d0a2f7"] as const;
 /** Colours for drawings, shapes and text. */
 export const INK_COLORS = ["#e03131", "#1971c2", "#2f9e44", "#f08c00", "#212529"] as const;
+/** Names for the palettes (tooltips and screen readers). */
+export const colorNames: Record<string, string> = {
+  "#ffd400": "Yellow",
+  "#7bd88f": "Green",
+  "#74c0fc": "Blue",
+  "#ff8787": "Red",
+  "#d0a2f7": "Purple",
+  "#e03131": "Red",
+  "#1971c2": "Blue",
+  "#2f9e44": "Green",
+  "#f08c00": "Orange",
+  "#212529": "Graphite",
+};
 export const CATEGORIES: Category[] = ["definition", "method", "result", "question", "to_check"];
 export const MARKUP: AnnotationKind[] = ["highlight", "underline", "strike_out", "squiggly"];
 
@@ -28,6 +41,9 @@ export const [inkColor, setInkColor] = createSignal<string>(INK_COLORS[0]);
 export const [category, setCategory] = createSignal<Category | null>(null);
 export const [strokeWidth, setStrokeWidth] = createSignal(1.5);
 export const [fontSize, setFontSize] = createSignal(12);
+
+/** All annotations hidden for clean reading (Ctrl+H); the status line says so. */
+export const [marksHidden, setMarksHidden] = createSignal(false);
 
 /** The annotation picked on a page, and whether its editor card is open. */
 export interface Picked {
