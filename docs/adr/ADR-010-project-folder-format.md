@@ -30,3 +30,7 @@ A library or project must survive app updates, moves between folders and machine
 
 ## Evidence
 `engines/workspace/facade/tests/conformance.rs` (create → add → close → reopen is identical; a newer format is refused and left unchanged); `spec/project-format.md`.
+
+## Amendment 1 (2026-11-14): each engine keeps its own database in the folder
+
+The Document engine stores annotations in `document.sqlite` next to `workspace.sqlite` (P1.M3). Engines do not share tables: each owns its file and migrations, and gets the folder through its host port (`BlobAccess::project()`), never through another engine. The format number stays 1: older readers leave unknown files alone (Compatibility rule), and a folder without `document.sqlite` simply has no annotations yet.

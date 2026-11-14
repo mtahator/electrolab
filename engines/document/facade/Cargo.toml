@@ -14,12 +14,16 @@ ep-document-adapter-pdfium = { path = "../adapters/pdfium" }
 ep-blob = { path = "../../../foundation/blob" }
 ep-types = { path = "../../../foundation/types" }
 ep-bus = { path = "../../../foundation/bus" }
+ep-store = { path = "../../../foundation/store" }
+tracing.workspace = true
 tokio.workspace = true
 parking_lot.workspace = true
 serde_json.workspace = true
 png = "=0.18.1"
 
 [dev-dependencies]
+lopdf.workspace = true
+uuid.workspace = true
 tempfile.workspace = true
 serde.workspace = true
 

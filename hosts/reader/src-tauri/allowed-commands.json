@@ -7,6 +7,11 @@
     "document.outline",
     "document.render",
     "document.search",
+    "document.annotations",
+    "document.annotations_apply",
+    "document.annotations_undo",
+    "document.annotations_redo",
+    "document.annotate",
     "document.text",
     "document.thumbnails",
     "workspace.add_bookmark",
@@ -30,6 +35,7 @@
     "workspace.rename_collection",
     "workspace.save_reading_state",
     "workspace.set_paper_metadata",
+    "workspace.set_paper_file",
     "workspace.set_tags"
   ]
 }

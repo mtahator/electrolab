@@ -1,12 +1,17 @@
 // The viewer (P1.M2.VW): virtualised pages in continuous, single or two-page layout; zoom with the
 // point under the cursor kept still; keyboard; back/forward history; link previews; text copied
-// from the Document engine; reading position and reading time saved per paper.
+// from the Document engine; reading position and reading time saved per paper; annotations
+// (P1.M3): the selection bar, text-mark tools and the annotation keys.
 
 import type { DocInfo, Link, PageRect, PageText, Paper, ReadingState } from "@electropaper/bindings";
 import { t, theme } from "@electropaper/kit";
 import { For, type JSX, Show, createEffect, createMemo, createSignal, on, onCleanup, onMount, untrack } from "solid-js";
 import { createStore, produce } from "solid-js/store";
 
+import { citation } from "../annotations/geometry";
+import { SelectionBar } from "../annotations/SelectionBar";
+import { marksFor, selectionBox, selectionRanges } from "../annotations/selection";
+import { add, isMarkup, load as loadAnnotations, pending, picked, remove, setPending, setPicked, setTool, tool, typing } from "../annotations/state";
 import { bus, openExternal } from "../host";
 import { History, type Place } from "./history";
 import { type Layout, type ViewMode, type Zoom, clamp, layout, pageAt, scaleFor, toPage, toScreen, visible } from "./layout";
@@ -22,6 +27,8 @@ export interface ViewerApi {
   setZoom: (z: Zoom) => void;
   setMode: (m: ViewMode) => void;
   focus: () => void;
+  /** Copy the selected text with its citation and page; false when nothing is selected. */
+  copyCitation: () => boolean;
 }
 
 /** What the viewer tells the shell. */
@@ -75,6 +82,7 @@ export function Viewer(props: ViewerProps): JSX.Element {
   const [texts, setTexts] = createStore<Record<number, PageText>>({});
   const [links, setLinks] = createStore<Record<number, Link[]>>({});
   const [preview, setPreview] = createSignal<{ page: number; top: number | null; at: DOMRect } | null>(null);
+  const [selBar, setSelBar] = createSignal<DOMRect | null>(null);
   const history = new History();
   const [histTick, setHistTick] = createSignal(0);
   let restored = false;
@@ -163,7 +171,50 @@ export function Viewer(props: ViewerProps): JSX.Element {
       goTo(p.page, p.y, false, true);
     },
     focus: () => scroller.focus(),
+    copyCitation: () => {
+      const text = selectedText((p) => texts[p]);
+      const ranges = selectionRanges((p) => texts[p]);
+      if (!text || ranges.length === 0) return false;
+      void navigator.clipboard.writeText(citation(text, props.paper, ranges[0]?.page ?? current())).catch(() => {});
+      return true;
+    },
   };
+
+  // ---- annotations: the selection bar and the text-mark tools (P1.M3.UI.2, UI.9) -------------
+  const markSelection = (kind: "highlight" | "underline" | "strike_out" | "squiggly", color?: string): void => {
+    const marks = marksFor(kind, selectionRanges((p) => texts[p]), (p) => texts[p], color);
+    window.getSelection()?.removeAllRanges();
+    setSelBar(null);
+    if (marks.length > 0) void add(props.paper.id, marks);
+  };
+  const commentSelection = (): void => {
+    const marks = marksFor("highlight", selectionRanges((p) => texts[p]), (p) => texts[p]);
+    window.getSelection()?.removeAllRanges();
+    setSelBar(null);
+    const first = marks[0];
+    if (!first) return;
+    // The comment belongs to the first page's mark; marks on further pages are added with it.
+    if (marks.length > 1) void add(props.paper.id, marks.slice(1));
+    setPending({ paper: props.paper.id, annotation: first });
+  };
+  const onMouseUp = (): void => {
+    // Let the browser finish the selection first.
+    window.setTimeout(() => {
+      const box = selectionBox();
+      if (!box || selectionRanges((p) => texts[p]).length === 0) return setSelBar(null);
+      const k = tool();
+      if (isMarkup(k)) markSelection(k);
+      else if (k === "select") setSelBar(box);
+    }, 0);
+  };
+  onMount(() => {
+    const onSel = (): void => {
+      const s = window.getSelection();
+      if (!s || s.isCollapsed) setSelBar(null);
+    };
+    document.addEventListener("selectionchange", onSel);
+    onCleanup(() => document.removeEventListener("selectionchange", onSel));
+  });
 
   onMount(async () => {
     props.onReady(api);
@@ -172,6 +223,7 @@ export function Viewer(props: ViewerProps): JSX.Element {
     const ro = new ResizeObserver(() => setView((v) => ({ ...v, w: scroller.clientWidth, h: scroller.clientHeight })));
     ro.observe(scroller);
     onCleanup(() => ro.disconnect());
+    void loadAnnotations(props.paper);
     try {
       const [i, d, st] = await Promise.all([bus("document.info", { file: props.paper.file }), acquire(hash), bus("workspace.get_reading_state", { paper: props.paper.id })]);
       setInfo(i);
@@ -221,6 +273,7 @@ export function Viewer(props: ViewerProps): JSX.Element {
   // Save the place a moment after scrolling stops.
   const onScroll = (): void => {
     setView((v) => ({ ...v, top: scroller.scrollTop }));
+    if (selBar()) setSelBar(selectionBox());
     if (mode() !== "single") setCurrent(pageAt(lay(), scroller.scrollTop + scroller.clientHeight / 2));
     window.clearTimeout(saveTimer);
     saveTimer = window.setTimeout(() => void save(), 1500);
@@ -287,6 +340,21 @@ export function Viewer(props: ViewerProps): JSX.Element {
     if (e.ctrlKey && (key === "=" || key === "+")) return void (e.preventDefault(), api.zoomBy(1.2));
     if (e.ctrlKey && key === "-") return void (e.preventDefault(), api.zoomBy(1 / 1.2));
     if (e.ctrlKey && key === "0") return void (e.preventDefault(), api.setZoom({ kind: "fit_width" }));
+    if (!typing()) {
+      if (key === "Escape") {
+        if (pending()) setPending(null);
+        else if (picked()) setPicked(null);
+        else if (tool() !== "select") setTool("select");
+        setSelBar(null);
+        return;
+      }
+      const p = picked();
+      if ((key === "Delete" || key === "Backspace") && p && p.paper === props.paper.id) {
+        e.preventDefault();
+        void remove(p.paper, p.id);
+        return;
+      }
+    }
     const step = (dir: number): void => {
       if (single) goTo(current() + dir, 0, false);
       else scroller.scrollBy({ top: dir * (h - 40) });
@@ -354,13 +422,14 @@ export function Viewer(props: ViewerProps): JSX.Element {
       <Show when={error()}>
         <p class="error center">{error()}</p>
       </Show>
-      <div class="scroller" ref={scroller} tabIndex={0} onScroll={onScroll} onWheel={onWheel} onKeyDown={onKey} onCopy={onCopy}>
+      <div class="scroller" ref={scroller} tabIndex={0} onScroll={onScroll} onWheel={onWheel} onKeyDown={onKey} onCopy={onCopy} onMouseUp={onMouseUp}>
         <Show when={doc() && info()} fallback={<p class="muted center">{t("viewer.loading")}</p>}>
           <div class="canvas-area" style={{ width: `${lay().width}px`, height: `${lay().height}px` }}>
             <For each={shown()}>
               {(s) => (
                 <div class="slot" style={{ left: `${s.left}px`, top: `${s.top}px` }}>
                   <Page
+                    paper={props.paper.id}
                     file={props.paper.file}
                     doc={doc() as PDFDocumentProxy}
                     page={s.page}
@@ -388,6 +457,25 @@ export function Viewer(props: ViewerProps): JSX.Element {
           </div>
         </Show>
       </div>
+      <Show when={selBar() && props.active}>
+        {(_) => (
+          <SelectionBar
+            at={selBar() as DOMRect}
+            onHighlight={(c) => markSelection("highlight", c)}
+            onMark={(k) => markSelection(k)}
+            onComment={commentSelection}
+            onCopy={() => {
+              const text = selectedText((p) => texts[p]);
+              if (text) void navigator.clipboard.writeText(text).catch(() => {});
+              setSelBar(null);
+            }}
+            onCite={() => {
+              api.copyCitation();
+              setSelBar(null);
+            }}
+          />
+        )}
+      </Show>
       <Show when={preview() && doc()}>{(_) => <LinkPreview doc={doc() as PDFDocumentProxy} target={preview() as { page: number; top: number | null; at: DOMRect }} />}</Show>
     </div>
   );
@@ -407,7 +495,7 @@ function LinkPreview(props: { doc: PDFDocumentProxy; target: { page: number; top
     canvas.width = W * ratio;
     canvas.height = H * ratio;
     const viewport = page.getViewport({ scale: s * ratio });
-    await page.render({ canvas, viewport, transform: [1, 0, 0, 1, 0, -top * ratio] }).promise.catch(() => {});
+    await page.render({ canvas, viewport, annotationMode: 0, transform: [1, 0, 0, 1, 0, -top * ratio] }).promise.catch(() => {});
   });
   const left = Math.min(window.innerWidth - W - 16, props.target.at.left);
   const below = props.target.at.bottom + 8;

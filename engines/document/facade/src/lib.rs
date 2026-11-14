@@ -8,32 +8,50 @@
 
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 
 use ep_blob::BlobStore;
 use ep_bus::cache::{ResultCache, cache_key};
 use ep_bus::{Bus, CommandError, Cx, Permission, RegisterError, Spec, Stability};
 use ep_document_contract::{
-    DocInfo, FileRequest, Link, MetadataRequest, OutlineItem, PageRequest, PageText, PaperRef,
-    PdfMetadata, RenderRequest, Rendered, SearchRequest, SearchResult, ThumbnailsRequest, commands,
-    errors, pdf_errors,
+    AnnotationOp, ApplyAnnotations, DocInfo, FileRequest, Link, MetadataRequest, OutlineItem,
+    PageRequest, PageText, PaperRef, PdfMetadata, RenderRequest, Rendered, SearchRequest,
+    SearchResult, ThumbnailsRequest, commands, errors, pdf_errors,
 };
 use ep_document_core::pdf::{BackendError, PageGeom, PdfBackend};
 use ep_document_core::search::{PageChars, SearchIndex};
 use ep_types::{BlobRef, Hash, MediaType};
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
 use serde_json::json;
+
+mod annotations;
+pub use annotations::DATABASE as ANNOTATION_DATABASE;
 
 pub use ep_document_core::pdf::PdfBackend as Backend;
 
-/// Port: where a stored file is on disk.
+/// Port: the open library's stored files and folder (the host implements it with Workspace).
 pub trait BlobAccess: Send + Sync {
     /// Path of the blob, if it is available.
     fn path_of(&self, hash: &Hash) -> Option<PathBuf>;
+
+    /// Store new file content (a saved PDF) and return its reference.
+    ///
+    /// # Errors
+    /// Nothing is open, or the file cannot be written.
+    fn put(&self, bytes: &[u8], media_type: MediaType) -> std::io::Result<BlobRef> {
+        let _ = (bytes, media_type);
+        Err(std::io::Error::other("storing files is not available"))
+    }
+
+    /// Id and folder of the open library or project, where the engine keeps its own database
+    /// (`document.sqlite`, annotations). `None` when nothing is open.
+    fn project(&self) -> Option<(String, PathBuf)> {
+        None
+    }
 }
 
 /// Version of everything that shapes rendered images; bump to invalidate cached renders.
-const RENDER_IMPL: &str = "pdfium-8125/png-1";
+const RENDER_IMPL: &str = "pdfium-8125/png-2-no-annots";
 /// Search indexes kept in memory.
 const INDEXES: usize = 8;
 
@@ -47,6 +65,12 @@ pub struct Document {
     renders: Option<(BlobStore, ResultCache)>,
     geoms: Mutex<VecDeque<GeomEntry>>,
     indexes: Mutex<VecDeque<(Hash, Arc<SearchIndex>)>>,
+    /// The open project's annotation database, by project id.
+    annotation_db: Mutex<Option<(String, Arc<ep_store::Store>)>>,
+    /// For hub events.
+    bus: Mutex<Weak<Bus>>,
+    /// Author written on new annotations (`/T`).
+    author: RwLock<String>,
 }
 
 impl std::fmt::Debug for Document {
@@ -146,7 +170,15 @@ impl Document {
             renders,
             geoms: Mutex::new(VecDeque::new()),
             indexes: Mutex::new(VecDeque::new()),
+            annotation_db: Mutex::new(None),
+            bus: Mutex::new(Weak::new()),
+            author: RwLock::new(String::new()),
         }))
+    }
+
+    /// The name written as the author of new annotations (the host passes the user's name).
+    pub fn set_author(&self, name: &str) {
+        name.trim().clone_into(&mut self.author.write());
     }
 
     /// The image store of the render cache (hosts serve it to the viewer).
@@ -204,15 +236,17 @@ impl Document {
     ///
     /// # Errors
     /// A name is already registered.
-    pub fn register(self: &Arc<Self>, bus: &Bus) -> Result<(), RegisterError> {
+    pub fn register(self: &Arc<Self>, bus: &Arc<Bus>) -> Result<(), RegisterError> {
+        *self.bus.lock() = Arc::downgrade(bus);
         macro_rules! reg {
-            ($name:expr, $summary:expr, $method:ident) => {{
+            ($name:expr, $summary:expr, $method:ident) => {{ reg!($name, $summary, $method, Permission::read()) }};
+            ($name:expr, $summary:expr, $method:ident, $perm:expr) => {{
                 let d = self.clone();
                 let spec = Spec {
                     name: $name,
                     summary: $summary,
                     stability: Stability::Experimental,
-                    permission: Permission::read(),
+                    permission: $perm,
                 };
                 bus.register(spec, move |cx: Cx, i| {
                     let d = d.clone();
@@ -252,7 +286,55 @@ impl Document {
             "Notation-aware word search with context in one or more papers",
             search
         );
+        reg!(
+            commands::ANNOTATIONS,
+            "The annotations of a paper (imports those already in its PDF the first time)",
+            annotations,
+            Permission::create()
+        );
+        reg!(
+            commands::ANNOTATIONS_APPLY,
+            "Add, change or remove annotations as one undoable edit",
+            apply_annotations,
+            Permission::create()
+        );
+        reg!(
+            commands::ANNOTATIONS_UNDO,
+            "Undo the last annotation edit of a paper",
+            annotations_undo,
+            Permission::create()
+        );
+        reg!(
+            commands::ANNOTATIONS_REDO,
+            "Redo the last undone annotation edit of a paper",
+            annotations_redo,
+            Permission::create()
+        );
+        reg!(
+            commands::ANNOTATE,
+            "Write a paper's annotations into a new version of its PDF",
+            annotate,
+            Permission::create()
+        );
         Ok(())
+    }
+
+    async fn apply_annotations(
+        self: Arc<Self>,
+        cx: Cx,
+        mut i: ApplyAnnotations,
+    ) -> Result<ep_document_contract::AnnotationSet, CommandError> {
+        let author = self.author.read().clone();
+        if !author.is_empty() {
+            for op in &mut i.ops {
+                if let AnnotationOp::Add { annotation } = op
+                    && annotation.author.is_none()
+                {
+                    annotation.author = Some(author.clone());
+                }
+            }
+        }
+        self.annotations_apply(cx, i).await
     }
 
     async fn metadata(

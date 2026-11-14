@@ -740,3 +740,345 @@ kbd {
   flex-direction: column;
   gap: var(--space-2);
 }
+
+/* ---- Annotations (P1.M3.UI) ---------------------------------------------------------------- */
+.annot-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  font-size: var(--text-sm);
+}
+
+.annot-bar .tool-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.annot-bar .tool {
+  padding: 3px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.annot-bar .tool:hover {
+  background: var(--bg-sunken);
+}
+
+.annot-bar .tool.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.annot-bar .saved {
+  min-width: 3.5em;
+}
+
+.annot-bar .dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-inline-end: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: middle;
+}
+
+.swatches {
+  display: flex;
+  gap: 4px;
+}
+
+.swatch {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid rgb(0 0 0 / 25%);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.swatch[aria-checked="true"],
+.swatch[aria-pressed="true"] {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.annot-host {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.annot-host.drawing {
+  pointer-events: auto;
+  cursor: crosshair;
+  z-index: 3;
+}
+
+.annot-host.tool-eraser {
+  cursor: cell;
+}
+
+.annot-host.tool-note,
+.annot-host.tool-free_text {
+  cursor: copy;
+}
+
+.annot-layer {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+  color: var(--accent);
+}
+
+/* Highlights mix with the page like ink on paper; on dark pages they glow instead. */
+.annot-layer .hl {
+  mix-blend-mode: multiply;
+}
+
+:root[data-theme="dark"] .annot-layer .hl,
+:root[data-theme="night"] .annot-layer .hl,
+:root[data-theme="contrast"] .annot-layer .hl {
+  mix-blend-mode: normal;
+  opacity: 0.38;
+}
+
+.annot-layer .annot-proxy {
+  pointer-events: all;
+  cursor: move;
+}
+
+.annot-layer .picked-frame rect:first-child {
+  stroke: var(--accent);
+  stroke-width: 0.8;
+  stroke-dasharray: 3 2;
+}
+
+.annot-layer .handle {
+  pointer-events: all;
+  fill: var(--bg);
+  stroke: var(--accent);
+  stroke-width: 0.8;
+  cursor: nwse-resize;
+}
+
+.annot-layer .draft {
+  stroke-dasharray: 4 2;
+}
+
+.annot-layer .free-text {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: Helvetica, Arial, sans-serif;
+  line-height: 1.2;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 2px;
+  box-sizing: border-box;
+}
+
+.annot-card {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 70vh;
+  overflow: auto;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--fg);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 22%);
+  font-size: var(--text-sm);
+  pointer-events: auto;
+  cursor: auto;
+}
+
+.annot-card header,
+.annot-card .row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.annot-card header strong {
+  flex: 0 0 auto;
+}
+
+.annot-card header .muted {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.annot-card textarea {
+  resize: vertical;
+  min-height: 3em;
+  font: inherit;
+}
+
+.annot-card .row .ep-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.annot-card .quote,
+.notes-list .quote {
+  margin: 0;
+  padding-inline-start: var(--space-2);
+  border-inline-start: 3px solid var(--border);
+  color: var(--fg-muted);
+  font-style: italic;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.annot-card .replies {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.annot-card .replies li {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+}
+
+.annot-card .reply-body {
+  white-space: pre-wrap;
+}
+
+.annot-card .check,
+.notes-panel .check {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ep-button.danger {
+  color: var(--danger);
+}
+
+.small {
+  font-size: var(--text-sm);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.selection-bar {
+  position: fixed;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 20%);
+  font-size: var(--text-sm);
+}
+
+.selection-bar .sep {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+}
+
+.selection-bar .bar-btn {
+  padding: 2px 8px;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.selection-bar .bar-btn:hover {
+  background: var(--bg-sunken);
+}
+
+.selection-bar .underline {
+  text-decoration: underline;
+}
+
+.selection-bar .strike {
+  text-decoration: line-through;
+}
+
+.notes-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.notes-panel .filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.notes-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.note-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  border-inline-start: 4px solid var(--border);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--bg-panel);
+  color: var(--fg);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.note-row:hover {
+  background: var(--bg-sunken);
+}
+
+.note-row .body {
+  white-space: pre-wrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

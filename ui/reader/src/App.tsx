@@ -4,6 +4,8 @@ import { Button, THEMES, type Theme, setTheme, t, theme } from "@electropaper/ki
 import { For, type JSX, Show, createSignal, onCleanup, onMount } from "solid-js";
 import { createStore } from "solid-js/store";
 
+import { onAnnotationError, picked, redo, remove, saveIntoPdf, setTool, typing, undo } from "./annotations/state";
+import { Toolbar } from "./annotations/Toolbar";
 import { bus, downloadPdf, onBusEvent, onDropFiles, onOpenFiles, openPaperExternally, pickPdfs, printPaper, takePendingFiles } from "./host";
 import { importPdf, openDefaultLibrary, refresh } from "./library";
 import { registerActions } from "./shell/actions";
@@ -15,7 +17,7 @@ import type { Marks, ViewerApi, ViewerStatus } from "./viewer/Viewer";
 import { Viewer } from "./viewer/Viewer";
 
 const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 5];
-const PANELS: PanelKind[] = ["outline", "thumbnails", "find", "bookmarks"];
+const PANELS: PanelKind[] = ["outline", "thumbnails", "find", "bookmarks", "notes"];
 
 export function App(): JSX.Element {
   const [error, setError] = createSignal<string | null>(null);
@@ -28,12 +30,26 @@ export function App(): JSX.Element {
   const [keymap, setKeymap] = createSignal(false);
   const [confirm, setConfirm] = createSignal<{ message: string; answer: (ok: boolean) => void } | null>(null);
   const [urlPrompt, setUrlPrompt] = createSignal(false);
+  const [savingPdf, setSavingPdf] = createSignal(false);
   const [status, setStatus] = createStore<Record<string, ViewerStatus>>({});
   const [marks, setMarks] = createStore<Record<string, Marks>>({});
   const apis = new Map<string, ViewerApi>();
 
   const report = (e: unknown): void => {
     setError(e instanceof BusError ? e.message : String((e as Error)?.message ?? e));
+  };
+  onAnnotationError(report);
+
+  // Save into PDF (Ctrl+S): the paper gets a new managed copy; open tabs keep showing the same
+  // pages (annotations are drawn from the store), so nothing reloads.
+  const savePdf = async (paper: Paper): Promise<void> => {
+    setSavingPdf(true);
+    try {
+      const updated = await saveIntoPdf(paper.id);
+      if (updated) updatePaper(updated);
+    } finally {
+      setSavingPdf(false);
+    }
   };
   const ask = (message: string): Promise<boolean> => new Promise((answer) => setConfirm({ message, answer }));
   const current = (): { api: ViewerApi | undefined; status: ViewerStatus | undefined; paper: Paper | null } => {
@@ -155,6 +171,44 @@ export function App(): JSX.Element {
     { id: "mode.two_page", title: () => t("viewer.mode_two_page"), enabled: () => !!current().api, run: () => current().api?.setMode("two_page") },
     { id: "paper.external", title: () => t("viewer.open_external"), enabled: () => !!current().paper, run: withPaper((p) => void openPaperExternally(p.file.hash).catch(report)) },
     { id: "paper.print", title: () => t("viewer.print"), keys: "Ctrl+P", enabled: () => !!current().paper, run: withPaper((p) => void printPaper(p.file.hash).catch(report)) },
+    { id: "annot.undo", title: () => t("annot.undo"), keys: "Ctrl+Z", enabled: () => !!current().paper && !typing(), run: withPaper((p) => void undo(p.id)) },
+    { id: "annot.redo", title: () => t("annot.redo"), keys: "Ctrl+Y", enabled: () => !!current().paper && !typing(), run: withPaper((p) => void redo(p.id)) },
+    { id: "annot.redo2", title: () => t("annot.redo"), keys: "Ctrl+Shift+Z", enabled: () => !!current().paper && !typing(), run: withPaper((p) => void redo(p.id)) },
+    { id: "annot.save_pdf", title: () => t("annot.save_pdf"), keys: "Ctrl+S", enabled: () => !!current().paper && !savingPdf(), run: withPaper((p) => void savePdf(p)) },
+    {
+      id: "annot.delete",
+      title: () => t("annot.delete"),
+      keys: "Delete",
+      enabled: () => !!picked() && !typing(),
+      run: () => {
+        const p = picked();
+        if (p) void remove(p.paper, p.id);
+      },
+    },
+    { id: "annot.copy_cite", title: () => t("annot.copy_cite"), keys: "Ctrl+Shift+C", enabled: () => !!current().api, run: () => void current().api?.copyCitation() },
+    { id: "annot.panel", title: () => t("panel.notes"), run: () => setPanel(panel() === "notes" ? null : "notes") },
+    ...(
+      [
+        ["select", "V"],
+        ["highlight", "H"],
+        ["note", "N"],
+        ["free_text", "T"],
+        ["ink", "D"],
+        ["eraser", "E"],
+        ["underline", ""],
+        ["strike_out", ""],
+        ["rectangle", ""],
+        ["ellipse", ""],
+        ["line", ""],
+        ["arrow", ""],
+      ] as const
+    ).map(([tl, key]) => ({
+      id: `tool.${tl}`,
+      title: () => `${t("annot.tools")}: ${t(tl === "select" ? "annot.tool.select" : tl === "eraser" ? "annot.tool.eraser" : `annot.kind.${tl}`)}`,
+      ...(key ? { keys: key } : {}),
+      enabled: () => !!current().paper && !typing(),
+      run: () => setTool(tl),
+    })),
     ...THEMES.map((th) => ({ id: `theme.${th}`, title: () => `${t("settings.theme")}: ${t(`theme.${th}`)}`, run: () => setTheme(th) })),
   ]);
 
@@ -286,6 +340,9 @@ export function App(): JSX.Element {
           {t("palette.title")}
         </Button>
       </header>
+      <Show when={!session.showLibrary && current().paper}>
+        {(p) => <Toolbar paper={p().id} saving={savingPdf()} onSave={() => void savePdf(p())} />}
+      </Show>
       <Show when={error()}>
         <div class="banner" role="alert">
           <strong>{t("error.title")}:</strong> {error()}

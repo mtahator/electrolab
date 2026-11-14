@@ -26,13 +26,13 @@ impl BlobAccess for OneFile {
     }
 }
 
-fn setup(file: &Path, cache: &Path) -> Option<(Bus, BlobRef)> {
+fn setup(file: &Path, cache: &Path) -> Option<(Arc<Bus>, BlobRef)> {
     let dir = root().join(".natives/pdfium/bin");
     if !dir.exists() {
         eprintln!("skipped: PDFium not fetched");
         return None;
     }
-    let bus = Bus::default();
+    let bus = Arc::new(Bus::default());
     let pdf = ep_document::start_pdfium(&dir).expect("pdfium");
     Document::new(
         Arc::new(OneFile(file.to_path_buf())),

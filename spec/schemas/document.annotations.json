@@ -1,0 +1,442 @@
+{
+  "command": "document.annotations",
+  "input": {
+    "$defs": {
+      "BlobRef": {
+        "description": "A file in the content-addressed store: messages carry these, never large bytes (§9.4).",
+        "properties": {
+          "hash": {
+            "$ref": "#/$defs/Hash",
+            "description": "Content hash."
+          },
+          "media_type": {
+            "$ref": "#/$defs/MediaType",
+            "description": "What the bytes are."
+          },
+          "size": {
+            "description": "Size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "Hash": {
+        "description": "BLAKE3 content hash (hex)",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "MediaType": {
+        "description": "A media type such as `application/pdf`.",
+        "type": "string"
+      },
+      "PaperId": {
+        "description": "A paper (a PDF in the library or a project).\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input naming a paper and its current managed copy.",
+    "properties": {
+      "file": {
+        "$ref": "#/$defs/BlobRef",
+        "description": "Its current file (annotations already in it are imported once)."
+      },
+      "paper": {
+        "$ref": "#/$defs/PaperId",
+        "description": "The paper (annotations belong to it)."
+      }
+    },
+    "required": [
+      "paper",
+      "file"
+    ],
+    "title": "PaperFile",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "Annotation": {
+        "description": "One annotation.",
+        "properties": {
+          "author": {
+            "default": null,
+            "description": "Who made it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "body": {
+            "default": "",
+            "description": "The comment (note text, free text, or a comment on a mark).",
+            "type": "string"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Category"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "What the mark means."
+          },
+          "color": {
+            "description": "Colour as `#rrggbb`.",
+            "type": "string"
+          },
+          "created_ms": {
+            "description": "Created, ms since the Unix epoch.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "font_size": {
+            "default": null,
+            "description": "Free text: font size in points.",
+            "format": "float",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "id": {
+            "description": "Stable id: `ep-…` for ours, the PDF's `/NM` (or `pdf-<object>-<generation>`) for imported\nones. Written to `/NM`, so re-importing updates instead of duplicating.",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/$defs/AnnotationKind",
+            "description": "What it is."
+          },
+          "line": {
+            "default": null,
+            "description": "Line and arrow: start and end.",
+            "items": {
+              "$ref": "#/$defs/PagePoint"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "modified_ms": {
+            "description": "Last changed, ms since the Unix epoch.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "opacity": {
+            "default": 1.0,
+            "description": "Opacity 0–1.",
+            "format": "float",
+            "type": "number"
+          },
+          "page": {
+            "description": "1-based page number.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "parent": {
+            "default": null,
+            "description": "Replies: the note this answers.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "paths": {
+            "default": [],
+            "description": "Ink: strokes, each a list of points.",
+            "items": {
+              "items": {
+                "$ref": "#/$defs/PagePoint"
+              },
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "pristine": {
+            "default": false,
+            "description": "Imported from the PDF and not changed since: saving keeps the file's own object.",
+            "type": "boolean"
+          },
+          "quads": {
+            "default": [],
+            "description": "Text mark-up: one quad per line piece, from the engine's character boxes.",
+            "items": {
+              "$ref": "#/$defs/PageQuad"
+            },
+            "type": "array"
+          },
+          "rect": {
+            "$ref": "#/$defs/PageRect",
+            "description": "Bounds on the page. For notes, the icon; for free text and shapes, the box; for mark-up,\nink and lines, the area they cover (recomputed by the engine)."
+          },
+          "resolved": {
+            "default": false,
+            "description": "The thread is resolved (written as a `Review`/`Completed` state annotation).",
+            "type": "boolean"
+          },
+          "text": {
+            "default": null,
+            "description": "Text mark-up: the marked text (for the sidebar, search and citations).",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "width": {
+            "default": 1.0,
+            "description": "Stroke width in points (ink, shapes, lines, underline).",
+            "format": "float",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "page",
+          "kind",
+          "rect",
+          "color",
+          "created_ms",
+          "modified_ms"
+        ],
+        "type": "object"
+      },
+      "AnnotationKind": {
+        "description": "What an annotation is. Each maps to one standard PDF subtype (ADR-006).",
+        "oneOf": [
+          {
+            "const": "highlight",
+            "description": "Text mark-up: `/Highlight`.",
+            "type": "string"
+          },
+          {
+            "const": "underline",
+            "description": "Text mark-up: `/Underline`.",
+            "type": "string"
+          },
+          {
+            "const": "strike_out",
+            "description": "Text mark-up: `/StrikeOut`.",
+            "type": "string"
+          },
+          {
+            "const": "squiggly",
+            "description": "Text mark-up: `/Squiggly`.",
+            "type": "string"
+          },
+          {
+            "const": "note",
+            "description": "A note (sticky note) at a point: `/Text`. Replies are notes with a `parent`.",
+            "type": "string"
+          },
+          {
+            "const": "free_text",
+            "description": "Text drawn on the page: `/FreeText`.",
+            "type": "string"
+          },
+          {
+            "const": "ink",
+            "description": "Free-hand drawing: `/Ink`.",
+            "type": "string"
+          },
+          {
+            "const": "rectangle",
+            "description": "`/Square`.",
+            "type": "string"
+          },
+          {
+            "const": "ellipse",
+            "description": "`/Circle`.",
+            "type": "string"
+          },
+          {
+            "const": "line",
+            "description": "`/Line`.",
+            "type": "string"
+          },
+          {
+            "const": "arrow",
+            "description": "`/Line` with an arrowhead at the end.",
+            "type": "string"
+          }
+        ]
+      },
+      "Category": {
+        "description": "What a mark means to the reader (Draft 2.2 §28.3). Written to `/Subj`.",
+        "oneOf": [
+          {
+            "const": "definition",
+            "description": "A definition.",
+            "type": "string"
+          },
+          {
+            "const": "method",
+            "description": "A method.",
+            "type": "string"
+          },
+          {
+            "const": "result",
+            "description": "A result.",
+            "type": "string"
+          },
+          {
+            "const": "question",
+            "description": "A question.",
+            "type": "string"
+          },
+          {
+            "const": "to_check",
+            "description": "Something to check.",
+            "type": "string"
+          }
+        ]
+      },
+      "PagePoint": {
+        "description": "A point on a page.",
+        "properties": {
+          "x": {
+            "description": "Distance from the left edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "y": {
+            "description": "Distance from the top edge.",
+            "format": "float",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "type": "object"
+      },
+      "PageQuad": {
+        "description": "Four corners of text that may be rotated or skewed (upper-left, upper-right, lower-left,\nlower-right — the order PDF `/QuadPoints` use in practice).",
+        "properties": {
+          "p": {
+            "description": "Corners.",
+            "items": {
+              "$ref": "#/$defs/PagePoint"
+            },
+            "maxItems": 4,
+            "minItems": 4,
+            "type": "array"
+          },
+          "page": {
+            "description": "1-based page number.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "p"
+        ],
+        "type": "object"
+      },
+      "PageRect": {
+        "description": "A rectangle on one page.",
+        "properties": {
+          "page": {
+            "description": "1-based page number.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "x0": {
+            "description": "Left edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "x1": {
+            "description": "Right edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "y0": {
+            "description": "Top edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "y1": {
+            "description": "Bottom edge.",
+            "format": "float",
+            "type": "number"
+          }
+        },
+        "required": [
+          "page",
+          "x0",
+          "y0",
+          "x1",
+          "y1"
+        ],
+        "type": "object"
+      },
+      "PaperId": {
+        "description": "A paper (a PDF in the library or a project).\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "The annotations of a paper and the state of its history.",
+    "properties": {
+      "annotations": {
+        "description": "Every annotation, by page then creation time.",
+        "items": {
+          "$ref": "#/$defs/Annotation"
+        },
+        "type": "array"
+      },
+      "can_redo": {
+        "description": "An undone edit can be redone.",
+        "type": "boolean"
+      },
+      "can_undo": {
+        "description": "An edit can be undone.",
+        "type": "boolean"
+      },
+      "paper": {
+        "$ref": "#/$defs/PaperId",
+        "description": "The paper."
+      },
+      "unsaved": {
+        "description": "There are changes not yet saved into the PDF.",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "paper",
+      "annotations",
+      "can_undo",
+      "can_redo",
+      "unsaved"
+    ],
+    "title": "AnnotationSet",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "create"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "The annotations of a paper (imports those already in its PDF the first time)"
+}

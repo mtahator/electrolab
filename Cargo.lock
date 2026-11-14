@@ -1321,13 +1321,17 @@ dependencies = [
  "ep-document-adapter-pdfium",
  "ep-document-contract",
  "ep-document-core",
+ "ep-store",
  "ep-types",
+ "lopdf",
  "parking_lot 0.13.0",
  "png",
  "serde",
  "serde_json",
  "tempfile",
  "tokio",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]

@@ -1,6 +1,6 @@
 # Document engine — contract
 
-Version: 0.2.0      Stability: experimental      Tier: T1
+Version: 0.3.0      Stability: experimental      Tier: T1
 Crates: `ep-document-contract` (types), `ep-document-core` (pure logic), `ep-document-adapter-pdfium`, `ep-document-adapter-lopdf`, `ep-document` (facade)
 
 ## Purpose
@@ -45,8 +45,28 @@ All positions are in page space (points, top-left origin, rotation applied; ADR-
 
 The PDF backend is the `PdfBackend` port; the `PDFium` adapter owns one thread, answers through a channel with a 30 s timeout, and keeps four documents open (ADR-003). Hosts find `PDFium` with `ep_document::find_pdfium()` (`EP_PDFIUM_DIR`, next to the executable, or `.natives/pdfium/bin`).
 
+### Annotations (experimental, T1) — P1.M3, ADR-006
+The store is the truth; a PDF is an export. Annotations belong to a **paper** (`PaperId`), so they survive "Save into PDF". They are kept in the engine's own database, `document.sqlite`, in the open library folder (ADR-010 amendment 1), reached through the host's `BlobAccess::project()` port. Positions are in page space.
+
+| Command | Input → Output | Permission |
+|---|---|---|
+| `document.annotations` | `{ paper, file }` → `AnnotationSet` (the first time a file is seen for the paper, the annotations already in it are imported; ids the paper has used before are never imported again) | create |
+| `document.annotations_apply` | `{ paper, ops: [add { annotation } \| change { annotation } \| remove { id }] }` → `AnnotationSet` (one undoable edit; removing a note removes its replies) | create |
+| `document.annotations_undo` / `_redo` | `{ paper }` → `AnnotationSet` | create |
+| `document.annotate` | `{ paper, file }` → `Annotated { file, written, kept }`: a new file in the library's blob store = the given file's bytes + an incremental update with every annotation | create |
+
+`Annotation { id, page, kind, rect, quads, paths, line?, color "#rrggbb", opacity, width, font_size?, category?, body, text?, author?, parent?, resolved, created_ms, modified_ms, pristine }`; kinds `highlight | underline | strike_out | squiggly | note | free_text | ink | rectangle | ellipse | line | arrow`; categories `definition | method | result | question | to_check`.
+`AnnotationSet { paper, annotations, can_undo, can_redo, unsaved }` (`unsaved`: changes not yet written into the PDF).
+
+Writing (ADR-006): standard subtypes with appearance streams; our id in `/NM`, category in `/Subj`, author in `/T`; notes get a closed `/Popup`; replies are `/Text` with `/IRT`; a resolved thread adds a `Review`/`Completed` state annotation. Unchanged imported annotations keep their original object; changed or deleted ones are dropped from `/Annots` (their popups and review states with them); kinds the Reader does not edit are never touched. Free text that is not Latin-1 has no appearance yet (P1.M3.PDF.5).
+
+Errors: `no_project_open`, `invalid_annotation`, `conflict`, `write_failed`, `not_found`, `unreadable` (encrypted PDFs cannot be annotated yet).
+Event: `document.annotations_changed { paper }` after every change.
+
+Rendering: `document.render` and `document.thumbnails` leave annotations out of page images (the viewer draws them from the store).
+
 ### Planned (Phase 1, contracts written before code)
-`document.extract`, `document.region`, `document.annotate`, `document.ocr`, `document.objects`, `document.equation`, `document.table`, `document.annotations`, `document.references` (Draft 2.2 §14.2, §28.6).
+`document.extract`, `document.region`, `document.ocr`, `document.objects`, `document.equation`, `document.table`, `document.references` (Draft 2.2 §14.2, §28.6).
 
 ## Events
 - `document.extracted { paper, extractor_version }` — after preparation; the search index is built in the same stage.
@@ -77,5 +97,6 @@ Raw numbers: `engines/document/core/benches-results/search-2026-11-13.jsonl`; re
 - none yet (the Greek-name table and stemming rules are code; they move to assets if they become language-specific lists).
 
 ## Changelog
+- 0.3.0 (2026-11-14): annotations — `annotations`, `annotations_apply`, `annotations_undo`, `annotations_redo`, `annotate` (P1.M3); page images no longer include annotations.
 - 0.2.0 (2026-11-13): `info`, `text`, `render`, `thumbnails`, `outline`, `links` with the PDFium adapter; `search` on the bus (index built from PDFium text on first use).
 - 0.1.0 (2026-11-13): `document.search` contract and core; `document.metadata` with the lopdf adapter and the facade.

@@ -6,6 +6,7 @@ Decision: [ADR-010](../docs/adr/ADR-010-project-folder-format.md). Owner: Worksp
 <folder>/
 ├─ electropaper-project.toml   manifest (below)
 ├─ workspace.sqlite            Workspace database (+ -wal, -shm while open)
+├─ document.sqlite             Document engine database: annotations (ADR-010 amendment 1)
 ├─ blobs/
 │  ├─ tmp/                     partial writes; emptied on open
 │  └─ ab/cd/abcd…(64 hex)      managed copies, named by BLAKE3 hash
@@ -46,6 +47,22 @@ created_ms = 1763000000000  # ms since the Unix epoch
 | `reading_state` | `paper`, `location` (JSON `Location`), `zoom` (JSON `ZoomSpec`), `view_mode`, `updated_ms` |
 | `bookmark` | `id`, `paper`, `name`, `location` (JSON), `created_ms` |
 | `reading_time` | `paper`, `page`, `seconds`, `last_ms` |
+
+### Migration 4 (versions of a managed copy)
+
+| Table | Columns |
+|---|---|
+| `paper_version` | `paper`, `hash`, `size`, `replaced_ms`: earlier managed copies (e.g. before "Save into PDF"); their blobs stay |
+
+## `document.sqlite` (Document engine, migration 1)
+
+| Table | Columns |
+|---|---|
+| `annotation` | `paper`, `id`, `page`, `data` (JSON `Annotation`) |
+| `annotation_edit` | `paper`, `step`, `seq`, `id`, `before`, `after` (JSON or null), `undone`, `at_ms`: the undo/redo history (last 1000 edits) |
+| `annotation_seen` | `paper`, `id`: every id the paper has used (file objects with these ids are replaced on save) |
+| `annotation_file` | `paper`, `hash`, `at_ms`: files already imported or written |
+| `annotation_paper` | `paper`, `unsaved` |
 
 ## Event record (one JSON line)
 

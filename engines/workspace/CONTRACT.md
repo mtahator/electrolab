@@ -1,6 +1,6 @@
 # Workspace engine — contract
 
-Version: 0.2.0      Stability: experimental      Tier: T1
+Version: 0.3.0      Stability: experimental      Tier: T1
 Crates: `ep-workspace-contract` (types), `ep-workspace-core` (format, classification, schema), `ep-workspace` (facade)
 
 ## Purpose
@@ -19,6 +19,7 @@ All experimental. Errors are `CommandError::Failed { kind }` with the kinds belo
 | `workspace.add_file` | `{ path, source_url? }` → `{ paper: Paper, already_present }` | create |
 | `workspace.get_paper` | `{ id }` → `Paper` | read |
 | `workspace.list_papers` | `{ limit?, offset, collection?, tag?, query?, sort }` → `[Paper]` | read |
+| `workspace.set_paper_file` | `{ id, file }` → `Paper` (a new version of the managed copy, already in the blob store, e.g. from `document.annotate`; the previous version is kept and listed in `paper_version`) | create |
 | `workspace.set_paper_metadata` | `{ id, title?, authors?, doi?, pages?, source }` → `Paper` | create |
 | `workspace.create_collection` / `rename_collection` | `{ name }` / `{ id, name }` → `Collection` | create |
 | `workspace.delete_collection` | `{ id }` → `null` (papers stay in the library) | **destructive** (the policy asks first) |
@@ -58,5 +59,6 @@ The same facts are appended to the project's event log; opening a project also m
 - Conformance suite: `engines/workspace/facade/tests/conformance.rs` (through the bus).
 
 ## Changelog
+- 0.3.0 (2026-11-14): `set_paper_file` and migration 4 (`paper_version`); `Workspace::project_folder` and `store_blob` for the hosts' Document port (P1.M3.PDF.3).
 - 0.2.0 (2026-11-13): collections, tags, library search and sort, reading state, bookmarks, reading time, source address (P1.M2.WSP.1–3, SH.7); migrations 2–3.
 - 0.1.0 (2026-11-13): first slice (P1.M1.WSP.1–3).

@@ -30,3 +30,6 @@ Reader marks must be fast to edit, never lost, undoable across restarts, and mus
 
 ## Evidence
 `spikes/s4-annotations/RESULTS.md`; outputs `out/verify-mupdf.json`, `out/verify-pdfjs.json`, `out/read-pdfium.json`, `out/visible-pdfium.json`.
+
+## Implementation note (2026-11-14, P1.M3)
+Built as decided: `ep-document-core::annotations` (validation, edits and inverses, import, write plan), `ep-document-adapter-lopdf` (read `/Annots`, incremental update), facade commands `document.annotations*` and `document.annotate`. Verified: Rust round trips (all kinds, another tool's annotations kept, rotated page, several saves), PDF.js reads the saved file in `e2e/annotations.mjs`. Still open: the Acrobat desktop check (P1.M3.PDF.7) and the Unicode font for non-Latin free text (P1.M3.PDF.5).

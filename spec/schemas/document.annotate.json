@@ -1,0 +1,137 @@
+{
+  "command": "document.annotate",
+  "input": {
+    "$defs": {
+      "BlobRef": {
+        "description": "A file in the content-addressed store: messages carry these, never large bytes (§9.4).",
+        "properties": {
+          "hash": {
+            "$ref": "#/$defs/Hash",
+            "description": "Content hash."
+          },
+          "media_type": {
+            "$ref": "#/$defs/MediaType",
+            "description": "What the bytes are."
+          },
+          "size": {
+            "description": "Size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "Hash": {
+        "description": "BLAKE3 content hash (hex)",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "MediaType": {
+        "description": "A media type such as `application/pdf`.",
+        "type": "string"
+      },
+      "PaperId": {
+        "description": "A paper (a PDF in the library or a project).\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input naming a paper and its current managed copy.",
+    "properties": {
+      "file": {
+        "$ref": "#/$defs/BlobRef",
+        "description": "Its current file (annotations already in it are imported once)."
+      },
+      "paper": {
+        "$ref": "#/$defs/PaperId",
+        "description": "The paper (annotations belong to it)."
+      }
+    },
+    "required": [
+      "paper",
+      "file"
+    ],
+    "title": "PaperFile",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "BlobRef": {
+        "description": "A file in the content-addressed store: messages carry these, never large bytes (§9.4).",
+        "properties": {
+          "hash": {
+            "$ref": "#/$defs/Hash",
+            "description": "Content hash."
+          },
+          "media_type": {
+            "$ref": "#/$defs/MediaType",
+            "description": "What the bytes are."
+          },
+          "size": {
+            "description": "Size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "Hash": {
+        "description": "BLAKE3 content hash (hex)",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "MediaType": {
+        "description": "A media type such as `application/pdf`.",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Output of `document.annotate`: the new version of the file, with every annotation written.",
+    "properties": {
+      "file": {
+        "$ref": "#/$defs/BlobRef",
+        "description": "The new managed copy (the previous bytes followed by an incremental update)."
+      },
+      "kept": {
+        "description": "Annotations already in the file and unchanged (kept as they were).",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "written": {
+        "description": "Annotations written as new objects.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "file",
+      "written",
+      "kept"
+    ],
+    "title": "Annotated",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "create"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Write a paper's annotations into a new version of its PDF"
+}

@@ -36,6 +36,7 @@ Read before changing anything:
 ```
 pnpm install                                   # once, and after UI dependency changes
 pnpm -r typecheck
+pnpm --filter @electropaper/reader-ui test     # UI helpers (node --test)
 pnpm --filter @electropaper/reader-ui build    # the Reader host embeds the built UI
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
@@ -58,6 +59,18 @@ pnpm --filter @electropaper/reader-host bundle    # NSIS installer in target/rel
 **Product name.** "ElectroPaper" is a placeholder until the founder decides. The name lives only in `product.toml`; rename with `cargo xtask set-name "<Name>"` (window title, installer, app id, data folder, UI title). `arch-check` fails if any of those places is edited by hand. The data folder follows the name, so an existing library under the old name is not moved.
 
 The CLI works on the same engines: `cargo run -p ep-cli -- commands`, `cargo run -p ep-cli -- import paper.pdf`.
+
+## End-to-end checks on the built app
+
+After `pnpm --filter @electropaper/reader-host tauri build --no-bundle` and `cargo xtask fetch-fixtures`:
+
+```
+node e2e/reader.mjs      target/release/electropaper-reader.exe <scratch> <scratch>/out   # reading (M1–M2)
+node e2e/annotations.mjs target/release/electropaper-reader.exe <scratch> <scratch>/out   # annotations (M3)
+node e2e/perf.mjs        target/release/electropaper-reader.exe <scratch>                 # scrolling and memory
+```
+
+Each prints a JSON report and exits non-zero on a failed check; screenshots go to the out folder.
 
 ## Environment notes (this PC)
 

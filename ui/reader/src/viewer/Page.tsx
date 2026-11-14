@@ -1,4 +1,5 @@
-// One page: the drawing, the text layer for selection, the link layer and search highlights.
+// One page: the drawing, the text layer for selection, annotations, the link layer and search
+// highlights.
 // Sizes come from the layout; the drawing is redone only when the zoom settles, so zoom gestures
 // are CSS-scaled (no blank flash).
 //
@@ -11,6 +12,7 @@ import type { BlobRef, Link, PageRect, PageText } from "@electropaper/bindings";
 import { t } from "@electropaper/kit";
 import { For, type JSX, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js";
 
+import { AnnotationLayer } from "../annotations/AnnotationLayer";
 import { bus, renderUrl } from "../host";
 import type { PDFDocumentProxy, RenderTask } from "./pdf";
 import { enqueue } from "./queue";
@@ -19,6 +21,8 @@ import { enqueue } from "./queue";
 const MAX_PIXELS = 16_000_000;
 
 export interface PageProps {
+  /** The paper (annotations belong to it). */
+  paper: string;
   file: BlobRef;
   doc: PDFDocumentProxy;
   page: number;
@@ -91,7 +95,8 @@ export function Page(props: PageProps): JSX.Element {
         canvas.width = Math.floor(viewport.width);
         canvas.height = Math.floor(viewport.height);
         canvas.className = "page-canvas";
-        task = page.render({ canvas, viewport, ...(colors ? { pageColors: colors } : {}) });
+        // Annotations are drawn by the annotation layer from the store, not from the file.
+        task = page.render({ canvas, viewport, annotationMode: 0, ...(colors ? { pageColors: colors } : {}) });
         signal.addEventListener("abort", () => task?.cancel());
         await task.promise;
         if (signal.aborted) return;
@@ -115,6 +120,7 @@ export function Page(props: PageProps): JSX.Element {
         <For each={props.highlights}>{(r) => <div class="hit" classList={{ active: props.activeHighlight === r }} style={box(r, props.layoutScale)} />}</For>
       </div>
       <TextLayer text={props.text} scale={props.layoutScale} />
+      <AnnotationLayer paper={props.paper} page={props.page} scale={props.layoutScale} width={props.width} height={props.height} />
       <div class="link-layer">
         <For each={props.links ?? []}>
           {(l) => {

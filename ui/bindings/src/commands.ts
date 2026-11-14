@@ -3,6 +3,16 @@ import type * as T from "./types";
 
 /** Every command: its input and output types. */
 export interface Commands {
+  /** Write a paper's annotations into a new version of its PDF */
+  "document.annotate": { input: T.PaperFile; output: T.Annotated };
+  /** The annotations of a paper (imports those already in its PDF the first time) */
+  "document.annotations": { input: T.PaperFile; output: T.AnnotationSet };
+  /** Add, change or remove annotations as one undoable edit */
+  "document.annotations_apply": { input: T.ApplyAnnotations; output: T.AnnotationSet };
+  /** Redo the last undone annotation edit of a paper */
+  "document.annotations_redo": { input: T.AnnotationsOf; output: T.AnnotationSet };
+  /** Undo the last annotation edit of a paper */
+  "document.annotations_undo": { input: T.AnnotationsOf; output: T.AnnotationSet };
   /** Page count and the size of every page */
   "document.info": { input: T.FileRequest; output: T.DocInfo };
   /** Link areas of a page and where they go */
@@ -61,6 +71,8 @@ export interface Commands {
   "workspace.rename_collection": { input: T.RenameCollection; output: T.Collection };
   /** Remember where the reader is in a paper */
   "workspace.save_reading_state": { input: T.SaveReadingState; output: null };
+  /** Point a paper at a new version of its managed copy (the previous one is kept) */
+  "workspace.set_paper_file": { input: T.SetPaperFile; output: T.Paper };
   /** Record title, authors, DOI or page count for a paper */
   "workspace.set_paper_metadata": { input: T.SetPaperMetadata; output: T.Paper };
   /** Replace a paper's tags */

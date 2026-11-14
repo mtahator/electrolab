@@ -172,6 +172,14 @@ pub const MIGRATIONS: &[(u32, &str, &str)] = &[
         "papers downloaded from the web keep their address",
         "ALTER TABLE paper ADD COLUMN source_url TEXT;",
     ),
+    (
+        4,
+        "earlier versions of a paper's managed copy",
+        "CREATE TABLE paper_version (
+            paper TEXT NOT NULL REFERENCES paper(id) ON DELETE CASCADE,
+            hash TEXT NOT NULL, size INTEGER NOT NULL, replaced_ms INTEGER NOT NULL,
+            PRIMARY KEY (paper, hash));",
+    ),
 ];
 
 /// Seconds counted from one `record_reading` report at most (the UI reports every few seconds;

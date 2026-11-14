@@ -18,6 +18,18 @@ impl BlobAccess for WorkspaceBlobs {
     fn path_of(&self, hash: &Hash) -> Option<PathBuf> {
         self.0.blob_path(hash)
     }
+    fn put(
+        &self,
+        bytes: &[u8],
+        media_type: ep_types::MediaType,
+    ) -> std::io::Result<ep_types::BlobRef> {
+        self.0.store_blob(bytes, media_type)
+    }
+    fn project(&self) -> Option<(String, PathBuf)> {
+        self.0
+            .project_folder()
+            .map(|(id, dir)| (id.to_string(), dir))
+    }
 }
 
 pub struct App {

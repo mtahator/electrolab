@@ -6,13 +6,15 @@
 
 use serde::{Deserialize, Serialize};
 
+mod annotations;
 mod pdf;
+pub use annotations::*;
 pub use pdf::*;
 
 pub use ep_types::PageRect;
 
 /// Contract version (semantic); experimental until used by a second engine or host (Draft 2.2 §8.3).
-pub const VERSION: &str = "0.1.0";
+pub const VERSION: &str = "0.3.0";
 
 /// A paper the caller wants searched. Placeholder for `Ref<Paper>` (Phase 1 M1.TYP).
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema)]
@@ -365,6 +367,16 @@ pub mod commands {
     pub const LINKS: &str = "document.links";
     /// Notation-aware word search with context.
     pub const SEARCH: &str = "document.search";
+    /// The annotations of a paper (imports those already in its PDF the first time).
+    pub const ANNOTATIONS: &str = "document.annotations";
+    /// Add, change or remove annotations as one undoable edit.
+    pub const ANNOTATIONS_APPLY: &str = "document.annotations_apply";
+    /// Undo the last annotation edit of a paper.
+    pub const ANNOTATIONS_UNDO: &str = "document.annotations_undo";
+    /// Redo the last undone annotation edit of a paper.
+    pub const ANNOTATIONS_REDO: &str = "document.annotations_redo";
+    /// Write a paper's annotations into a new version of its PDF (incremental update).
+    pub const ANNOTATE: &str = "document.annotate";
 }
 
 /// Input of `document.metadata`.

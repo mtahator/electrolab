@@ -7,16 +7,16 @@
 // (`cargo xtask fetch-fixtures`) and a release build (`pnpm --filter @electropaper/reader-host
 // tauri build --no-bundle`).
 
-import { spawn } from "node:child_process";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
+
+import { launch as launchApp, sleep } from "./lib.mjs";
 
 const [exe, scratch, out] = process.argv.slice(2);
 const root = resolve(import.meta.dirname, "..");
 const papers = [join(root, ".fixtures/papers/arxiv-2111.12066v2.pdf"), join(root, ".fixtures/papers/plos-pone-0232683.pdf")];
 const data = join(scratch, "data");
 const port = 9334;
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const report = {};
 const consoleLog = [];
 const failures = [];
@@ -25,61 +25,7 @@ const check = (name, ok, detail) => {
   if (!ok) failures.push(name);
 };
 
-async function launch(args) {
-  const app = spawn(exe, args, { env: { ...process.env, EP_DATA_DIR: data, WEBVIEW2_USER_DATA_FOLDER: join(scratch, "webview"), WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port}` }, stdio: "ignore" });
-  let target;
-  for (let i = 0; i < 300 && !target; i++) {
-    try {
-      target = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()).find((t) => t.type === "page");
-    } catch {}
-    if (!target) await sleep(50);
-  }
-  if (!target) throw new Error("no DevTools page");
-  const ws = new WebSocket(target.webSocketDebuggerUrl);
-  await new Promise((r) => ws.addEventListener("open", r));
-  let id = 0;
-  const pending = new Map();
-  ws.addEventListener("message", (m) => {
-    const msg = JSON.parse(m.data);
-    if (msg.id && pending.has(msg.id)) {
-      pending.get(msg.id)(msg);
-      pending.delete(msg.id);
-    } else if (msg.method === "Runtime.exceptionThrown") {
-      consoleLog.push(`exception: ${(msg.params.exceptionDetails.exception?.description ?? msg.params.exceptionDetails.text).slice(0, 300)}`);
-    } else if (msg.method === "Runtime.consoleAPICalled" && ["error", "warning"].includes(msg.params.type)) {
-      const text = msg.params.args.map((a) => a.value ?? a.description).join(" ");
-      if (!text.startsWith("IPC custom protocol")) consoleLog.push(`${msg.params.type}: ${text.slice(0, 300)}`);
-    }
-  });
-  const send = (method, params = {}) =>
-    new Promise((r) => {
-      const i = ++id;
-      pending.set(i, r);
-      ws.send(JSON.stringify({ id: i, method, params }));
-    });
-  void send("Runtime.enable");
-  const js = async (expr) => {
-    const r = await send("Runtime.evaluate", { expression: expr, awaitPromise: true, returnByValue: true });
-    if (r.result?.exceptionDetails) return { error: r.result.exceptionDetails.exception?.description ?? r.result.exceptionDetails.text };
-    return r.result?.result?.value;
-  };
-  const until = async (expr, ms = 15000) => {
-    const end = Date.now() + ms;
-    while (Date.now() < end) {
-      const v = await js(expr);
-      if (v && !v.error) return v;
-      await sleep(50);
-    }
-    return null;
-  };
-  const shot = async (name) => {
-    const r = await send("Page.captureScreenshot", { format: "png" });
-    if (r.result?.data) writeFileSync(join(out, name), Buffer.from(r.result.data, "base64"));
-  };
-  const key = (k, mods = {}) => js(`window.dispatchEvent(new KeyboardEvent("keydown", { key: ${JSON.stringify(k)}, ctrlKey: ${!!mods.ctrl}, altKey: ${!!mods.alt}, shiftKey: ${!!mods.shift}, bubbles: true }))`);
-  const scrollerKey = (k, mods = {}) => js(`document.querySelector(".pane.focused .scroller").dispatchEvent(new KeyboardEvent("keydown", { key: ${JSON.stringify(k)}, ctrlKey: ${!!mods.ctrl}, altKey: ${!!mods.alt}, shiftKey: ${!!mods.shift}, bubbles: true }))`);
-  return { app, ws, js, until, shot, key, scrollerKey };
-}
+const launch = (args) => launchApp({ exe, args, data, webview: join(scratch, "webview"), port, out, consoleLog });
 
 mkdirSync(out, { recursive: true });
 rmSync(data, { recursive: true, force: true });

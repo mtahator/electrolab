@@ -32,10 +32,18 @@ export function bind(keys: string, action: Action): () => void {
   return () => bindings.delete(k);
 }
 
+const TEXT_KEYS = new Set(["ctrl+z", "ctrl+y", "ctrl+shift+z", "ctrl+a", "ctrl+c", "ctrl+v", "ctrl+x", "ctrl+shift+c"]);
+
 /** Install the global listener once. */
 export function installKeymap(target: Window = window): void {
   target.addEventListener("keydown", (e) => {
-    const action = bindings.get(chord(e));
+    const k = chord(e);
+    // In a text field, typing and its editing keys (undo, select all, copy, delete…) belong to
+    // the field; only other shortcuts with Ctrl or Alt reach the app.
+    const el = e.target as HTMLElement | null;
+    const editable = !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
+    if (editable && (!(e.ctrlKey || e.metaKey || e.altKey) || TEXT_KEYS.has(k))) return;
+    const action = bindings.get(k);
     if (action) {
       e.preventDefault();
       action();

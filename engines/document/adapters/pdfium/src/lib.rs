@@ -251,6 +251,9 @@ impl PdfBackend for PdfiumBackend {
             let config = PdfRenderConfig::new()
                 .set_target_width(w)
                 .set_maximum_height(16384)
+                // Annotations are drawn by the viewer from the annotation store (ADR-006), so
+                // the page image leaves them out; form fields stay.
+                .render_annotations(false)
                 .render_form_data(true);
             let bmp = p.render_with_config(&config).map_err(|e| internal(&e))?;
             Ok(Bitmap {

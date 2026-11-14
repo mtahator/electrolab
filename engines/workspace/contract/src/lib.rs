@@ -13,7 +13,7 @@ mod library;
 pub use library::*;
 
 /// Contract version; experimental until a second host uses it (Draft 2.2 §8.3).
-pub const VERSION: &str = "0.1.0";
+pub const VERSION: &str = "0.3.0";
 
 /// Project folder format written by this version (ADR-010).
 pub const PROJECT_FORMAT: u32 = 1;
@@ -38,6 +38,8 @@ pub mod commands {
     pub const LIST_PAPERS: &str = "workspace.list_papers";
     /// Record metadata read from the paper.
     pub const SET_PAPER_METADATA: &str = "workspace.set_paper_metadata";
+    /// Point a paper at a new version of its managed copy (the previous one is kept).
+    pub const SET_PAPER_FILE: &str = "workspace.set_paper_file";
     /// Make a collection.
     pub const CREATE_COLLECTION: &str = "workspace.create_collection";
     /// Rename a collection.
@@ -248,6 +250,16 @@ pub struct SetPaperMetadata {
     pub pages: Option<u32>,
     /// Where it came from.
     pub source: String,
+}
+
+/// Input of `workspace.set_paper_file`: a new version of the paper's managed copy, already in
+/// the library's blob store (for example a PDF with annotations saved into it).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct SetPaperFile {
+    /// Which paper.
+    pub id: PaperId,
+    /// The new file (must be a stored PDF).
+    pub file: BlobRef,
 }
 
 /// Error kinds reported in `CommandError::Failed { kind }`.

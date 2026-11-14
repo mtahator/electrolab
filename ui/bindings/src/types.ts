@@ -27,6 +27,112 @@ export interface Added {
   paper: Paper;
 }
 
+/** Output of `document.annotate`: the new version of the file, with every annotation written. */
+export interface Annotated {
+  /** The new managed copy (the previous bytes followed by an incremental update). */
+  file: BlobRef;
+  /** Annotations already in the file and unchanged (kept as they were). */
+  kept: number;
+  /** Annotations written as new objects. */
+  written: number;
+}
+
+/** One annotation. */
+export type Annotation = {
+  /** Who made it. */
+  author?: string | null;
+  /** The comment (note text, free text, or a comment on a mark). */
+  body?: string;
+  /** What the mark means. */
+  category?: unknown & (Category | null);
+  /** Colour as `#rrggbb`. */
+  color: string;
+  /** Created, ms since the Unix epoch. */
+  created_ms: number;
+  /** Free text: font size in points. */
+  font_size?: number | null;
+  /**
+   * Stable id: `ep-…` for ours, the PDF's `/NM` (or `pdf-<object>-<generation>`) for imported
+   * ones. Written to `/NM`, so re-importing updates instead of duplicating.
+   */
+  id: string;
+  /** What it is. */
+  kind: AnnotationKind;
+  /** Line and arrow: start and end. */
+  line?: PagePoint[] | null;
+  /** Last changed, ms since the Unix epoch. */
+  modified_ms: number;
+  /** Opacity 0–1. */
+  opacity?: number;
+  /** 1-based page number. */
+  page: number;
+  /** Replies: the note this answers. */
+  parent?: string | null;
+  /** Ink: strokes, each a list of points. */
+  paths?: PagePoint[][];
+  /** Imported from the PDF and not changed since: saving keeps the file's own object. */
+  pristine?: boolean;
+  /** Text mark-up: one quad per line piece, from the engine's character boxes. */
+  quads?: PageQuad[];
+  /**
+   * Bounds on the page. For notes, the icon; for free text and shapes, the box; for mark-up,
+   * ink and lines, the area they cover (recomputed by the engine).
+   */
+  rect: PageRect;
+  /** The thread is resolved (written as a `Review`/`Completed` state annotation). */
+  resolved?: boolean;
+  /** Text mark-up: the marked text (for the sidebar, search and citations). */
+  text?: string | null;
+  /** Stroke width in points (ink, shapes, lines, underline). */
+  width?: number;
+};
+
+/** What an annotation is. Each maps to one standard PDF subtype (ADR-006). */
+export type AnnotationKind = "highlight" | "underline" | "strike_out" | "squiggly" | "note" | "free_text" | "ink" | "rectangle" | "ellipse" | "line" | "arrow";
+
+/** One change in an edit. */
+export type AnnotationOp = {
+  /** The annotation. */
+  annotation: Annotation;
+  op: "add";
+} | {
+  /** The new version. */
+  annotation: Annotation;
+  op: "change";
+} | {
+  /** Its id. */
+  id: string;
+  op: "remove";
+};
+
+/** The annotations of a paper and the state of its history. */
+export interface AnnotationSet {
+  /** Every annotation, by page then creation time. */
+  annotations: Annotation[];
+  /** An undone edit can be redone. */
+  can_redo: boolean;
+  /** An edit can be undone. */
+  can_undo: boolean;
+  /** The paper. */
+  paper: PaperId;
+  /** There are changes not yet saved into the PDF. */
+  unsaved: boolean;
+}
+
+/** Input naming a paper. */
+export interface AnnotationsOf {
+  /** The paper. */
+  paper: PaperId;
+}
+
+/** Input of `document.annotations_apply`: changes applied together, undone together. */
+export interface ApplyAnnotations {
+  /** Changes, in order. */
+  ops: AnnotationOp[];
+  /** The paper. */
+  paper: PaperId;
+}
+
 /** A file in the content-addressed store: messages carry these, never large bytes (§9.4). */
 export interface BlobRef {
   /** Content hash. */
@@ -54,6 +160,9 @@ export interface BookmarkRef {
   /** Which bookmark. */
   id: ObjectId;
 }
+
+/** What a mark means to the reader (Draft 2.2 §28.3). Written to `/Subj`. */
+export type Category = "definition" | "method" | "result" | "question" | "to_check";
 
 /** Output of `workspace.classify`. */
 export interface Classification {
@@ -407,6 +516,25 @@ export type OutlineItem = {
   title: string;
 };
 
+/** A point on a page. */
+export interface PagePoint {
+  /** Distance from the left edge. */
+  x: number;
+  /** Distance from the top edge. */
+  y: number;
+}
+
+/**
+ * Four corners of text that may be rotated or skewed (upper-left, upper-right, lower-left,
+ * lower-right — the order PDF `/QuadPoints` use in practice).
+ */
+export interface PageQuad {
+  /** Corners. */
+  p: PagePoint[];
+  /** 1-based page number. */
+  page: number;
+}
+
 /** An inclusive range of 1-based page numbers. */
 export interface PageRange {
   /** First page. */
@@ -496,6 +624,14 @@ export type Paper = {
   /** Title, when known. */
   title?: string | null;
 };
+
+/** Input naming a paper and its current managed copy. */
+export interface PaperFile {
+  /** Its current file (annotations already in it are imported once). */
+  file: BlobRef;
+  /** The paper (annotations belong to it). */
+  paper: PaperId;
+}
 
 /**
  * A paper (a PDF in the library or a project).
@@ -692,6 +828,17 @@ export interface SearchResult {
   hits: Hit[];
   /** True when a limit cut the hits. */
   truncated: boolean;
+}
+
+/**
+ * Input of `workspace.set_paper_file`: a new version of the paper's managed copy, already in
+ * the library's blob store (for example a PDF with annotations saved into it).
+ */
+export interface SetPaperFile {
+  /** The new file (must be a stored PDF). */
+  file: BlobRef;
+  /** Which paper. */
+  id: PaperId;
 }
 
 /** Input of `workspace.set_paper_metadata`. Fields left `None` are unchanged. */

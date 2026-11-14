@@ -5,7 +5,8 @@
     clippy::unwrap_used,
     clippy::panic,
     clippy::many_single_char_names,
-    clippy::too_many_lines
+    clippy::too_many_lines,
+    clippy::used_underscore_binding
 )] // scenario tests read top to bottom
 
 use std::path::Path;
@@ -342,4 +343,41 @@ async fn downloaded_files_keep_their_address() {
     .await
     .unwrap();
     assert_eq!(b.paper.source_url, None);
+}
+
+#[tokio::test]
+async fn a_saved_version_replaces_the_managed_copy() {
+    let d = tempfile::tempdir().unwrap();
+    let e = env(d.path());
+    let _: ProjectInfo = call(&e.bus, "workspace.open_default_library", json!(null))
+        .await
+        .unwrap();
+    let p = add(&e, d.path(), "v1.pdf", "A paper", &[]).await;
+    // A new version stored in the library (as `document.annotate` does).
+    let v2 = d.path().join("v2.pdf");
+    std::fs::write(&v2, "%PDF-1.4 v1.pdf\n% annotations appended").unwrap();
+    let ws = &e._ws;
+    let file = ws
+        .opened()
+        .unwrap()
+        .blobs
+        .put_file(&v2, ep_types::MediaType::pdf())
+        .unwrap();
+    let changed: Paper = call(
+        &e.bus,
+        "workspace.set_paper_file",
+        json!({ "id": p.id, "file": file }),
+    )
+    .await
+    .unwrap_or_else(|e| panic!("{e:?}"));
+    assert_eq!(changed.file.hash, file.hash);
+    assert_ne!(changed.file.hash, p.file.hash);
+    assert_eq!(changed.title.as_deref(), Some("A paper"));
+    let missing = call::<Paper>(
+        &e.bus,
+        "workspace.set_paper_file",
+        json!({ "id": p.id, "file": { "hash": "0".repeat(64), "size": 1, "media_type": "application/pdf" } }),
+    )
+    .await;
+    assert!(matches!(missing, Err(CommandError::Failed { ref kind, .. }) if kind == "not_found"));
 }

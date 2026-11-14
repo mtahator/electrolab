@@ -1,10 +1,14 @@
 //! lopdf adapter: object-level PDF access in pure Rust (no native library).
 //!
-//! Used for the Info dictionary now; for writing annotations incrementally in M3 (ADR-006).
+//! Used for the Info dictionary and for reading and writing annotations (incremental update,
+//! ADR-006).
 //! Text and rendering come from `PDFium` (ADR-003), not from here.
 #![deny(missing_docs)]
 
 use std::path::Path;
+
+mod annotations;
+pub use annotations::{WriteReport, read_annotations, write_annotations};
 
 use ep_document_core::metadata::RawMetadata;
 use lopdf::Object;
@@ -29,7 +33,7 @@ fn text(o: &Object) -> Option<String> {
 
 /// PDF text strings: UTF-16BE with a BOM, UTF-8 with a BOM (PDF 2.0), else `PDFDocEncoding`
 /// (treated as Latin-1, which matches it for the characters that matter here).
-fn decode_pdf_string(b: &[u8]) -> String {
+pub(crate) fn decode_pdf_string(b: &[u8]) -> String {
     if let Some(rest) = b.strip_prefix(&[0xFE, 0xFF]) {
         let units: Vec<u16> = rest
             .as_chunks::<2>()

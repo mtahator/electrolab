@@ -19,7 +19,7 @@ use ep_store::{Migration, Store};
 use ep_types::{BlobRef, Hash, MediaType, PaperId, ProjectId};
 use ep_workspace_contract::{
     Added, Classification, CreateProject, FileKind, FilePath, GetPaper, OpenProject, Paper,
-    ProjectInfo, ProjectKind, SetPaperMetadata, commands as cmd, errors, events,
+    ProjectInfo, ProjectKind, SetPaperFile, SetPaperMetadata, commands as cmd, errors, events,
 };
 use ep_workspace_core::{
     BLOBS_DIR, DATABASE, EVENTS_DIR, MANIFEST, Manifest, classify, clean_name,
@@ -253,6 +253,28 @@ impl Workspace {
         p.exists().then_some(p)
     }
 
+    /// Id and folder of the open library or project (other engines keep their own files there,
+    /// ADR-010 amendment 1).
+    #[must_use]
+    pub fn project_folder(&self) -> Option<(ProjectId, PathBuf)> {
+        let o = self.opened()?;
+        Some((o.manifest.id, o.root.clone()))
+    }
+
+    /// Store new content in the open project's blob store (for example a PDF saved with
+    /// annotations; `workspace.set_paper_file` then points a paper at it).
+    ///
+    /// # Errors
+    /// Nothing is open, or writing fails.
+    pub fn store_blob(&self, bytes: &[u8], media_type: MediaType) -> std::io::Result<BlobRef> {
+        let o = self
+            .opened()
+            .ok_or_else(|| std::io::Error::other("no library or project is open"))?;
+        o.blobs
+            .put(bytes, media_type)
+            .map_err(std::io::Error::other)
+    }
+
     fn require(&self) -> Result<Arc<Opened>, CommandError> {
         self.opened().ok_or_else(|| {
             CommandError::failed(errors::NO_PROJECT, "no library or project is open")
@@ -359,6 +381,12 @@ impl Workspace {
             "Record title, authors, DOI or page count for a paper",
             Permission::create(),
             set_paper_metadata
+        );
+        reg!(
+            cmd::SET_PAPER_FILE,
+            "Point a paper at a new version of its managed copy (the previous one is kept)",
+            Permission::create(),
+            set_paper_file
         );
         reg!(
             cmd::CREATE_COLLECTION,
@@ -575,6 +603,68 @@ impl Workspace {
             &cx,
             events::PAPER_CHANGED,
             json!({ "paper": i.id, "source": i.source }),
+        );
+        self.publish(&cx, events::PAPER_CHANGED, &paper);
+        Ok(paper)
+    }
+}
+
+// Bus handlers are async even when their work is synchronous.
+#[allow(clippy::unused_async, clippy::unused_async_trait_impl)]
+impl Workspace {
+    async fn set_paper_file(
+        self: Arc<Self>,
+        cx: Cx,
+        i: SetPaperFile,
+    ) -> Result<Paper, CommandError> {
+        let o = self.require()?;
+        let path = o.blobs.path_of(&i.file.hash);
+        let (head, size) = read_head(&path).map_err(|_| {
+            CommandError::failed(
+                errors::NOT_FOUND,
+                format!("file {} is not stored", i.file.hash),
+            )
+        })?;
+        if classify(&head) != FileKind::Pdf {
+            return Err(CommandError::failed(
+                errors::UNSUPPORTED_FILE,
+                format!("file {} is not a PDF", i.file.hash),
+            ));
+        }
+        let now = cx.clock.now_ms();
+        let id = i.id.to_string();
+        let hash = i.file.hash.to_string();
+        let previous: Option<String> = o
+            .db
+            .write(|t| {
+                let old: Option<(String, i64)> = t
+                    .query_row("SELECT hash, size FROM paper WHERE id = ?1", [&id], |r| {
+                        Ok((r.get(0)?, r.get(1)?))
+                    })
+                    .optional()?;
+                let Some((old_hash, old_size)) = old else {
+                    return Ok(None);
+                };
+                if old_hash != hash {
+                    t.execute(
+                        "INSERT OR REPLACE INTO paper_version (paper, hash, size, replaced_ms) VALUES (?1, ?2, ?3, ?4)",
+                        params![id, old_hash, old_size, now],
+                    )?;
+                    t.execute(
+                        "UPDATE paper SET hash = ?2, size = ?3 WHERE id = ?1",
+                        params![id, hash, i64::try_from(size).unwrap_or(i64::MAX)],
+                    )?;
+                }
+                Ok::<_, rusqlite::Error>(Some(old_hash))
+            })
+            .map_err(sql_err)?;
+        let missing = || CommandError::failed(errors::NOT_FOUND, format!("paper {}", i.id));
+        let previous = previous.ok_or_else(missing)?;
+        let paper = o.paper(i.id)?.ok_or_else(missing)?;
+        o.record(
+            &cx,
+            events::PAPER_CHANGED,
+            json!({ "paper": i.id, "file": i.file.hash, "previous": previous }),
         );
         self.publish(&cx, events::PAPER_CHANGED, &paper);
         Ok(paper)

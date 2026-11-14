@@ -5,9 +5,10 @@ import { BusError } from "@electropaper/bindings";
 import { Button, t } from "@electropaper/kit";
 import { For, type JSX, Match, Show, Switch, createEffect, createResource, createSignal, on, onCleanup, onMount } from "solid-js";
 
+import { NotesPanel } from "../annotations/NotesPanel";
 import { bus, renderUrl } from "../host";
 
-export type PanelKind = "outline" | "thumbnails" | "find" | "bookmarks";
+export type PanelKind = "outline" | "thumbnails" | "find" | "bookmarks" | "notes";
 
 export interface FindOptions {
   query: string;
@@ -44,6 +45,9 @@ export function SidePanel(props: SidePanelProps): JSX.Element {
         </Match>
         <Match when={props.kind === "find"}>
           <Find paper={props.paper} openPapers={props.openPapers} onHits={props.onHits} focus={props.findFocus} />
+        </Match>
+        <Match when={props.kind === "notes"}>
+          <NotesPanel paper={props.paper as Paper} current={props.current} onGoTo={props.onGoTo} />
         </Match>
         <Match when={props.kind === "bookmarks"}>
           <Bookmarks paper={props.paper as Paper} current={props.current} onGoTo={props.onGoTo} />
