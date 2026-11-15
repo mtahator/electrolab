@@ -89,6 +89,12 @@ The founder opened a 759-page book (18 MB, two-level numbering "Figure 2.3", man
 
 The founder's own book stays outside the repository (copyright). `e2e/large.mjs` runs on it as well when it is given with `EP_LARGE_PDF`.
 
+## 4a. Founder feedback after the first fixes (same day)
+
+- **Motion blur on every movement makes reading hard.** It now applies only while flying through several pages (§7).
+- **Show the page beside the scroll bar while dragging it** (§17.5).
+- **Pinch zoom on the touchpad and on touch screens; everything must work on touch laptops.** This is now a binding rule (§17.8) with gesture tests. Cause: the earlier design and tests assumed a mouse; the browser's own pinch zoomed the whole interface instead of the page.
+
 ## 5. Results after the fixes (same laptop, release build, while preparation runs)
 
 `e2e/large.mjs` on the generated 800-page book and on the founder's 759-page book: **every check passes on both**.

@@ -239,7 +239,7 @@ Rules:
 - Motion explains a change of place (a panel opening, a card appearing next to its mark); it never decorates.
 - Durations: 120 ms for small things (hover, press, tooltips after a 500 ms delay), 180 ms for panels and cards, never above 240 ms. Easing: `cubic-bezier(0.2, 0, 0, 1)` in, linear for progress.
 - **Motion follows the hand** (amended 2026-11-15, founder request; review R8):
-  - pages that are still loading show a preview that blurs **only along the scroll direction and in proportion to the scroll speed**, sharp at rest;
+  - pages that are still loading show a preview that blurs **only along the scroll direction**, and **only while the reader flies through several pages** (fast scrolling, more than about a page per 0.4 s, over more than a page). Small or slow movements never blur: the reader must be able to read what moves. At rest nothing blurs (amended 2026-11-15 after founder feedback);
   - a sharp page fades in over its preview;
   - a jump within about two screens glides; longer jumps are instant;
   - a zoom gesture scales what is shown at once, and the pages are redrawn sharp when the gesture ends.
@@ -446,12 +446,29 @@ The page in view, its text and links, a search being typed and a click come befo
 - the side panel keeps the full list with options.
 
 ### 17.5 Where you are
-- **While scrolling,** a small page indicator ("46 / 759") shows by the scroll bar and fades out 1 s after scrolling stops.
-- **Zoom:** Ctrl + wheel and a trackpad pinch zoom around the pointer, at once (scaled view), then sharp.
+- **While scrolling,** a small page indicator ("46 / 759") shows **next to the scroll bar's thumb**, moving with it, and fades out 1 s after scrolling stops.
+- **Dragging the scroll bar thumb** shows the page it will land on beside the thumb, in a slightly larger label, as other readers do.
+- **Zoom:** Ctrl + wheel, a touchpad pinch and a touch-screen pinch all zoom around the pointer or the fingers. The view is scaled at once, then the pages are redrawn sharp.
 
 ### 17.6 Splits and panels
 - **Resizing:** every split (side panels, two panes) has a drag handle; a double-click restores the default.
 - **Sizes and minimums:** sizes are remembered; each pane keeps a minimum width at which it still works.
+
+### 17.8 Touch screens, touchpads and pens (binding, added 2026-11-15)
+Every app works fully on touch laptops and with precision touchpads, not only with a mouse.
+- **Gestures:**
+  - two-finger pinch on a touchpad or a touch screen zooms the page around the fingers, never the whole interface;
+  - one finger (touch) or two fingers (touchpad) scroll;
+  - double-tap zooms in to fit width, or back.
+- **Taps:**
+  - a tap is a click;
+  - a long press opens what a right-click opens;
+  - anything that opens on hover also opens on a tap (popovers, previews, tooltips with information).
+- **Sizes:**
+  - on a coarse pointer (`@media (pointer: coarse)`) controls, drag handles and the tool rail grow to at least 40 px targets;
+  - selection and resize handles get a larger hit area.
+- **Pens and touch:** drawing tools, highlighting, selection and the region tool use pointer events, so mouse, pen and touch behave the same; palm and second fingers do not draw.
+- **Tests:** end-to-end checks use real gestures (DevTools `Input.synthesizePinchGesture` for touchpad and touch, `Input.dispatchTouchEvent` for taps and drags) as well as the mouse.
 
 ### 17.7 Transient things
 Hover popovers and previews close by themselves when:
@@ -488,4 +505,5 @@ Copy into the review of any UI change.
 - [ ] AI (if any): on request, marked with `sparkles`, evidence chips, Stop, short by default.
 - [ ] Answers within 100 ms; results stream; budgets of §17.3 met on the large book while preparation runs.
 - [ ] Transient UI closes on scroll, pointer leave and Esc; splits resizable.
-- [ ] End-to-end check added or updated, with **real input** (mouse, wheel, keys) where the user would use them.
+- [ ] Works with touch and touchpad (§17.8): pinch zooms the page, taps replace hover, targets large enough on coarse pointers.
+- [ ] End-to-end check added or updated, with **real input** (mouse, wheel, keys, pinch, touch) where the user would use them.
