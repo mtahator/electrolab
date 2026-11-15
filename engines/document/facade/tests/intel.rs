@@ -58,7 +58,12 @@ fn pdfium() -> Option<Arc<dyn ep_document::Backend>> {
 
 /// The engine on one fixture paper; with the layout model when `models` is true and it is there.
 fn setup(name: &str, models: bool, cache: &Path) -> Option<(Arc<Bus>, BlobRef, bool)> {
-    let file = root().join(".fixtures/papers").join(name);
+    setup_file(root().join(".fixtures/papers").join(name), models, cache)
+}
+
+#[allow(clippy::needless_pass_by_value)]
+fn setup_file(file: PathBuf, models: bool, cache: &Path) -> Option<(Arc<Bus>, BlobRef, bool)> {
+    let name = file.display().to_string();
     let Some(pdf) = pdfium() else {
         eprintln!("skipped: PDFium not fetched");
         return None;
@@ -511,4 +516,176 @@ async fn ocr_makes_a_scanned_page_searchable() {
     let back = f1(&layer.text, &after.text);
     eprintln!("text layer read back by PDFium: F1 {back:.3} against the OCR text");
     assert!(back > 0.9, "{back}");
+}
+
+fn titles(items: &[ep_document_contract::OutlineItem], out: &mut Vec<String>) {
+    for i in items {
+        out.push(i.title.clone());
+        titles(&i.children, out);
+    }
+}
+
+/// What the text rules find in one document (no layout model).
+struct Found {
+    sections: Vec<String>,
+    references: usize,
+    markers: usize,
+    mentions: Vec<String>,
+    stages_ok: bool,
+}
+
+async fn found(name: &str) -> Option<Found> {
+    let tmp = tempfile::tempdir().unwrap();
+    let (bus, file, _) = setup_file(
+        root().join("fixtures/documents").join(name),
+        false,
+        tmp.path(),
+    )?;
+    let info: ep_document_contract::DocInfo = call(&bus, "document.info", json!({ "file": file }))
+        .await
+        .unwrap();
+    let prep: Preparation = call(
+        &bus,
+        "document.prepare",
+        json!({ "file": file, "first_pages": [1] }),
+    )
+    .await
+    .unwrap();
+    let contents: Contents = call(&bus, "document.contents", json!({ "file": file }))
+        .await
+        .unwrap();
+    let refs: Vec<Reference> = call(&bus, "document.references", json!({ "file": file }))
+        .await
+        .unwrap();
+    let mut markers = 0;
+    let mut mentions = Vec::new();
+    for page in 1..=info.pages {
+        let m: Vec<CitationMarker> = call(
+            &bus,
+            "document.citation_markers",
+            json!({ "file": file, "page": page }),
+        )
+        .await
+        .unwrap();
+        markers += m.len();
+        let ms: Vec<Mention> = call(
+            &bus,
+            "document.mentions",
+            json!({ "file": file, "page": page }),
+        )
+        .await
+        .unwrap();
+        mentions.extend(ms.into_iter().map(|m| m.text));
+    }
+    let mut sections = Vec::new();
+    titles(&contents.sections, &mut sections);
+    let stages_ok = prep.stages.iter().all(|s| s.status != StageStatus::Failed);
+    eprintln!(
+        "{name}: {} pages · sections {sections:?} · {} figures, {} tables, {} equations · {} references · {markers} citation markers · mentions {mentions:?} · stages {:?}",
+        info.pages,
+        contents.figures.len(),
+        contents.tables.len(),
+        contents.equations.len(),
+        refs.len(),
+        prep.stages
+            .iter()
+            .map(|s| format!("{:?}={:?}", s.stage, s.status))
+            .collect::<Vec<_>>()
+    );
+    Some(Found {
+        sections,
+        references: refs.len(),
+        markers,
+        mentions,
+        stages_ok,
+    })
+}
+
+/// Documents that are not research papers (fixtures/documents): manuals, posters, slides,
+/// brochures, reports, forms. Nothing fails, nothing academic is invented (no reference list,
+/// no citation markers where there are none), and the structure that is there is found.
+#[tokio::test]
+async fn non_academic_documents() {
+    if pdfium().is_none() {
+        eprintln!("skipped: PDFium not fetched");
+        return;
+    }
+    let names = [
+        "product-manual.pdf",
+        "poster-research.pdf",
+        "poster-event.pdf",
+        "slides.pdf",
+        "brochure.pdf",
+        "report-business.pdf",
+        "form-irs-w4-2024.pdf",
+    ];
+    let mut all = Vec::new();
+    for n in names {
+        all.push((n, found(n).await.expect("document opens")));
+    }
+    for (n, f) in &all {
+        assert!(f.stages_ok, "{n}: a preparation stage failed");
+        if *n != "poster-research.pdf" {
+            assert_eq!(f.references, 0, "{n}: invented a reference list");
+            assert_eq!(f.markers, 0, "{n}: invented citation markers");
+        }
+    }
+    let get = |n: &str| &all.iter().find(|(m, _)| *m == n).unwrap().1;
+    // The manual's numbered sections, not its numbered steps.
+    let manual = get("product-manual.pdf");
+    for want in [
+        "Safety instructions",
+        "Getting started",
+        "Troubleshooting",
+        "Technical data",
+    ] {
+        assert!(
+            manual.sections.iter().any(|s| s.contains(want)),
+            "manual: missing section {want}: {:?}",
+            manual.sections
+        );
+    }
+    assert!(
+        !manual
+            .sections
+            .iter()
+            .any(|s| s.contains("Place the grinder")),
+        "manual: a step became a section: {:?}",
+        manual.sections
+    );
+    assert!(
+        manual.mentions.iter().any(|m| m.contains("Section 4"))
+            && manual.mentions.iter().any(|m| m.contains("Table 1")),
+        "manual mentions: {:?}",
+        manual.mentions
+    );
+    // Slides: one entry per slide title. Brochure and report: their unnumbered headings; an
+    // address is not a section.
+    let slides = get("slides.pdf");
+    assert!(
+        slides.sections.len() >= 6 && slides.sections.iter().any(|s| s == "Roadmap for Q3"),
+        "slides: {:?}",
+        slides.sections
+    );
+    let brochure = get("brochure.pdf");
+    assert!(
+        brochure.sections.iter().any(|s| s == "Plot fees")
+            && brochure
+                .sections
+                .iter()
+                .any(|s| s == "Greenway Community Garden")
+            && !brochure.sections.iter().any(|s| s.starts_with("12 ")),
+        "brochure: {:?}",
+        brochure.sections
+    );
+    let report = get("report-business.pdf");
+    assert!(
+        report.sections.iter().any(|s| s == "Key figures"),
+        "report: {:?}",
+        report.sections
+    );
+    // The research poster keeps its references and markers.
+    let poster = get("poster-research.pdf");
+    assert_eq!(poster.references, 2, "poster references");
+    assert!(poster.markers >= 1, "poster markers");
 }

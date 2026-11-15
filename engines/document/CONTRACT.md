@@ -38,7 +38,7 @@ All positions are in page space (points, top-left origin, rotation applied; ADR-
 |---|---|
 | `document.info` | `{ file }` → `DocInfo { pages, sizes: [PageSize], encrypted }` (every page size before anything is drawn) |
 | `document.text` | `{ file, page }` → `PageText { page, text, boxes, words, lines, unknown }` (layout level 0; `\n` line ends, U+00AD soft hyphens) |
-| `document.render` | `{ file, page, width_px }` → `Rendered { page, image: BlobRef (PNG), width_px, height_px }` (render cache, keyed by file, page, width and renderer version) |
+| `document.render` | `{ file, page, width_px, colors? }` → `Rendered { page, image: BlobRef (PNG), width_px, height_px }` (render cache, keyed by file, page, width, colours and renderer version). `colors: { background, foreground }` (`#rrggbb`) draws the page for a dark paper: greys (paper, text, lines) are mapped from white → background to black → foreground; coloured figures keep their colours |
 | `document.thumbnails` | `{ file, pages?, width_px ≤ 512 }` → `[Rendered]`, streaming one item per page |
 | `document.outline` | `{ file }` → `[OutlineItem { title, target?, children }]` (the PDF's bookmarks; generated outlines come in M4) |
 | `document.links` | `{ file, page }` → `[Link { rect, target }]`; `target` is `page { page, top? }`, `url { url }` (http, https, mailto only) or `unsupported` (launch, script, other files: never followed) |
@@ -85,6 +85,8 @@ A paper is **prepared** in the background: text → outline → objects → OCR 
 
 Errors: `not_found`, `unreadable`, `bad_page`, `model_missing` (a model the command needs is not installed), `no_object` (nothing at that place, or no scanned page with text), `write_failed`.
 Events: `document.preparing { file, stage }` while a stage runs; `document.prepared { file }` when preparation ends.
+
+**Not only papers.** The rules also serve manuals, reports, brochures, slides and posters (`fixtures/documents`): a contents page is never taken as the headings; when a document has no numbered or named sections, short lines clearly larger than body text are its headings (on slides, each slide's title); no reference list or citation markers are invented where there are none.
 
 **Scanned pages.** Pages with almost no text of their own are recognised with PP-OCRv5 (ONNX Runtime, the same on every system, models shipped with the app). The recognised text is cached per page and returned by `document.text`, and used by search and every rule above, so a scanned paper works like any other. About 11 s per page on the minimum hardware, in the background, page in view first.
 

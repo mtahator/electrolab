@@ -19,21 +19,28 @@ export const previewWidth = (): number => Math.round(160 * (window.devicePixelRa
 const [previews, setPreviews] = createStore<Record<string, Record<number, string>>>({});
 const loading = new Map<string, { users: number; cancel: () => void; done: Promise<void> }>();
 
+type Colors = { background: string; foreground: string } | null;
+
+/** Previews are kept per file and paper colours (dark papers have their own). */
+export function previewKey(hash: string, colors: Colors): string {
+  return colors ? `${hash}|${colors.background}|${colors.foreground}` : hash;
+}
+
 /** Settles when every preview of a file is made (background work that shares the PDF engine
  *  waits for it, so pages are drawn first). */
-export function previewsDone(hash: string): Promise<void> {
-  return loading.get(hash)?.done ?? Promise.resolve();
+export function previewsDone(key: string): Promise<void> {
+  return loading.get(key)?.done ?? Promise.resolve();
 }
 
 /** The preview image of a page, once made. */
-export function previewOf(hash: string, page: number): string | undefined {
-  return previews[hash]?.[page];
+export function previewOf(key: string, page: number): string | undefined {
+  return previews[key]?.[page];
 }
 
 /** Make previews of every page of `file`, the pages nearest `near()` first. Returns a function
  *  that stops (when the last viewer of the file closes). */
-export function loadPreviews(file: BlobRef, pages: number, near: () => number): () => void {
-  const hash = file.hash;
+export function loadPreviews(file: BlobRef, pages: number, near: () => number, colors: Colors = null): () => void {
+  const hash = previewKey(file.hash, colors);
   const cur = loading.get(hash);
   if (cur) {
     cur.users += 1;
@@ -56,7 +63,7 @@ export function loadPreviews(file: BlobRef, pages: number, near: () => number): 
           // pixels), behind those in view (0): a preview costs a few milliseconds.
           priority: () => 1 + Math.abs(p - near()) * 40,
           run: async (signal) => {
-            const r = await bus("document.render", { file, page: p, width_px: previewWidth() }).finally(one);
+            const r = await bus("document.render", { file, page: p, width_px: previewWidth(), ...(colors ? { colors } : {}) }).finally(one);
             if (signal.aborted) return;
             const url = renderUrl(r.image.hash);
             const img = new Image();

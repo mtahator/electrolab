@@ -24,6 +24,15 @@ fn backend() -> Option<PdfiumBackend> {
 
 fn papers() -> Vec<PathBuf> {
     let mut v = vec![root().join("fixtures/papers/fawiki-artificial-neural-network.pdf")];
+    // Documents that are not papers (committed), including rotated pages.
+    if let Ok(rd) = std::fs::read_dir(root().join("fixtures/documents")) {
+        let mut docs: Vec<PathBuf> = rd
+            .filter_map(|e| Some(e.ok()?.path()))
+            .filter(|p| p.extension().is_some_and(|x| x == "pdf"))
+            .collect();
+        docs.sort();
+        v.extend(docs);
+    }
     if let Ok(rd) = std::fs::read_dir(root().join(".fixtures/papers")) {
         let mut more: Vec<PathBuf> = rd
             .filter_map(|e| Some(e.ok()?.path()))
@@ -44,6 +53,19 @@ fn every_fixture_reads() {
             .info(&paper)
             .unwrap_or_else(|e| panic!("{}: {e}", paper.display()));
         assert!(!geoms.is_empty(), "{}", paper.display());
+        // The fast sizes (no page loaded) are the sizes the full geometry gives, page by page.
+        let (sizes, _) = b.sizes(&paper).expect("sizes");
+        assert_eq!(sizes.len(), geoms.len(), "{}", paper.display());
+        for (i, (s, g)) in sizes.iter().zip(&geoms).enumerate() {
+            let full = g.size();
+            assert!(
+                (s.width - full.width).abs() < 0.5 && (s.height - full.height).abs() < 0.5,
+                "{} page {}: fast size {s:?}, full {full:?}",
+                paper.display(),
+                i + 1
+            );
+        }
+        assert_eq!(b.page_geom(&paper, 0).expect("page geometry"), geoms[0]);
         let text = page_text(1, &geoms[0], &b.chars(&paper, 0).expect("chars"));
         assert_eq!(text.boxes.len(), text.text.chars().count());
         let size = geoms[0].size();

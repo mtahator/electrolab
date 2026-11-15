@@ -23,7 +23,7 @@ import { History, type Place } from "./history";
 import { type Layout, type ViewMode, type Zoom, clamp, layout, pageAt, scaleFor, toPage, toScreen, visible } from "./layout";
 import { Page, selectedText } from "./Page";
 import { type PDFDocumentProxy, acquire, release } from "./pdf";
-import { loadPreviews, previewsDone } from "./previews";
+import { loadPreviews, previewKey, previewsDone } from "./previews";
 
 /** What the shell can do with a viewer. */
 export interface ViewerApi {
@@ -122,6 +122,20 @@ export function Viewer(props: ViewerProps): JSX.Element {
     paper();
     return pageColors();
   });
+
+  // A different paper colour needs its own previews.
+  createEffect(
+    on(
+      colors,
+      (c) => {
+        const i = info();
+        if (!i) return;
+        stopPreviews();
+        stopPreviews = loadPreviews(props.paper.file, i.pages, current, c);
+      },
+      { defer: true },
+    ),
+  );
 
   // Redraw sharply only when the zoom has settled (CSS scaling meanwhile).
   createEffect(
@@ -262,7 +276,7 @@ export function Viewer(props: ViewerProps): JSX.Element {
       const [i, st] = await Promise.all([bus("document.info", { file: props.paper.file }), bus("workspace.get_reading_state", { paper: props.paper.id })]);
       setInfo(i);
       restore(st);
-      stopPreviews = loadPreviews(props.paper.file, i.pages, current);
+      stopPreviews = loadPreviews(props.paper.file, i.pages, current, untrack(colors));
       window.setTimeout(() => void getDoc().catch(() => {}), 1500);
       // Prepare the paper in the background (objects, links), starting with the page in view, once
       // the pages have their previews (both use the one PDF engine; drawing comes first), or after
@@ -275,7 +289,7 @@ export function Viewer(props: ViewerProps): JSX.Element {
           startPrep();
         }
       };
-      void previewsDone(hash).then(once);
+      void previewsDone(previewKey(hash, untrack(colors))).then(once);
       window.setTimeout(once, 6000);
     } catch (e) {
       setError(String((e as Error).message ?? e));

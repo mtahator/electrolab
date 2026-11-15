@@ -6,7 +6,8 @@
 
 use std::path::Path;
 
-use ep_document_contract::{LinkTarget, OutlineItem, PageSize, PageText, TextSpan};
+pub use ep_document_contract::PageSize;
+use ep_document_contract::{LinkTarget, OutlineItem, PageText, TextSpan};
 use ep_types::PageRect;
 
 /// How a page's user space maps to what is shown.
@@ -179,6 +180,25 @@ pub trait PdfBackend: Send + Sync {
     /// # Errors
     /// See [`BackendError`].
     fn info(&self, file: &Path) -> Result<(Vec<PageGeom>, bool), BackendError>;
+    /// Size of every page (rotation applied) without loading the pages, and whether the file
+    /// declares encryption: what a viewer needs to lay out a paper at once.
+    ///
+    /// # Errors
+    /// See [`BackendError`].
+    fn sizes(&self, file: &Path) -> Result<(Vec<PageSize>, bool), BackendError> {
+        let (g, e) = self.info(file)?;
+        Ok((g.iter().map(PageGeom::size).collect(), e))
+    }
+    /// Geometry of one page (loads only that page).
+    ///
+    /// # Errors
+    /// See [`BackendError`].
+    fn page_geom(&self, file: &Path, index: u32) -> Result<PageGeom, BackendError> {
+        let (g, _) = self.info(file)?;
+        g.get(index as usize)
+            .copied()
+            .ok_or(BackendError::BadPage(index))
+    }
     /// Characters of one page.
     ///
     /// # Errors
@@ -329,8 +349,14 @@ pub fn page_text(page: u32, geom: &PageGeom, raw: &[RawChar]) -> PageText {
 /// A raw destination as a contract target (page numbers 1-based, y in page space).
 #[must_use]
 pub fn target(dest: &RawDest, geoms: &[PageGeom]) -> LinkTarget {
+    target_with(dest, |i| geoms.get(i as usize).copied())
+}
+
+/// [`target`] with the geometry of the target page looked up on demand (so a link needs only the
+/// pages it points to, not the whole paper's geometry).
+pub fn target_with(dest: &RawDest, geom_of: impl Fn(u32) -> Option<PageGeom>) -> LinkTarget {
     match dest {
-        RawDest::Page { index, y } => match geoms.get(*index as usize) {
+        RawDest::Page { index, y } => match geom_of(*index) {
             Some(g) => LinkTarget::Page {
                 page: index + 1,
                 top: y.map(|y| g.to_page(g.crop[0], y).1.max(0.0)),
@@ -550,24 +576,24 @@ pub fn hex_color(s: &str) -> Option<[u8; 3]> {
 pub fn recolor(rgba: &mut [u8], bg: [u8; 3], fg: [u8; 3]) {
     // How far a pixel may be from grey and still count as ink or paper.
     const GREY: u8 = 28;
-    for px in rgba.chunks_exact_mut(4) {
-        let (r, g, b) = (px[0], px[1], px[2]);
-        let hi = r.max(g).max(b);
-        let lo = r.min(g).min(b);
+    for px in rgba.as_chunks_mut::<4>().0 {
+        let [red, green, blue, _] = *px;
+        let hi = red.max(green).max(blue);
+        let lo = red.min(green).min(blue);
         if hi - lo > GREY {
             continue;
         }
         // Lightness 0..=255 (Rec. 709 weights, integer).
-        let l = (u32::from(r) * 54 + u32::from(g) * 183 + u32::from(b) * 19) >> 8;
-        for c in 0..3 {
-            let (f, k) = (u32::from(fg[c]), u32::from(bg[c]));
-            // Integer blend: f + (k - f) * l / 255, in either direction.
-            let v = if k >= f {
-                f + (k - f) * l / 255
+        let light = (u32::from(red) * 54 + u32::from(green) * 183 + u32::from(blue) * 19) >> 8;
+        for (ch, (ink, paper)) in px.iter_mut().zip(fg.iter().zip(bg.iter())) {
+            let (ink, paper) = (u32::from(*ink), u32::from(*paper));
+            // Integer blend from ink (black) to paper (white), in either direction.
+            let v = if paper >= ink {
+                ink + (paper - ink) * light / 255
             } else {
-                f - (f - k) * l / 255
+                ink - (ink - paper) * light / 255
             };
-            px[c] = u8::try_from(v).unwrap_or(u8::MAX);
+            *ch = u8::try_from(v).unwrap_or(u8::MAX);
         }
     }
 }

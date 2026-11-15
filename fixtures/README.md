@@ -5,6 +5,7 @@ Test material shared by all engines. Only files whose licence allows redistribut
 | Folder | Content | Task |
 |---|---|---|
 | `papers/` | 20 open-access papers covering the hard cases (see below) | P0.C.1 |
+| `documents/` | documents that are not papers: product manual, research and event posters, slide deck, brochure, business report (written by `generate.py`, so no third-party licence) and a US government form (IRS W-4 2024, public domain, fillable fields) | P1.M4 |
 | `golden/explain/` | ≥ 100 selections with expected properties | P0.C.2 |
 | `golden/chat/` | ≥ 50 questions with the answering page and passage; some unanswerable | P0.C.3 |
 | `golden/method-graph/` | hand-made reference method graphs (Phase 2) | P2.M0 |

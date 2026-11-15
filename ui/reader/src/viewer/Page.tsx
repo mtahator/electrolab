@@ -16,7 +16,7 @@ import { AnnotationLayer } from "../annotations/AnnotationLayer";
 import { bus, renderUrl } from "../host";
 import { PageLinks, RegionTool } from "../intel/PageLinks";
 import type { PDFDocumentProxy } from "./pdf";
-import { drawnOf, keepDrawn, previewOf } from "./previews";
+import { drawnOf, keepDrawn, previewKey, previewOf } from "./previews";
 import { enqueue } from "./queue";
 
 /** Largest drawing for one page (pixels), so high zoom does not exhaust memory. */
@@ -64,7 +64,7 @@ export function Page(props: PageProps): JSX.Element {
   // A recent sharp drawing shows at once; otherwise the preview does until the drawing is ready.
   const [image, setImage] = createSignal<string | null>(props.colors ? null : (drawnOf(props.file.hash, props.page)?.url ?? null));
   const [fresh, setFresh] = createSignal(false);
-  const preview = (): string | undefined => previewOf(props.file.hash, props.page);
+  const preview = (): string | undefined => previewOf(previewKey(props.file.hash, props.colors), props.page);
 
   createEffect(() => {
     const scale = props.renderScale;
@@ -111,7 +111,7 @@ export function Page(props: PageProps): JSX.Element {
   return (
     <div class="page" ref={host} style={{ width: `${props.width}px`, height: `${props.height}px` }} data-page={props.page}>
       {/* The preview stays under the sharp drawing, so the drawing fades in over it, never over an empty page. */}
-      <Show when={!props.colors && (!image() || fresh()) && preview()}>{(src) => <img class="page-preview" src={src()} alt="" draggable={false} />}</Show>
+      <Show when={(!image() || fresh()) && preview()}>{(src) => <img class="page-preview" src={src()} alt="" draggable={false} />}</Show>
       <Show when={image()}>{(src) => <img class="page-canvas" classList={{ fresh: fresh() }} src={src()} alt="" draggable={false} onAnimationEnd={() => setFresh(false)} />}</Show>
       <div class="highlight-layer">
         <For each={props.highlights}>{(r) => <div class="hit" classList={{ active: props.activeHighlight === r }} style={box(r, props.layoutScale)} />}</For>

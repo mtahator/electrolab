@@ -99,7 +99,11 @@ pub fn mentions(pt: &PageText) -> Vec<Mention> {
         if nums.is_empty() {
             continue;
         }
-        let matched = m.as_str().trim_end_matches([',', ' ']);
+        let mut matched = m.as_str().trim_end_matches([',', ' ']);
+        // "(see Table 1)": the closing bracket belongs to the sentence, not the mention.
+        if matched.ends_with(')') && matched.matches('(').count() < matched.matches(')').count() {
+            matched = &matched[..matched.len() - 1];
+        }
         let start = char_index(text, m.start());
         let end = start + u32::try_from(matched.chars().count()).unwrap_or(0);
         out.push(Mention {

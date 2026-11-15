@@ -143,11 +143,11 @@ impl Document {
         &self,
         hash: &Hash,
         path: &Path,
-        g: &[PageGeom],
+        geom: &PageGeom,
         idx: u32,
     ) -> Result<PageText, CommandError> {
         let raw = self.backend()?.chars(path, idx).map_err(backend_err)?;
-        let pt = ep_document_core::pdf::page_text(idx + 1, &g[idx as usize], &raw);
+        let pt = ep_document_core::pdf::page_text(idx + 1, geom, &raw);
         if pt.text.chars().filter(|c| !c.is_whitespace()).count() < MIN_CHARS
             && let Some(o) = self.cached_ocr(hash, idx + 1)
         {

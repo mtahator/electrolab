@@ -243,9 +243,11 @@ impl Document {
                 .map_err(sql)?;
             if !known {
                 // First time this file is seen for the paper: import what is already in it.
-                let (g, _) = me.geoms(i.file.hash, &path)?;
                 let found = match ep_document_adapter_lopdf::read_annotations(&path) {
-                    Ok(raws) => core::import(&raws, &g, now),
+                    // The whole paper's page geometry is read only when there is something to
+                    // import (most papers have no annotations), so opening stays fast.
+                    Ok(raws) if raws.is_empty() => Vec::new(),
+                    Ok(raws) => core::import(&raws, &me.geoms(i.file.hash, &path)?.0, now),
                     Err(e) => {
                         tracing::warn!(%e, "annotations in the PDF could not be read");
                         Vec::new()

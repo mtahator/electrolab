@@ -129,6 +129,7 @@ pub async fn fetch_model(
 
 /// Remove a downloaded page model (Settings). Models shipped with the app cannot be removed.
 #[tauri::command]
+#[allow(clippy::needless_pass_by_value)] // Tauri commands take their arguments by value
 pub fn remove_model(state: State<'_, AppState>, id: String) -> Result<(), String> {
     let spec = *Document::model_specs()
         .iter()

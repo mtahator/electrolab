@@ -42,7 +42,7 @@ rmSync(join(scratch, "webview"), { recursive: true, force: true });
 let s = await launch(papers);
 try {
   const t0 = Date.now();
-  const tabs = await s.until(`document.querySelectorAll(".tab").length === 2 && document.querySelectorAll(".pane.focused canvas.page-canvas").length > 0 ? document.querySelectorAll(".tab").length : 0`, 30000);
+  const tabs = await s.until(`document.querySelectorAll(".tab").length === 2 && document.querySelectorAll(".pane.focused canvas.page-canvas, .pane.focused img.page-canvas").length > 0 ? document.querySelectorAll(".tab").length : 0`, 30000);
   check("opened_from_command_line", tabs === 2, { tabs, first_page_ms: Date.now() - t0 });
   await s.until(`document.querySelectorAll(".pane.focused .text-layer span").length > 100`);
   check("text_layer_words", (await s.js(`document.querySelectorAll(".pane.focused .text-layer span").length`)) > 100);
@@ -71,7 +71,7 @@ try {
 
   // Contents panel: the first paper has bookmarks; clicking one moves and enables Back.
   await s.js(`document.querySelectorAll(".pane.focused .tab")[0].click()`);
-  await s.until(`document.querySelectorAll(".pane.focused canvas.page-canvas").length > 0 && document.querySelector(".page-box")`);
+  await s.until(`document.querySelectorAll(".pane.focused canvas.page-canvas, .pane.focused img.page-canvas").length > 0 && document.querySelector(".page-box")`);
   const outline = await s.until(`document.querySelectorAll(".outline .outline-title").length || null`);
   check("outline_entries", (outline ?? 0) > 3, outline);
   await s.js(`[...document.querySelectorAll(".outline .outline-title")].at(-1).click()`);
@@ -119,7 +119,7 @@ try {
   await pickTheme(s, "Light");
   await s.shot("m2-library.png");
   await s.key("l", { ctrl: true });
-  await s.until(`document.querySelectorAll(".pane canvas.page-canvas").length > 0 && document.querySelector(".page-box")`);
+  await s.until(`document.querySelectorAll(".pane canvas.page-canvas, .pane img.page-canvas").length > 0 && document.querySelector(".page-box")`);
   await sleep(1000);
 
   // Open a PDF from a web address (needs the network; skipped when offline).

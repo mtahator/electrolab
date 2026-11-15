@@ -11,7 +11,7 @@ use std::sync::mpsc;
 use std::time::Duration;
 
 use ep_document_core::pdf::{
-    BackendError, Bitmap, PageGeom, PdfBackend, RawBookmark, RawChar, RawDest, RawLink,
+    BackendError, Bitmap, PageGeom, PageSize, PdfBackend, RawBookmark, RawChar, RawDest, RawLink,
 };
 use pdfium_render::prelude::*;
 
@@ -69,6 +69,12 @@ fn page<'a>(doc: &'a PdfDocument<'static>, index: u32) -> Result<PdfPage<'a>, Ba
         return Err(BackendError::BadPage(index));
     }
     doc.pages().get(i).map_err(|e| internal(&e))
+}
+
+fn encrypted(doc: &PdfDocument<'static>) -> bool {
+    doc.permissions()
+        .security_handler_revision()
+        .is_ok_and(|r| r != PdfSecurityHandlerRevision::Unprotected)
 }
 
 fn rect(r: &PdfRect) -> [f32; 4] {
@@ -216,18 +222,58 @@ impl PdfiumBackend {
 
 impl PdfBackend for PdfiumBackend {
     fn info(&self, file: &Path) -> Result<(Vec<PageGeom>, bool), BackendError> {
+        // Loading a page parses its content (about 20 ms on a heavy page), so the pages are read
+        // a few at a time: drawing and text jobs for the page in view run in between.
+        const CHUNK: u32 = 4;
+        let f = file.to_path_buf();
+        let (n, encrypted) = self.run(move |s| {
+            let doc = s.doc(&f)?;
+            Ok((
+                u32::try_from(doc.pages().len()).unwrap_or(0),
+                encrypted(doc),
+            ))
+        })?;
+        let mut geoms = Vec::with_capacity(n as usize);
+        let mut start = 0;
+        while start < n {
+            let end = (start + CHUNK).min(n);
+            let f = file.to_path_buf();
+            let part = self.run(move |s| {
+                let doc = s.doc(&f)?;
+                (start..end)
+                    .map(|i| page(doc, i).map(|p| geom(&p)))
+                    .collect::<Result<Vec<_>, _>>()
+            })?;
+            geoms.extend(part);
+            start = end;
+        }
+        Ok((geoms, encrypted))
+    }
+
+    fn sizes(&self, file: &Path) -> Result<(Vec<PageSize>, bool), BackendError> {
         let file = file.to_path_buf();
         self.run(move |s| {
             let doc = s.doc(&file)?;
-            let encrypted = doc
-                .permissions()
-                .security_handler_revision()
-                .is_ok_and(|r| r != PdfSecurityHandlerRevision::Unprotected);
-            let mut geoms = Vec::new();
-            for p in doc.pages().iter() {
-                geoms.push(geom(&p));
-            }
-            Ok((geoms, encrypted))
+            // PDFium reads sizes from the page dictionaries without parsing any content.
+            let sizes = doc
+                .pages()
+                .page_sizes()
+                .map_err(|e| internal(&e))?
+                .iter()
+                .map(|r| PageSize {
+                    width: r.width().value,
+                    height: r.height().value,
+                })
+                .collect();
+            Ok((sizes, encrypted(doc)))
+        })
+    }
+
+    fn page_geom(&self, file: &Path, index: u32) -> Result<PageGeom, BackendError> {
+        let file = file.to_path_buf();
+        self.run(move |s| {
+            let doc = s.doc(&file)?;
+            page(doc, index).map(|p| geom(&p))
         })
     }
 

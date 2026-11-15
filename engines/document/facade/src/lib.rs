@@ -15,7 +15,7 @@ use ep_bus::cache::{ResultCache, cache_key};
 use ep_bus::{Bus, CommandError, Cx, Permission, RegisterError, Spec, Stability};
 use ep_document_contract::{
     AnnotationOp, ApplyAnnotations, DocInfo, FileRequest, Link, MetadataRequest, OutlineItem,
-    PageColors, PageRequest, PageText, PaperRef, PdfMetadata, RenderRequest, Rendered,
+    PageColors, PageRequest, PageSize, PageText, PaperRef, PdfMetadata, RenderRequest, Rendered,
     SearchRequest, SearchResult, ThumbnailsRequest, commands, errors, pdf_errors,
 };
 use ep_document_core::pdf::{BackendError, PageGeom, PdfBackend};
@@ -60,6 +60,7 @@ const INDEXES: usize = 8;
 
 /// Cached page geometry of one file: hash, pages, encrypted.
 type GeomEntry = (Hash, Arc<Vec<PageGeom>>, bool);
+type SizeEntry = (Hash, Arc<Vec<PageSize>>, bool);
 
 /// The Document engine.
 pub struct Document {
@@ -67,6 +68,10 @@ pub struct Document {
     pdf: Option<Arc<dyn PdfBackend>>,
     renders: Option<(BlobStore, ResultCache)>,
     geoms: Mutex<VecDeque<GeomEntry>>,
+    /// Page sizes read without loading pages (opening a paper needs only these).
+    sizes: Mutex<VecDeque<SizeEntry>>,
+    /// Geometry of single pages read before the whole paper's (the pages being shown).
+    page_geoms: Mutex<VecDeque<(Hash, u32, PageGeom)>>,
     indexes: Mutex<VecDeque<(Hash, Arc<SearchIndex>)>>,
     /// The open project's annotation database, by project id.
     annotation_db: Mutex<Option<(String, Arc<ep_store::Store>)>>,
@@ -180,6 +185,8 @@ impl Document {
             pdf,
             renders,
             geoms: Mutex::new(VecDeque::new()),
+            sizes: Mutex::new(VecDeque::new()),
+            page_geoms: Mutex::new(VecDeque::new()),
             indexes: Mutex::new(VecDeque::new()),
             annotation_db: Mutex::new(None),
             bus: Mutex::new(Weak::new()),
@@ -243,13 +250,60 @@ impl Document {
     }
 
     fn page_index(geoms: &[PageGeom], page: u32) -> Result<u32, CommandError> {
-        if page == 0 || page as usize > geoms.len() {
+        Self::page_index_of(geoms.len(), page)
+    }
+
+    fn page_index_of(pages: usize, page: u32) -> Result<u32, CommandError> {
+        if page == 0 || page as usize > pages {
             return Err(CommandError::failed(
                 pdf_errors::BAD_PAGE,
-                format!("page {page} does not exist (the PDF has {})", geoms.len()),
+                format!("page {page} does not exist (the PDF has {pages})"),
             ));
         }
         Ok(page - 1)
+    }
+
+    /// Page sizes and encryption, without loading any page (fast even for long papers).
+    fn sizes(&self, hash: Hash, path: &Path) -> Result<(Arc<Vec<PageSize>>, bool), CommandError> {
+        if let Some((_, g, e)) = self.geoms.lock().iter().find(|(h, ..)| *h == hash) {
+            return Ok((Arc::new(g.iter().map(PageGeom::size).collect()), *e));
+        }
+        if let Some((_, s, e)) = self.sizes.lock().iter().find(|(h, ..)| *h == hash) {
+            return Ok((s.clone(), *e));
+        }
+        let (s, enc) = self.backend()?.sizes(path).map_err(backend_err)?;
+        let s = Arc::new(s);
+        let mut cache = self.sizes.lock();
+        if cache.len() >= 32 {
+            cache.pop_back();
+        }
+        cache.push_front((hash, s.clone(), enc));
+        Ok((s, enc))
+    }
+
+    /// Geometry of one page (0-based `idx`), loading only that page unless the whole paper's
+    /// geometry is known.
+    fn geom_of(&self, hash: Hash, path: &Path, idx: u32) -> Result<PageGeom, CommandError> {
+        if let Some((_, g, _)) = self.geoms.lock().iter().find(|(h, ..)| *h == hash)
+            && let Some(x) = g.get(idx as usize)
+        {
+            return Ok(*x);
+        }
+        if let Some((.., g)) = self
+            .page_geoms
+            .lock()
+            .iter()
+            .find(|(h, i, _)| *h == hash && *i == idx)
+        {
+            return Ok(*g);
+        }
+        let g = self.backend()?.page_geom(path, idx).map_err(backend_err)?;
+        let mut cache = self.page_geoms.lock();
+        if cache.len() >= 256 {
+            cache.pop_back();
+        }
+        cache.push_front((hash, idx, g));
+        Ok(g)
     }
 
     /// Register the `document.*` commands.
@@ -437,10 +491,10 @@ impl Document {
         let path = self.path(&i.file)?;
         let me = self.clone();
         blocking(move || {
-            let (g, encrypted) = me.geoms(i.file.hash, &path)?;
+            let (sizes, encrypted) = me.sizes(i.file.hash, &path)?;
             Ok(DocInfo {
-                pages: u32::try_from(g.len()).unwrap_or(u32::MAX),
-                sizes: g.iter().map(PageGeom::size).collect(),
+                pages: u32::try_from(sizes.len()).unwrap_or(u32::MAX),
+                sizes: sizes.to_vec(),
                 encrypted,
             })
         })
@@ -451,9 +505,10 @@ impl Document {
         let path = self.path(&i.file)?;
         let me = self.clone();
         blocking(move || {
-            let (g, _) = me.geoms(i.file.hash, &path)?;
-            let idx = Self::page_index(&g, i.page)?;
-            me.page_text_of(&i.file.hash, &path, &g, idx)
+            let (sizes, _) = me.sizes(i.file.hash, &path)?;
+            let idx = Self::page_index_of(sizes.len(), i.page)?;
+            let geom = me.geom_of(i.file.hash, &path, idx)?;
+            me.page_text_of(&i.file.hash, &path, &geom, idx)
         })
         .await
     }
@@ -488,8 +543,8 @@ impl Document {
         {
             return Ok(r);
         }
-        let (g, _) = self.geoms(file.hash, path)?;
-        let idx = Self::page_index(&g, page)?;
+        let (sizes, _) = self.sizes(file.hash, path)?;
+        let idx = Self::page_index_of(sizes.len(), page)?;
         let mut bmp = self
             .backend()?
             .render(path, idx, width_px)
@@ -567,15 +622,20 @@ impl Document {
         let path = self.path(&i.file)?;
         let me = self.clone();
         blocking(move || {
-            let (g, _) = me.geoms(i.file.hash, &path)?;
-            let idx = Self::page_index(&g, i.page)?;
-            let geom = g[idx as usize];
+            let (sizes, _) = me.sizes(i.file.hash, &path)?;
+            let idx = Self::page_index_of(sizes.len(), i.page)?;
+            let geom = me.geom_of(i.file.hash, &path, idx)?;
             let raw = me.backend()?.links(&path, idx).map_err(backend_err)?;
+            let n = u32::try_from(sizes.len()).unwrap_or(0);
             Ok(raw
                 .iter()
                 .map(|l| Link {
                     rect: geom.rect(i.page, l.rect),
-                    target: ep_document_core::pdf::target(&l.dest, &g),
+                    target: ep_document_core::pdf::target_with(&l.dest, |t| {
+                        (t < n)
+                            .then(|| me.geom_of(i.file.hash, &path, t).ok())
+                            .flatten()
+                    }),
                 })
                 .collect())
         })
@@ -599,7 +659,7 @@ impl Document {
             }
             let idx = u32::try_from(i).unwrap_or(u32::MAX);
             let _ = (geom, &backend);
-            let t = self.page_text_of(&hash, &path, &g, idx)?;
+            let t = self.page_text_of(&hash, &path, &g[idx as usize], idx)?;
             let chars = t
                 .text
                 .chars()

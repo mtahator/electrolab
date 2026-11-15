@@ -2,6 +2,11 @@
 //! bookmarks. A heading is a short line that is numbered like a section ("3", "4.2", "II.",
 //! "A.") or is one of the usual unnumbered section names, at least as tall as body text, and
 //! whose numbers keep going up through the paper.
+//!
+//! Documents that are not papers (manuals, reports, brochures, slides, posters) often have no
+//! numbered or named sections: there, short lines clearly larger than body text are headings
+//! (on slides, each slide's title). A contents page lists the headings with page numbers; its
+//! lines are never taken as the headings themselves.
 
 use std::sync::LazyLock;
 
@@ -34,6 +39,10 @@ static LETTER: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^(?:Appendix\s+)?([A-H](?:\.\d{1,2}){0,2})[.:]?\s+(\p{Lu}[^\n]{1,90})$")
         .unwrap_or_else(|_| unreachable!())
 });
+static CONTENTS: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)^(table of )?contents$").unwrap_or_else(|_| unreachable!()));
+static LEADERS: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?:\.\s?){3,}\s*\d{1,4}$").unwrap_or_else(|_| unreachable!()));
 static NAMED: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?i)^(abstract|introduction|related work|background|preliminaries|method(?:s|ology)?|experiments?|results(?: and discussion)?|discussion|conclusions?|summary|acknowledge?ments?|references|bibliography|appendix(?: [A-Z])?|supplementary material)$")
         .unwrap_or_else(|_| unreachable!())
@@ -152,7 +161,14 @@ pub fn headings(pages: &[Vec<Line>]) -> Vec<Heading> {
     let body = super::body_height(pages);
     let mut cands: Vec<Heading> = Vec::new();
     for lines in pages {
+        // A contents page lists headings; the headings themselves come later.
+        if lines.iter().any(|l| CONTENTS.is_match(l.text.trim())) {
+            continue;
+        }
         for (i, l) in lines.iter().enumerate() {
+            if LEADERS.is_match(&l.text) {
+                continue;
+            }
             let Some(mut h) = candidate(l, body) else {
                 continue;
             };
@@ -195,6 +211,10 @@ pub fn headings(pages: &[Vec<Line>]) -> Vec<Heading> {
             if last.as_ref().is_some_and(|l| k <= *l) {
                 continue;
             }
+            // Sections start near 1: "12 Linden Street" as the first number is an address.
+            if last.is_none() && k.first().is_some_and(|&f| f > 3 && f < 1000) {
+                continue;
+            }
             // A jump of more than one at the top level is a list, not a section.
             if let Some(l) = &last
                 && k.len() == 1
@@ -218,6 +238,59 @@ pub fn headings(pages: &[Vec<Line>]) -> Vec<Heading> {
             continue;
         }
         out.push(h);
+    }
+    if out.len() < 2 {
+        let by_size = by_size(pages, body);
+        if by_size.len() > out.len() {
+            return by_size;
+        }
+    }
+    out
+}
+
+/// Headings by size, for documents without numbered or named sections: short lines at least a
+/// quarter taller than body text that do not read like a sentence.
+fn by_size(pages: &[Vec<Line>], body: f32) -> Vec<Heading> {
+    if body <= 0.0 {
+        return Vec::new();
+    }
+    let mut out: Vec<Heading> = Vec::new();
+    for lines in pages {
+        if lines.iter().any(|l| CONTENTS.is_match(l.text.trim())) {
+            continue;
+        }
+        for l in lines {
+            let t = l.text.trim();
+            let words = t.split_whitespace().count();
+            if l.height() < body * 1.25
+                || words == 0
+                || words > 8
+                || t.chars().count() > 60
+                || t.ends_with(['.', ',', ';', ':'])
+                || !t.chars().any(char::is_alphabetic)
+                || out.iter().any(|o| o.title.eq_ignore_ascii_case(t))
+            {
+                continue;
+            }
+            // A heading wrapped onto a second line of the same size, right below, joins it.
+            if let Some(prev) = out.last_mut()
+                && prev.line.page == l.page
+                && (prev.line.height() - l.height()).abs() < l.height() * 0.1
+                && (prev.line.rect.x0 - l.rect.x0).abs() < 4.0
+                && l.rect.y0 > prev.line.rect.y0
+                && l.rect.y0 - prev.line.rect.y1 < l.height() * 0.6
+            {
+                prev.title = format!("{} {t}", prev.title);
+                prev.line.rect = prev.line.rect.union(&l.rect);
+                continue;
+            }
+            out.push(Heading {
+                number: String::new(),
+                title: t.to_string(),
+                depth: 1,
+                line: l.clone(),
+            });
+        }
     }
     out
 }
