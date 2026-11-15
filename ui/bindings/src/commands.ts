@@ -31,6 +31,8 @@ export interface Commands {
   "document.models": { input: null; output: T.ModelInfo[] };
   /** Objects on a page: figures, tables, equations, headings */
   "document.objects": { input: T.ObjectsRequest; output: T.PageObjects };
+  /** Write the recognised text of scanned pages into a new version of the PDF */
+  "document.ocr": { input: T.FileOnly; output: T.Ocred };
   /** The PDF's bookmarks */
   "document.outline": { input: T.FileRequest; output: T.OutlineItem[] };
   /** How far preparation of a file has come */

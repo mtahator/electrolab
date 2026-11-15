@@ -7,6 +7,7 @@ publish.workspace = true
 description = "Repository automation: architecture, schema and native-library checks"
 
 [dependencies]
+ep-document = { path = "../engines/document/facade" }
 anyhow.workspace = true
 cargo_metadata.workspace = true
 serde.workspace = true

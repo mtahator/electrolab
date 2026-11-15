@@ -7,12 +7,14 @@
 //! cargo xtask schema-check    committed schemas and bindings match the generated ones
 //! cargo xtask fetch-natives [name...]  download pinned native libraries and verify their hashes
 //! cargo xtask fetch-fixtures  download pinned fixture papers and verify their hashes
+//! cargo xtask fetch-models [--all]  download the pinned page models (bundled ones; --all: every one)
 //! ```
 
 mod arch;
 mod download;
 mod fixtures;
 mod layout;
+mod models;
 mod natives;
 mod os_scan;
 mod product;
@@ -35,9 +37,10 @@ fn main() -> ExitCode {
         Some("schema-check") => schema::check(&root),
         Some("fetch-natives") => natives::fetch(&root, &args[1..]),
         Some("fetch-fixtures") => fixtures::fetch(&root),
+        Some("fetch-models") => models::fetch(&root, &args[1..]),
         _ => {
             eprintln!(
-                "usage: cargo xtask <arch-check | gen | schema-check | set-name | fetch-natives | fetch-fixtures>"
+                "usage: cargo xtask <arch-check | gen | schema-check | set-name | fetch-natives | fetch-fixtures | fetch-models>"
             );
             return ExitCode::from(2);
         }

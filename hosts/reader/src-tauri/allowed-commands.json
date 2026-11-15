@@ -15,6 +15,7 @@
     "document.metadata",
     "document.models",
     "document.objects",
+    "document.ocr",
     "document.outline",
     "document.preparation",
     "document.prepare",

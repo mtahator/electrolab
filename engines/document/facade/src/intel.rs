@@ -13,7 +13,7 @@ use ep_bus::cache::cache_key;
 use ep_bus::{CommandError, Cx};
 use ep_document_contract::{
     CitationMarker, Contents, DocObject, Equation, EquationRequest, FileOnly, Mention, MentionKind,
-    ModelInfo, ObjectKind, ObjectRef, ObjectsRequest, PageObjects, PageText, Preparation,
+    ModelInfo, ObjectKind, ObjectRef, ObjectsRequest, Ocred, PageObjects, PageText, Preparation,
     PrepareRequest, Reference, RegionHit, RegionRequest, Stage, StageState, StageStatus, Table,
     TableRequest, errors, intel_errors, intel_events,
 };
@@ -49,7 +49,7 @@ pub(crate) struct Analysis {
 /// Page-model state of the engine.
 #[derive(Default)]
 pub(crate) struct Models {
-    dir: Option<PathBuf>,
+    dirs: Vec<PathBuf>,
     layout: Option<Arc<dyn LayoutModel>>,
 }
 
@@ -77,16 +77,16 @@ fn crop(bmp: &Bitmap, x0: u32, y0: u32, x1: u32, y1: u32) -> Bitmap {
 }
 
 impl Document {
-    /// Where page models are kept, and load the layout model when it is there. Hosts call this
-    /// at start-up and again after a model was downloaded.
+    /// Folders that hold page models (the app's bundled ones first, then downloaded ones), and
+    /// load every model found there: the layout model and PP-OCR text recognition. Hosts call
+    /// this at start-up and again after a model was downloaded.
     ///
     /// # Errors
     /// ONNX Runtime or a present model could not be loaded (the engine keeps working without).
-    pub fn load_page_models(&self, dir: &Path) -> Result<(), String> {
-        let mut m = self.models.write();
-        m.dir = Some(dir.to_path_buf());
-        if !LAYOUT.present(Some(dir)) {
-            m.layout = None;
+    pub fn load_page_models(&self, dirs: &[PathBuf]) -> Result<(), String> {
+        self.models.write().dirs = dirs.to_vec();
+        let need = models::LAYOUT.present(dirs) || models::OCR_REC.present(dirs);
+        if !need {
             return Ok(());
         }
         let runtime = RUNTIME
@@ -97,8 +97,16 @@ impl Document {
             })
             .as_ref()
             .map_err(Clone::clone)?;
-        let layout = runtime.layout(&LAYOUT.path(dir))?;
-        m.layout = Some(Arc::new(layout));
+        if let Some(p) = LAYOUT.find(dirs) {
+            self.models.write().layout = Some(Arc::new(runtime.layout(&p)?));
+        }
+        if let (Some(det), Some(rec), Some(dict)) = (
+            models::OCR_DET.find(dirs),
+            models::OCR_REC.find(dirs),
+            models::OCR_DICT.find(dirs),
+        ) {
+            *self.ocr.write() = Some(Arc::new(runtime.ppocr(&det, &rec, &dict)?));
+        }
         Ok(())
     }
 
@@ -106,6 +114,78 @@ impl Document {
     #[must_use]
     pub fn model_specs() -> &'static [models::ModelSpec] {
         models::ALL
+    }
+
+    fn ocr_key(hash: &Hash, page: u32, engine: &str) -> Hash {
+        cache_key(
+            "document.ocr_text",
+            INTEL_IMPL,
+            &json!({ "file": hash, "page": page, "engine": engine }),
+        )
+    }
+
+    /// The OCR text of a page, when it was recognised before.
+    fn cached_ocr(&self, hash: &Hash, page: u32) -> Option<PageText> {
+        let (_, index) = self.renders.as_ref()?;
+        ["ppocr"].iter().find_map(|e| {
+            index
+                .get(&Self::ocr_key(hash, page, e))
+                .and_then(|v| serde_json::from_value(v).ok())
+        })
+    }
+
+    /// The text of a page: the PDF's own, or for a scanned page the recognised text.
+    pub(crate) fn page_text_of(
+        &self,
+        hash: &Hash,
+        path: &Path,
+        g: &[PageGeom],
+        idx: u32,
+    ) -> Result<PageText, CommandError> {
+        let raw = self.backend()?.chars(path, idx).map_err(backend_err)?;
+        let pt = ep_document_core::pdf::page_text(idx + 1, &g[idx as usize], &raw);
+        if pt.text.chars().filter(|c| !c.is_whitespace()).count() < MIN_CHARS
+            && let Some(o) = self.cached_ocr(hash, idx + 1)
+        {
+            return Ok(o);
+        }
+        Ok(pt)
+    }
+
+    /// Recognise one scanned page and keep its text.
+    fn ocr_page(
+        &self,
+        file: &BlobRef,
+        path: &Path,
+        g: &[PageGeom],
+        page: u32,
+    ) -> Result<PageText, CommandError> {
+        if let Some(t) = self.cached_ocr(&file.hash, page) {
+            return Ok(t);
+        }
+        let engine = self.ocr.read().clone().ok_or_else(|| {
+            CommandError::failed("ocr", "the text recognition models are not downloaded")
+        })?;
+        let idx = Self::page_index(g, page)?;
+        let size = g[idx as usize].size();
+        // About 216 dpi, within what the engine accepts.
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let width = ((size.width * 3.0) as u32).clamp(600, 2600);
+        let bmp = self
+            .backend()?
+            .render(path, idx, width)
+            .map_err(backend_err)?;
+        let lines = engine
+            .recognize(&bmp)
+            .map_err(|e| CommandError::failed("ocr", e))?;
+        let pt = ep_document_core::intel::ocr::page_text(page, size.width, size.height, &lines);
+        if let Some((_, index)) = self.renders.as_ref() {
+            let _ = index.put(
+                &Self::ocr_key(&file.hash, page, engine.id()),
+                &serde_json::to_value(&pt).unwrap_or_default(),
+            );
+        }
+        Ok(pt)
     }
 
     fn layout_model(&self) -> Option<Arc<dyn LayoutModel>> {
@@ -120,19 +200,23 @@ impl Document {
         let (g, _) = self.geoms(file.hash, path)?;
         let backend = self.backend()?;
         let mut pages = Vec::with_capacity(g.len());
+        // Scanned pages are judged by the PDF's own text layer; their recognised text (when
+        // there is some) stands in for it.
+        let mut image_only = Vec::new();
         for (i, geom) in g.iter().enumerate() {
             let idx = u32::try_from(i).unwrap_or(u32::MAX);
             let raw = backend.chars(path, idx).map_err(backend_err)?;
-            pages.push(ep_document_core::pdf::page_text(idx + 1, geom, &raw));
+            let pt = ep_document_core::pdf::page_text(idx + 1, geom, &raw);
+            if pt.text.chars().filter(|c| !c.is_whitespace()).count() < MIN_CHARS {
+                image_only.push(idx + 1);
+                pages.push(self.cached_ocr(&file.hash, idx + 1).unwrap_or(pt));
+            } else {
+                pages.push(pt);
+            }
         }
         let lines: Vec<Vec<Line>> = pages.iter().map(core::lines).collect();
         let heads = headings::headings(&lines);
         let refs = references::references(&lines);
-        let image_only = pages
-            .iter()
-            .filter(|p| p.text.chars().filter(|c| !c.is_whitespace()).count() < MIN_CHARS)
-            .map(|p| p.page)
-            .collect();
         let a = Arc::new(Analysis {
             pages,
             lines,
@@ -266,13 +350,25 @@ impl Document {
                 },
                 if image_only.is_empty() {
                     st(Stage::Ocr, done(analysed), 0, None)
-                } else {
+                } else if self.ocr.read().is_none() {
                     st(
                         Stage::Ocr,
                         StageStatus::Skipped,
                         0,
-                        Some("Text recognition for scanned pages arrives in a later update."),
+                        Some("The text recognition models are not downloaded."),
                     )
+                } else {
+                    let n = image_only
+                        .iter()
+                        .filter(|&&p| self.cached_ocr(&file.hash, p).is_some())
+                        .count();
+                    StageState {
+                        stage: Stage::Ocr,
+                        status: done(n == image_only.len()),
+                        done: u32::try_from(n).unwrap_or(0),
+                        total: u32::try_from(image_only.len()).unwrap_or(0),
+                        note: None,
+                    }
                 },
                 st(
                     Stage::Links,
@@ -338,8 +434,49 @@ impl Document {
             note: None,
         };
         self.report(cx, &i.file, &state(Stage::Text, StageStatus::Running, 0));
-        let a = self.analysis(&i.file, path)?;
+        let mut a = self.analysis(&i.file, path)?;
         self.report(cx, &i.file, &state(Stage::Text, StageStatus::Done, pages));
+        // Scanned pages first get their text (the page in view first), so everything after
+        // works on them too.
+        let pending: Vec<u32> = a
+            .image_only
+            .iter()
+            .copied()
+            .filter(|&p| self.cached_ocr(&i.file.hash, p).is_none())
+            .collect();
+        if !pending.is_empty() && self.ocr.read().is_some() {
+            let (g, _) = self.geoms(i.file.hash, path)?;
+            let total = u32::try_from(a.image_only.len()).unwrap_or(0);
+            let mut order: Vec<u32> = i
+                .first_pages
+                .iter()
+                .copied()
+                .filter(|p| pending.contains(p))
+                .collect();
+            order.extend(
+                pending
+                    .iter()
+                    .copied()
+                    .filter(|p| !i.first_pages.contains(p)),
+            );
+            let mut done = total - u32::try_from(pending.len()).unwrap_or(0);
+            for p in order {
+                if cx.is_cancelled() {
+                    return Err(CommandError::Cancelled);
+                }
+                if let Err(e) = self.ocr_page(&i.file, path, &g, p) {
+                    tracing::warn!(page = p, error = %e, "OCR failed on a page");
+                }
+                done += 1;
+                let mut s = state(Stage::Ocr, StageStatus::Running, done);
+                s.total = total;
+                self.report(cx, &i.file, &s);
+            }
+            // The paper's text changed: analyse again; the search index is rebuilt on next use.
+            self.analyses.lock().retain(|(h, _)| *h != i.file.hash);
+            self.indexes.lock().retain(|(h, _)| *h != i.file.hash);
+            a = self.analysis(&i.file, path)?;
+        }
         self.report(
             cx,
             &i.file,
@@ -717,13 +854,52 @@ impl Document {
         .await
     }
 
+    pub(crate) async fn ocr(self: Arc<Self>, cx: Cx, i: FileOnly) -> Result<Ocred, CommandError> {
+        let path = self.path(&i.file)?;
+        let me = self.clone();
+        blocking(move || {
+            let (g, _) = me.geoms(i.file.hash, &path)?;
+            let a = me.analysis(&i.file, &path)?;
+            let mut layers = Vec::new();
+            let mut pages = Vec::new();
+            let mut words = 0u32;
+            for &p in &a.image_only {
+                if cx.is_cancelled() {
+                    return Err(CommandError::Cancelled);
+                }
+                let pt = me.ocr_page(&i.file, &path, &g, p)?;
+                if pt.words.is_empty() {
+                    continue;
+                }
+                words += u32::try_from(pt.words.len()).unwrap_or(0);
+                layers.push((
+                    p - 1,
+                    ep_document_core::intel::ocr::text_layer(&g[(p - 1) as usize], &pt, "EPocr"),
+                ));
+                pages.push(p);
+            }
+            if layers.is_empty() {
+                return Err(no_object("no scanned page with recognisable text"));
+            }
+            let mut bytes = Vec::new();
+            ep_document_adapter_lopdf::write_text_layer(&path, &layers, "EPocr", &mut bytes)
+                .map_err(|e| CommandError::failed("write_failed", e))?;
+            let file = me
+                .blobs
+                .put(&bytes, MediaType::pdf())
+                .map_err(|e| CommandError::failed("write_failed", e))?;
+            Ok(Ocred { file, pages, words })
+        })
+        .await
+    }
+
     #[allow(clippy::unused_async, clippy::unused_async_trait_impl)] // bus handlers are async
     pub(crate) async fn models(
         self: Arc<Self>,
         _cx: Cx,
         _i: (),
     ) -> Result<Vec<ModelInfo>, CommandError> {
-        let dir = self.models.read().dir.clone();
-        Ok(models::ALL.iter().map(|m| m.info(dir.as_deref())).collect())
+        let dirs = self.models.read().dirs.clone();
+        Ok(models::ALL.iter().map(|m| m.info(&dirs)).collect())
     }
 }

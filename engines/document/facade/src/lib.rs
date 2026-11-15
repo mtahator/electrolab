@@ -28,7 +28,7 @@ mod annotations;
 mod intel;
 mod models;
 pub use annotations::DATABASE as ANNOTATION_DATABASE;
-pub use models::{ModelSpec, find_onnxruntime};
+pub use models::{ModelSpec, bundled_models_dir, find_onnxruntime};
 
 pub use ep_document_core::pdf::PdfBackend as Backend;
 
@@ -80,6 +80,8 @@ pub struct Document {
     preparing: Mutex<HashSet<Hash>>,
     /// Page models.
     models: RwLock<intel::Models>,
+    /// OCR engine for scanned pages.
+    ocr: RwLock<Option<Arc<dyn ep_document_core::intel::ocr::OcrEngine>>>,
 }
 
 impl std::fmt::Debug for Document {
@@ -185,7 +187,13 @@ impl Document {
             analyses: Mutex::new(VecDeque::new()),
             preparing: Mutex::new(HashSet::new()),
             models: RwLock::new(intel::Models::default()),
+            ocr: RwLock::new(None),
         }))
+    }
+
+    /// The OCR engine for scanned pages (the host chooses one for its system).
+    pub fn set_ocr(&self, engine: Arc<dyn ep_document_core::intel::ocr::OcrEngine>) {
+        *self.ocr.write() = Some(engine);
     }
 
     /// The name written as the author of new annotations (the host passes the user's name).
@@ -365,6 +373,12 @@ impl Document {
             "Page models and whether they are present",
             models
         );
+        reg!(
+            commands::OCR,
+            "Write the recognised text of scanned pages into a new version of the PDF",
+            ocr,
+            Permission::create()
+        );
         {
             let d = self.clone();
             let spec = Spec {
@@ -439,12 +453,7 @@ impl Document {
         blocking(move || {
             let (g, _) = me.geoms(i.file.hash, &path)?;
             let idx = Self::page_index(&g, i.page)?;
-            let raw = me.backend()?.chars(&path, idx).map_err(backend_err)?;
-            Ok(ep_document_core::pdf::page_text(
-                i.page,
-                &g[idx as usize],
-                &raw,
-            ))
+            me.page_text_of(&i.file.hash, &path, &g, idx)
         })
         .await
     }
@@ -576,11 +585,8 @@ impl Document {
                 return Err(CommandError::Cancelled);
             }
             let idx = u32::try_from(i).unwrap_or(u32::MAX);
-            let t = ep_document_core::pdf::page_text(
-                idx + 1,
-                geom,
-                &backend.chars(&path, idx).map_err(backend_err)?,
-            );
+            let _ = (geom, &backend);
+            let t = self.page_text_of(&hash, &path, &g, idx)?;
             let chars = t
                 .text
                 .chars()

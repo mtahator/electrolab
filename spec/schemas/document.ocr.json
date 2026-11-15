@@ -1,0 +1,130 @@
+{
+  "command": "document.ocr",
+  "input": {
+    "$defs": {
+      "BlobRef": {
+        "description": "A file in the content-addressed store: messages carry these, never large bytes (§9.4).",
+        "properties": {
+          "hash": {
+            "$ref": "#/$defs/Hash",
+            "description": "Content hash."
+          },
+          "media_type": {
+            "$ref": "#/$defs/MediaType",
+            "description": "What the bytes are."
+          },
+          "size": {
+            "description": "Size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "Hash": {
+        "description": "BLAKE3 content hash (hex)",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "MediaType": {
+        "description": "A media type such as `application/pdf`.",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input naming a file.",
+    "properties": {
+      "file": {
+        "$ref": "#/$defs/BlobRef",
+        "description": "The file."
+      }
+    },
+    "required": [
+      "file"
+    ],
+    "title": "FileOnly",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "BlobRef": {
+        "description": "A file in the content-addressed store: messages carry these, never large bytes (§9.4).",
+        "properties": {
+          "hash": {
+            "$ref": "#/$defs/Hash",
+            "description": "Content hash."
+          },
+          "media_type": {
+            "$ref": "#/$defs/MediaType",
+            "description": "What the bytes are."
+          },
+          "size": {
+            "description": "Size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "Hash": {
+        "description": "BLAKE3 content hash (hex)",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "MediaType": {
+        "description": "A media type such as `application/pdf`.",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Output of `document.ocr`.",
+    "properties": {
+      "file": {
+        "$ref": "#/$defs/BlobRef",
+        "description": "The new file: the original followed by an invisible text layer on scanned pages."
+      },
+      "pages": {
+        "description": "Pages that received text.",
+        "items": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "type": "array"
+      },
+      "words": {
+        "description": "Words written.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "file",
+      "pages",
+      "words"
+    ],
+    "title": "Ocred",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "create"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Write the recognised text of scanned pages into a new version of the PDF"
+}

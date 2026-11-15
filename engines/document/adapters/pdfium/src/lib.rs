@@ -152,10 +152,23 @@ pub struct PdfiumBackend {
 
 impl PdfiumBackend {
     /// Load `pdfium.dll` (or the platform's library) from `dir` and start the owning thread.
+    /// `PDFium` can be started once per process (a second start crashes it), so later calls share
+    /// the first worker.
     ///
     /// # Errors
     /// The library cannot be loaded.
     pub fn start(dir: &Path) -> Result<Self, String> {
+        static WORKER: std::sync::Mutex<Option<mpsc::Sender<Job>>> = std::sync::Mutex::new(None);
+        let mut worker = WORKER.lock().map_err(|e| e.to_string())?;
+        if let Some(tx) = worker.as_ref() {
+            return Ok(Self { tx: tx.clone() });
+        }
+        let started = Self::spawn(dir)?;
+        *worker = Some(started.tx.clone());
+        Ok(started)
+    }
+
+    fn spawn(dir: &Path) -> Result<Self, String> {
         let (tx, rx) = mpsc::channel::<Job>();
         let (ready_tx, ready_rx) = mpsc::channel::<Result<(), String>>();
         let lib = Pdfium::pdfium_platform_library_name_at_path(dir);

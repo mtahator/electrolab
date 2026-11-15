@@ -71,6 +71,7 @@ node e2e/reader.mjs      target/release/electropaper-reader.exe <scratch> <scrat
 node e2e/annotations.mjs target/release/electropaper-reader.exe <scratch> <scratch>/out   # annotations (M3)
 node e2e/perf.mjs        target/release/electropaper-reader.exe <scratch>                 # scrolling and memory
 node e2e/screens.mjs     target/release/electropaper-reader.exe <scratch> <scratch>/out   # design review: every screen in all five themes, control names
+node e2e/intel.mjs       target/release/electropaper-reader.exe <scratch> <scratch>/out   # document intelligence (M4): preparation, contents, mentions, citations, region, tables, scanned pages
 ```
 
 Each prints a JSON report and exits non-zero on a failed check; screenshots go to the out folder.
@@ -80,6 +81,7 @@ Each prints a JSON report and exits non-zero on a failed check; screenshots go t
 - Windows 11, 16 GB RAM, 4 GB GPU — the minimum hardware. Measure budgets here.
 - Repository path contains a space (`D:\local LLM\…`). If a native build tool fails because of it, record it and use a short path.
 - Native libraries (PDFium, ONNX Runtime, llama.cpp) are fetched prebuilt with `cargo xtask fetch-natives`, never compiled here.
+- Page models are fetched with `cargo xtask fetch-models` into `.natives/models` (the OCR models, which ship with the app; `--all` adds the layout model). Every file is pinned by SHA-256.
 
 ## Known pitfalls
 

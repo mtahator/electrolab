@@ -386,6 +386,12 @@ fn serde_kind(k: ObjectKind) -> &'static str {
     }
 }
 
+/// Reading order of boxes (indexes), by the same XY-cut as objects: columns before rows.
+#[must_use]
+pub fn reading_order(rects: &[PageRect]) -> Vec<usize> {
+    xy_cut(rects, (0..rects.len()).collect(), 0)
+}
+
 /// The object a point falls in: the smallest object containing it (figures, tables and
 /// equations before text).
 #[must_use]

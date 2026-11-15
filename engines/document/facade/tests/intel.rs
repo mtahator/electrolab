@@ -33,6 +33,16 @@ impl BlobAccess for OneFile {
     fn path_of(&self, _hash: &Hash) -> Option<PathBuf> {
         Some(self.0.clone())
     }
+    fn put(&self, bytes: &[u8], media_type: MediaType) -> std::io::Result<BlobRef> {
+        // Tests keep written files next to the source.
+        let hash = Hash::of(bytes);
+        std::fs::write(self.0.with_extension(format!("{hash}.pdf")), bytes)?;
+        Ok(BlobRef {
+            hash,
+            size: bytes.len() as u64,
+            media_type,
+        })
+    }
 }
 
 fn pdfium() -> Option<Arc<dyn ep_document::Backend>> {
@@ -62,10 +72,9 @@ fn setup(name: &str, models: bool, cache: &Path) -> Option<(Arc<Bus>, BlobRef, b
     if models {
         match std::env::var_os("EP_MODELS_DIR") {
             Some(dir) => {
-                doc.load_page_models(Path::new(&dir)).expect("models load");
-                with_model = Document::model_specs()
-                    .iter()
-                    .all(|m| m.present(Some(Path::new(&dir))));
+                let dirs = vec![PathBuf::from(dir)];
+                doc.load_page_models(&dirs).expect("models load");
+                with_model = ep_document::ModelSpec::present(&Document::model_specs()[0], &dirs);
             }
             None => eprintln!("note: EP_MODELS_DIR not set; layout model parts skipped"),
         }
@@ -317,4 +326,189 @@ async fn print_heading_like_lines() {
             }
         }
     }
+}
+
+/// An image-only ("scanned") copy of page `page` of `src`: the page rendered, put back as a
+/// picture, no text layer.
+fn scanned_copy(src: &Path, page: u32, out: &Path) {
+    use lopdf::{Object, Stream, dictionary};
+    let pdf = pdfium().unwrap();
+    let (geoms, _) = pdf.info(src).unwrap();
+    let size = geoms[(page - 1) as usize].size();
+    let bmp = pdf.render(src, page - 1, 1700).unwrap();
+    let rgb: Vec<u8> = bmp
+        .rgba
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .flat_map(|p| [p[0], p[1], p[2]])
+        .collect();
+    let mut doc = lopdf::Document::with_version("1.7");
+    let img = doc.add_object(Stream::new(
+        dictionary! { "Type" => "XObject", "Subtype" => "Image", "Width" => i64::from(bmp.width), "Height" => i64::from(bmp.height), "ColorSpace" => "DeviceRGB", "BitsPerComponent" => 8 },
+        rgb,
+    ));
+    let content = format!("q {} 0 0 {} 0 0 cm /Im0 Do Q", size.width, size.height);
+    let contents = doc.add_object(Stream::new(dictionary! {}, content.into_bytes()));
+    let pages_id = doc.new_object_id();
+    let leaf = doc.add_object(dictionary! {
+        "Type" => "Page", "Parent" => pages_id, "MediaBox" => vec![0.into(), 0.into(), Object::Real(size.width), Object::Real(size.height)],
+        "Contents" => contents, "Resources" => dictionary! { "XObject" => dictionary! { "Im0" => img } },
+    });
+    doc.objects.insert(
+        pages_id,
+        Object::Dictionary(
+            dictionary! { "Type" => "Pages", "Kids" => vec![leaf.into()], "Count" => 1 },
+        ),
+    );
+    let catalog = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages_id });
+    doc.trailer.set("Root", catalog);
+    doc.save(out).unwrap();
+}
+
+fn words(s: &str) -> std::collections::HashMap<String, usize> {
+    let mut m = std::collections::HashMap::new();
+    for w in s
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| w.len() > 1)
+    {
+        *m.entry(w.to_lowercase()).or_insert(0) += 1;
+    }
+    m
+}
+
+/// Word-multiset F1 of two texts.
+fn f1(a: &str, b: &str) -> f32 {
+    let (wa, wb) = (words(a), words(b));
+    let common: usize = wa
+        .iter()
+        .map(|(k, v)| (*v).min(*wb.get(k).unwrap_or(&0)))
+        .sum();
+    let (na, nb): (usize, usize) = (wa.values().sum(), wb.values().sum());
+    if common == 0 {
+        0.0
+    } else {
+        2.0 * common as f32 / (na + nb) as f32
+    }
+}
+
+#[tokio::test]
+async fn ocr_makes_a_scanned_page_searchable() {
+    let tmp = tempfile::tempdir().unwrap();
+    let models = root().join(".natives/models");
+    let src = root().join(".fixtures/papers/arxiv-2111.12066v2.pdf");
+    if pdfium().is_none()
+        || !src.exists()
+        || !models.join("ppocrv5-rec-en/inference.onnx").exists()
+        || ep_document::find_onnxruntime().is_none()
+    {
+        eprintln!(
+            "skipped: PDFium, fixtures, ONNX Runtime or OCR models missing (cargo xtask fetch-models)"
+        );
+        return;
+    }
+    let scanned = tmp.path().join("scanned.pdf");
+    scanned_copy(&src, 2, &scanned);
+    // The end-to-end check of the app (e2e/intel.mjs) opens the same scanned file.
+    if let Some(keep) = std::env::var_os("EP_SCANNED_OUT") {
+        std::fs::copy(&scanned, keep).unwrap();
+    }
+    let doc = Document::new(
+        Arc::new(OneFile(scanned.clone())),
+        pdfium(),
+        Some(&tmp.path().join("cache")),
+    )
+    .unwrap();
+    doc.load_page_models(&[models]).unwrap();
+    let bus = Arc::new(Bus::default());
+    doc.register(&bus).unwrap();
+    let bytes = std::fs::read(&scanned).unwrap();
+    let file = BlobRef {
+        hash: Hash::of(&bytes),
+        size: bytes.len() as u64,
+        media_type: MediaType::pdf(),
+    };
+
+    let before: ep_document_contract::PageText =
+        call(&bus, "document.text", json!({ "file": file, "page": 1 }))
+            .await
+            .unwrap();
+    assert!(before.text.trim().is_empty(), "the copy has no text layer");
+    let t = Instant::now();
+    let prep: Preparation = call(&bus, "document.prepare", json!({ "file": file }))
+        .await
+        .unwrap();
+    let secs = t.elapsed().as_secs_f32();
+    assert_eq!(prep.image_only_pages, vec![1]);
+    let ocr = prep
+        .stages
+        .iter()
+        .find(|s| s.stage == ep_document_contract::Stage::Ocr)
+        .unwrap();
+    assert_eq!(ocr.status, StageStatus::Done, "{ocr:?}");
+
+    // The recognised text against the original page's real text.
+    let original = {
+        let d = Document::new(Arc::new(OneFile(src.clone())), pdfium(), None).unwrap();
+        let b = Arc::new(Bus::default());
+        d.register(&b).unwrap();
+        let ob = std::fs::read(&src).unwrap();
+        let of = BlobRef {
+            hash: Hash::of(&ob),
+            size: ob.len() as u64,
+            media_type: MediaType::pdf(),
+        };
+        call::<ep_document_contract::PageText>(
+            &b,
+            "document.text",
+            json!({ "file": of, "page": 2 }),
+        )
+        .await
+        .unwrap()
+    };
+    let after: ep_document_contract::PageText =
+        call(&bus, "document.text", json!({ "file": file, "page": 1 }))
+            .await
+            .unwrap();
+    let score = f1(&after.text, &original.text);
+    eprintln!(
+        "OCR of one page: {secs:.1} s, word F1 {score:.3}, {} words\n{}",
+        after.words.len(),
+        after.text.chars().take(300).collect::<String>()
+    );
+    assert!(score > 0.85, "word agreement {score}");
+
+    // Search finds a word on the scanned page.
+    let found: ep_document_contract::SearchResult = call(
+        &bus,
+        "document.search",
+        json!({ "papers": [file.hash.to_string()], "terms": [{ "text": "controllers" }] }),
+    )
+    .await
+    .unwrap();
+    assert!(!found.hits.is_empty(), "search finds recognised words");
+
+    // The text layer written into the PDF is read back by PDFium itself.
+    let ocred: ep_document_contract::Ocred = call(&bus, "document.ocr", json!({ "file": file }))
+        .await
+        .unwrap_or_else(|e| panic!("{e:?}"));
+    assert_eq!(ocred.pages, vec![1]);
+    let written = scanned.with_extension(format!("{}.pdf", ocred.file.hash));
+    assert!(
+        std::fs::read(&written).unwrap().starts_with(&bytes),
+        "incremental: the scan is kept as it was"
+    );
+    let d = Document::new(Arc::new(OneFile(written.clone())), pdfium(), None).unwrap();
+    let b = Arc::new(Bus::default());
+    d.register(&b).unwrap();
+    let layer: ep_document_contract::PageText = call(
+        &b,
+        "document.text",
+        json!({ "file": ocred.file, "page": 1 }),
+    )
+    .await
+    .unwrap();
+    let back = f1(&layer.text, &after.text);
+    eprintln!("text layer read back by PDFium: F1 {back:.3} against the OCR text");
+    assert!(back > 0.9, "{back}");
 }

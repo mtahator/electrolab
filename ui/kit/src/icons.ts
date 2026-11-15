@@ -49,6 +49,7 @@ import Plus from "lucide-solid/icons/plus";
 import Printer from "lucide-solid/icons/printer";
 import Quote from "lucide-solid/icons/quote";
 import Redo2 from "lucide-solid/icons/redo-2";
+import ScanText from "lucide-solid/icons/scan-text";
 import Search from "lucide-solid/icons/search";
 import Settings from "lucide-solid/icons/settings";
 import Sigma from "lucide-solid/icons/sigma";
@@ -118,6 +119,7 @@ export const ICONS = {
   printer: Printer,
   quote: Quote,
   "redo-2": Redo2,
+  "scan-text": ScanText,
   search: Search,
   settings: Settings,
   sigma: Sigma,

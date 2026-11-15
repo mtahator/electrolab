@@ -645,6 +645,16 @@ export interface ObjectsRequest {
   page: number;
 }
 
+/** Output of `document.ocr`. */
+export interface Ocred {
+  /** The new file: the original followed by an invisible text layer on scanned pages. */
+  file: BlobRef;
+  /** Pages that received text. */
+  pages: number[];
+  /** Words written. */
+  words: number;
+}
+
 /** Input of `workspace.open_project`. */
 export interface OpenProject {
   /** The project folder. */

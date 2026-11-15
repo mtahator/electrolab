@@ -1,7 +1,7 @@
 // Document intelligence in the UI (P1.M4): background preparation of open papers, page models,
 // and the one popover that shows a figure, table, equation or reference in place.
 
-import type { BlobRef, CitationMarker, DocObject, Mention, ModelInfo, Preparation, StageState } from "@electropaper/bindings";
+import type { BlobRef, CitationMarker, DocObject, Mention, ModelInfo, Paper, Preparation, StageState } from "@electropaper/bindings";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { createSignal } from "solid-js";
@@ -38,6 +38,21 @@ export async function refreshModels(): Promise<void> {
   } catch {
     setModels([]);
   }
+}
+
+/** Whether a paper has scanned pages whose recognised text can be written into its PDF. */
+export function canAddTextLayer(hash: string): boolean {
+  const p = preps[hash];
+  if (!p || p.image_only_pages.length === 0) return false;
+  return p.stages.some((s) => s.stage === "ocr" && s.status === "done");
+}
+
+/** Write the recognised text of scanned pages into a new version of the paper's PDF, so other
+ *  readers can search and select it too. The previous version stays in the library. */
+export async function addTextLayer(paper: Paper): Promise<{ paper: Paper; pages: number }> {
+  const out = await bus("document.ocr", { file: paper.file });
+  const updated = await bus("workspace.set_paper_file", { id: paper.id, file: out.file });
+  return { paper: updated, pages: out.pages.length };
 }
 
 export const layoutModel = (): ModelInfo | undefined => models().find((m) => m.id === "egret-medium");

@@ -1,7 +1,7 @@
 # Document engine — contract
 
-Version: 0.3.0      Stability: experimental      Tier: T1
-Crates: `ep-document-contract` (types), `ep-document-core` (pure logic), `ep-document-adapter-pdfium`, `ep-document-adapter-lopdf`, `ep-document` (facade)
+Version: 0.4.0      Stability: experimental      Tier: T1
+Crates: `ep-document-contract` (types), `ep-document-core` (pure logic), `ep-document-adapter-pdfium`, `ep-document-adapter-lopdf`, `ep-document-adapter-onnx`, `ep-document` (facade)
 
 ## Purpose
 Read documents into structured, positioned content — and find things in them — for every host (Reader, Lab, CLI, Python, MCP).
@@ -65,11 +65,37 @@ Event: `document.annotations_changed { paper }` after every change.
 
 Rendering: `document.render` and `document.thumbnails` leave annotations out of page images (the viewer draws them from the store).
 
+### Document intelligence (experimental, T1) — P1.M4, ADR-007, ADR-013
+A paper is **prepared** in the background: text → outline → objects → OCR → index → equations → tables → references. Every result is cached by file hash and implementation version, so preparing again costs nothing. Deterministic rules (the PDF's text, printed labels) come first; models fill what text cannot give. Pages are 1-based; positions in page space.
+
+| Command | Input → Output | Permission |
+|---|---|---|
+| `document.prepare` | `PrepareRequest { file, first_pages }` → `Preparation { file, stages, image_only_pages }`, streaming; `first_pages` (the page in view) go first | read |
+| `document.preparation` | `{ file }` → `Preparation` (state now, without starting work) | read |
+| `document.objects` | `{ file, page }` → `PageObjects` with `DocObject { id, kind, rect, label, number, text, caption_rect, score, order }`; kinds figure, table, equation, heading, paragraph, caption, list, … | read |
+| `document.region` | `RegionRequest { file, page, point or rect, width_px }` → `RegionHit { object?, rect, image (PNG blob), text }` — a lookup on prepared objects | read |
+| `document.contents` | `{ file }` → `Contents { sections (generated outline), figures, tables, equations }` | read |
+| `document.mentions` | `{ file, page }` → `[Mention { kind, text, numbers, quads, target? }]` ("Fig. 3(b)", "Figs. 2–4", "Table 2", "Eq. (5)", "Section 4.2") | read |
+| `document.citation_markers` | `{ file, page }` → `[CitationMarker { text, quads, entries }]` ("[3–5, 9]", "(Smith et al., 2020)", "Smith and Lee [4]") | read |
+| `document.references` | `{ file }` → `[Reference { index, label, text, authors, year, title, doi?, arxiv?, url?, page, rect }]` | read |
+| `document.equation` | `EquationRequest { file, id or number }` → `Equation { object, page, latex?, note?, image, text }` (`latex` is empty until the formula model is installed; `note` says why) | read |
+| `document.table` | `TableRequest { file, id }` → `Table { rows: [[Cell]], header_rows, units, csv }` (numbers parsed) | read |
+| `document.ocr` | `{ file }` → `Ocred { file, pages, words }`: a **new** PDF = the original bytes + an incremental update with an invisible text layer on every scanned page (ADR-013); the original is never changed | create |
+| `document.models` | `{}` → `[ModelInfo { id, purpose, size, present, licence }]` | read |
+
+Errors: `not_found`, `unreadable`, `bad_page`, `model_missing` (a model the command needs is not installed), `no_object` (nothing at that place, or no scanned page with text), `write_failed`.
+Events: `document.preparing { file, stage }` while a stage runs; `document.prepared { file }` when preparation ends.
+
+**Scanned pages.** Pages with almost no text of their own are recognised with PP-OCRv5 (ONNX Runtime, the same on every system, models shipped with the app). The recognised text is cached per page and returned by `document.text`, and used by search and every rule above, so a scanned paper works like any other. About 11 s per page on the minimum hardware, in the background, page in view first.
+
+**Models.** Pinned in `facade/src/models.rs` by folder, file, size and SHA-256. Hosts pass every folder to look in (bundled `models/` next to the executable first, then the user's data folder) to `Document::load_page_models`. The OCR models (13 MB) are bundled; the layout model (Egret-medium, 78 MB) is downloaded on request by the host, and without it objects come from text rules only.
+
 ### Planned (Phase 1, contracts written before code)
-`document.extract`, `document.region`, `document.ocr`, `document.objects`, `document.equation`, `document.table`, `document.references` (Draft 2.2 §14.2, §28.6).
+`document.extract` (Draft 2.2 §14.2, §28.6); LaTeX for `document.equation` (formula model, P1.M4.EQ.1).
 
 ## Events
-- `document.extracted { paper, extractor_version }` — after preparation; the search index is built in the same stage.
+- `document.preparing`, `document.prepared` — see Document intelligence.
+- `document.extracted { paper, extractor_version }` — planned with `document.extract`.
 
 ## Uses (contracts only)
 - none (Document is a base engine, Draft 2.2 §6.3).

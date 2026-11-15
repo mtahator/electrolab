@@ -9,6 +9,8 @@ use std::path::Path;
 
 mod annotations;
 pub use annotations::{WriteReport, read_annotations, write_annotations};
+mod text_layer;
+pub use text_layer::write_text_layer;
 
 use ep_document_core::metadata::RawMetadata;
 use lopdf::Object;

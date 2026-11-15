@@ -123,6 +123,6 @@ pub async fn fetch_model(
         "model-progress",
         json!({ "id": spec.id, "received": spec.size, "total": spec.size, "done": true }),
     );
-    state.document.load_page_models(&dir)?;
+    state.document.load_page_models(&state.model_dirs)?;
     Ok(())
 }

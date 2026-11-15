@@ -24,8 +24,10 @@ use uuid::Uuid;
 struct AppState {
     bus: Arc<Bus>,
     document: Arc<Document>,
-    /// Where page models are kept.
+    /// Where downloaded page models are kept.
     models_dir: PathBuf,
+    /// Every folder with page models (bundled first).
+    model_dirs: Vec<PathBuf>,
     allowed: HashSet<String>,
     workspace: Arc<Workspace>,
     shell: Arc<dyn ep_os::ShellOpen>,
@@ -114,6 +116,7 @@ fn os_dirs() -> anyhow::Result<Arc<dyn ep_os::AppDirs>> {
     Ok(Arc::new(ep_os::RootDirs(home.join(".electropaper"))))
 }
 
+#[allow(clippy::too_many_lines)] // one place wires the whole app
 fn main() -> anyhow::Result<()> {
     let dirs = dirs()?;
     let log_file = dirs.logs().join("reader.jsonl");
@@ -147,8 +150,13 @@ fn main() -> anyhow::Result<()> {
     }
     document.register(&bus)?;
     // Page models (layout) load when present; preparation works from the text alone otherwise.
+    // Bundled models (text recognition) first, then the ones the user downloaded.
     let models_dir = models::models_dir(dirs_for_models.as_ref());
-    if let Err(e) = document.load_page_models(&models_dir) {
+    let model_dirs: Vec<PathBuf> = ep_document::bundled_models_dir()
+        .into_iter()
+        .chain([models_dir.clone()])
+        .collect();
+    if let Err(e) = document.load_page_models(&model_dirs) {
         tracing::warn!(%e, "page models could not be loaded");
     }
 
@@ -171,6 +179,7 @@ fn main() -> anyhow::Result<()> {
             bus,
             document: document.clone(),
             models_dir,
+            model_dirs,
             allowed: allowed_commands()?,
             workspace: workspace.clone(),
             shell: os_shell,

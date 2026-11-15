@@ -1,5 +1,5 @@
-//! ONNX Runtime adapter for the Document engine's page models (ADR-007): the layout model
-//! (Docling Egret-medium, D-FINE) now; OCR and formula models join here later.
+//! ONNX Runtime adapter for the Document engine's page models (ADR-007, ADR-013): the layout
+//! model (Docling Egret-medium, D-FINE) and PP-OCRv5 text recognition; formulas join later.
 //!
 //! ONNX Runtime is loaded at run time from a pinned build (`natives.toml`), one environment per
 //! process; each model has one shared session with 4 intra-op threads, so preparation leaves
@@ -15,12 +15,15 @@ use ort::session::Session;
 use ort::value::Tensor;
 use parking_lot::Mutex;
 
+mod ppocr;
+pub use ppocr::PpOcr;
+
 /// Square input size of the Docling layout models.
 const SIZE: usize = 640;
 /// Intra-op threads per model (half of an 8-core laptop).
 const THREADS: usize = 4;
 
-fn err(e: impl std::fmt::Display) -> String {
+pub(crate) fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
 }
 
@@ -49,15 +52,27 @@ impl Runtime {
         Ok(Self { env })
     }
 
-    fn session(&self, model: &Path) -> Result<Session, String> {
+    pub(crate) fn session(&self, model: &Path) -> Result<Session, String> {
+        // More threads made OCR slower on an 8-core laptop (measured: 4 → 11.5 s, 16 → 31 s).
+        let threads = THREADS;
         Session::builder(&self.env)
             .map_err(err)?
-            .with_intra_threads(THREADS)
+            .with_optimization_level(ort::session::builder::GraphOptimizationLevel::Level3)
+            .map_err(err)?
+            .with_intra_threads(threads)
             .map_err(err)?
             .with_inter_threads(1)
             .map_err(err)?
             .commit_from_file(model)
             .map_err(err)
+    }
+
+    /// PP-OCRv5: detector, recogniser and the recogniser's `inference.yml` (character list).
+    ///
+    /// # Errors
+    /// A model file cannot be loaded.
+    pub fn ppocr(&self, det: &Path, rec: &Path, dict: &Path) -> Result<PpOcr, String> {
+        PpOcr::load(self, det, rec, dict)
     }
 
     /// The Docling layout model at `model` (Egret-medium ONNX: `pixel_values` in, logits and

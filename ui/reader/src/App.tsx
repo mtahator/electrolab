@@ -32,7 +32,7 @@ import { createStore } from "solid-js/store";
 import { ToolRail } from "./annotations/ToolRail";
 import { annotationsOf, marksHidden, onAnnotationError, picked, redo, remove, saveIntoPdf, savedAt, setMarksHidden, setPicked, setTool, typing, undo } from "./annotations/state";
 import { bus, downloadPdf, onBusEvent, onDropFiles, onOpenFiles, openPaperExternally, pickPdfs, printPaper, takePendingFiles } from "./host";
-import { download, fetchModel, layoutModel, prepare, refreshModels, running } from "./intel/state";
+import { addTextLayer, canAddTextLayer, download, fetchModel, layoutModel, prepare, refreshModels, running } from "./intel/state";
 import { importPdf, openDefaultLibrary, refresh } from "./library";
 import { NotesPanel } from "./notes/NotesPanel";
 import { flushAll, onNotesError } from "./notes/state";
@@ -97,6 +97,8 @@ export function App(): JSX.Element {
   const [showSaved, setShowSaved] = createSignal(false);
   const [peek, setPeek] = createSignal(false);
   const [modelDialog, setModelDialog] = createSignal(false);
+  const [addingText, setAddingText] = createSignal(false);
+  const [note, setNote] = createSignal<string | null>(null);
   const [status, setStatus] = createStore<Record<string, ViewerStatus>>({});
   const [marks, setMarks] = createStore<Record<string, Marks>>({});
   const apis = new Map<string, ViewerApi>();
@@ -132,6 +134,21 @@ export function App(): JSX.Element {
       if (updated) updatePaper(updated);
     } finally {
       setSavingPdf(false);
+    }
+  };
+
+  // Scanned pages: write the recognised text into a new version of the PDF (P1.M4.OCR.2).
+  const addText = async (paper: Paper): Promise<void> => {
+    setAddingText(true);
+    try {
+      const r = await addTextLayer(paper);
+      updatePaper(r.paper);
+      setNote(t("intel.added_text_layer", { pages: r.pages }));
+      window.setTimeout(() => setNote(null), 3000);
+    } catch (e) {
+      report(e);
+    } finally {
+      setAddingText(false);
     }
   };
 
@@ -273,6 +290,12 @@ export function App(): JSX.Element {
     { id: "annot.redo", title: () => t("annot.redo"), keys: "Ctrl+Y", enabled: () => !!current().paper && !typing(), run: withPaper((p) => void redo(p.id)) },
     { id: "annot.redo2", title: () => t("annot.redo"), keys: "Ctrl+Shift+Z", enabled: () => !!current().paper && !typing(), run: withPaper((p) => void redo(p.id)) },
     { id: "annot.save_pdf", title: () => t("annot.save_pdf"), keys: "Ctrl+S", enabled: () => !!current().paper && !savingPdf(), run: withPaper((p) => void savePdf(p)) },
+    {
+      id: "intel.text_layer",
+      title: () => t("intel.add_text_layer"),
+      enabled: () => !!current().paper && canAddTextLayer(current().paper?.file.hash ?? "") && !addingText(),
+      run: withPaper((p) => void addText(p)),
+    },
     { id: "annot.hide", title: () => (marksHidden() ? t("annot.show_all") : t("annot.hide_all")), keys: "Ctrl+H", run: () => setMarksHidden(!marksHidden()) },
     { id: "notes.margin", title: () => t("notes.margin_view"), keys: "Ctrl+Shift+M", enabled: () => !!current().paper, run: withPaper((p) => toggleMarginView(p.id)) },
     {
@@ -370,6 +393,7 @@ export function App(): JSX.Element {
         { label: marksHidden() ? t("annot.show_all") : t("annot.hide_all"), icon: marksHidden() ? "eye" : "eye-off", shortcut: "Ctrl+H", run: () => setMarksHidden(!marksHidden()) },
         { label: t("notes.margin_view"), icon: "messages-square", shortcut: "Ctrl+Shift+M", checked: marginView(p.id), run: () => toggleMarginView(p.id) },
         { label: t("annot.save_pdf"), icon: "file-down", shortcut: "Ctrl+S", disabled: !annotationsOf(p.id)?.unsaved, run: () => void savePdf(p) },
+        ...(canAddTextLayer(p.file.hash) ? [{ label: t("intel.add_text_layer"), icon: "scan-text" as const, disabled: addingText(), run: () => void addText(p) }] : []),
         { separator: true },
         { label: t("viewer.open_external"), icon: "external-link", run: () => void openPaperExternally(p.file.hash).catch(report) },
         { label: t("viewer.print"), icon: "printer", shortcut: "Ctrl+P", run: () => void printPaper(p.file.hash).catch(report) },
@@ -600,6 +624,12 @@ export function App(): JSX.Element {
                   {t("intel.preparing", { stage: t(`intel.stage.${r().stage}`), done: r().done, total: r().total })}
                 </StatusItem>
               )}
+            </Show>
+            <Show when={addingText()}>
+              <StatusItem icon="scan-text">{t("intel.adding_text_layer")}</StatusItem>
+            </Show>
+            <Show when={note()}>
+              <StatusItem icon="check">{note()}</StatusItem>
             </Show>
             <Show when={download()}>
               {(d) => (

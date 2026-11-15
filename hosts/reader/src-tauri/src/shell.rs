@@ -163,6 +163,7 @@ pub fn clean_downloads() {
 /// Write text the user chose to save (a table as CSV, notes as Markdown) to the path they picked
 /// in the save dialog. Only text formats are written.
 #[tauri::command]
+#[allow(clippy::needless_pass_by_value)] // Tauri passes command arguments by value
 pub fn save_text_file(path: String, contents: String) -> Result<(), String> {
     let p = std::path::Path::new(&path);
     let ext = p

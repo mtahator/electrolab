@@ -5,6 +5,7 @@
 pub mod headings;
 pub mod layout;
 pub mod mentions;
+pub mod ocr;
 pub mod references;
 pub mod tables;
 

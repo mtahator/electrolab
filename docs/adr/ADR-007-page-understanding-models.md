@@ -1,6 +1,6 @@
 # ADR-007: Page understanding on CPU — Egret-medium layout, two OCR adapters, LaTeX-OCR for single-line formulas
 
-Status: **accepted** (layout, OCR adapters) · **proposed** (formula model; reading order and Persian OCR open)
+Status: **accepted** (layout) · **superseded for OCR by [ADR-013](ADR-013-open-offline-ocr.md)** (one open engine, bundled) · **proposed** (formula model; Persian OCR open)
 Date: 2026-11-13
 Plan reference: Draft 2.2 §14.2 (`LayoutModel`, `FormulaModel`, `Ocr` ports), §28.3 (Region tool, Scanned pages, Equations, Background preparation), §28.7; Phase 1 M4; task P0.S5
 
@@ -9,10 +9,10 @@ The Reader needs every figure, table and equation on a page as an object (region
 
 ## Decision
 1. **Layout model: Docling Egret-medium** (Apache-2.0, 75 MB) via ONNX Runtime (`ort`), 4 threads, pages rendered by PDFium. 20 pages in 7.2–8.6 s; finds 296 of 299 numbered equations and the same figures/tables as the larger Heron and PP-DocLayout. We export the ONNX file ourselves from the official weights and pin its hash.
-2. **OCR port with two adapters:** Windows built-in OCR (≈0.2 s/page) for the page in view; PP-OCRv5 mobile (Apache-2.0, ~12 MB per script) in the background and wherever the OS lacks the language. The PP-OCR pre/post-processing (DB boxes, CTC decoding, width-sorted batches) lives in the adapter. macOS (Vision) and Linux adapters at the port stage.
+2. *(Superseded by ADR-013: PP-OCRv5 only, on every system, shipped with the app.)* **OCR port with two adapters:** Windows built-in OCR (≈0.2 s/page) for the page in view; PP-OCRv5 mobile (Apache-2.0, ~12 MB per script) in the background and wherever the OS lacks the language. The PP-OCR pre/post-processing (DB boxes, CTC decoding, width-sorted batches) lives in the adapter. macOS (Vision) and Linux adapters at the port stage.
 3. **Formulas: LaTeX-OCR (pix2tex, MIT) run lazily** on single-line equations with clean crops (number cut off using PDFium positions, blank space trimmed, output length and time capped); multi-line blocks split into lines first. Re-evaluate UniMERNet / PP-FormulaNet_plus (Apache-2.0) in P1.M4.EQ.1 when an ONNX export is made.
 4. **Deterministic first:** equation numbers, captions and inline symbols come from PDFium text; models fill what text cannot give.
-5. **All models are downloaded on first use**, pinned by commit and SHA-256 (as in `spikes/s5-page-models/models.json`).
+5. *(Amended by ADR-013: the OCR models ship with the app; the layout and formula models are downloaded.)* **All models are downloaded on first use**, pinned by commit and SHA-256 (as in `spikes/s5-page-models/models.json`).
 
 ## Alternatives considered
 | Option | Why not |
@@ -26,7 +26,7 @@ The Reader needs every figure, table and equation on a page as an object (region
 
 ## Consequences
 - Background preparation of a 20-page born-digital paper fits the 10 s budget using half the CPU; scanned papers need a longer background OCR stage (PP-OCR ≈ 2 min for 20 pages), with the visible page OCR'd at once by the OS engine.
-- **Open — reading order:** layout boxes need an ordering step (XY-cut over boxes, or a model that predicts order such as PP-DocLayoutV3); measured in P1.M4.OBJ.1.
+- **Reading order (resolved in M4):** XY-cut over the boxes, columns before rows; used for page objects and OCR lines.
 - **Open — Persian scans:** ~60 % word agreement with PP-OCR's Arabic-script model; Windows' Persian OCR untested (language pack not installed). No promise of Persian OCR quality until a better engine is measured.
 - ~260 MB of model downloads for the full page-understanding set.
 

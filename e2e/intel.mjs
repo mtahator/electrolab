@@ -1,11 +1,15 @@
 // End-to-end check of document intelligence (Milestone 4) on the real, built app.
 //
 //   EP_MODELS_DIR=<folder with egret-medium/model.onnx> node e2e/intel.mjs <reader.exe> <scratch-dir> <out-dir>
+//   EP_SCANNED_PDF=<image-only PDF> adds the scanned-paper run. Make one with
+//   EP_SCANNED_OUT=<path> cargo test -p ep-document --release --test intel ocr_makes
 //
 // With the layout model: background preparation finishes, the Contents panel lists figures,
 // tables and equations, a figure mention opens its figure in place and "Go to" + Back work,
 // a citation marker shows its reference, Ctrl+click picks a figure, a table opens as cells.
 // Without the model (a second run with an empty models folder): the status line offers it.
+// A scanned paper (models shipped with the app, no network): its page is recognised in the
+// background, becomes searchable, and its text can be written into the PDF.
 
 import { mkdirSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -25,17 +29,18 @@ const check = (name, ok, detail) => {
 };
 mkdirSync(out, { recursive: true });
 
-async function run(tag, modelsDir, body) {
+async function run(tag, modelsDir, body, file = paper) {
   const data = join(scratch, `intel-${tag}`);
   const webview = join(scratch, `intel-${tag}-webview`);
   rmSync(data, { recursive: true, force: true });
   rmSync(webview, { recursive: true, force: true });
   const prev = process.env.EP_MODELS_DIR;
   process.env.EP_MODELS_DIR = modelsDir;
-  const s = await launchApp({ exe, args: [paper], data, webview, port: 9338, out, consoleLog });
+  const s = await launchApp({ exe, args: [file], data, webview, port: 9338, out, consoleLog });
   process.env.EP_MODELS_DIR = prev;
   try {
-    await s.until(`document.querySelectorAll(".pane.focused .page[data-page='1'] .text-layer span").length > 100`, 30000);
+    await s.until(`document.querySelector(".pane.focused .page[data-page='1'] .text-layer")`, 30000);
+    if (file === paper) await s.until(`document.querySelectorAll(".pane.focused .page[data-page='1'] .text-layer span").length > 100`, 30000);
     await body(s);
   } catch (e) {
     report[`${tag}_error`] = String(e?.stack ?? e);
@@ -146,6 +151,35 @@ await run("nomodel", empty, async (s) => {
   const citations = await s.until(`document.querySelectorAll(".pane.focused .mention.citation").length || null`, 15000);
   check("no_model_offer_and_text_links", !!offer && !!dialog && citations > 0, { offer, dialog, citations });
 });
+
+const scanned = process.env.EP_SCANNED_PDF;
+if (scanned) {
+  await run(
+    "scanned",
+    empty,
+    async (s) => {
+      const call = (command, input) =>
+        `window.__TAURI_INTERNALS__.invoke("bus_call", { command: "workspace.list_papers", input: {}, deadlineMs: null, approved: [] })
+          .then((p) => window.__TAURI_INTERNALS__.invoke("bus_call", { command: "${command}", input: { file: p[0].file, ...${JSON.stringify(input)} }, deadlineMs: null, approved: [] }))`;
+      const t0 = Date.now();
+      const ocr = await s.until(`${call("document.preparation", {})}.then((r) => { const o = r.stages.find((x) => x.stage === "ocr"); return o.status === "done" ? r.image_only_pages : null; })`, 120000);
+      const seconds = Math.round((Date.now() - t0) / 1000);
+      const text = await s.js(`${call("document.text", { page: 1 })}.then((t) => t.text.length)`);
+      check("scanned_page_recognised", Array.isArray(ocr) && ocr.length === 1 && text > 1000, { image_only: ocr, chars: text, seconds });
+      const before = await s.js(`window.__TAURI_INTERNALS__.invoke("bus_call", { command: "workspace.list_papers", input: {}, deadlineMs: null, approved: [] }).then((p) => p[0].file.hash)`);
+      await s.js(`document.querySelector('.topbar [aria-label="More"]').click()`);
+      const item = await s.until(`[...document.querySelectorAll(".ep-menu [role=menuitem]")].find((b) => b.textContent.includes("Add recognised text"))?.textContent || null`, 5000);
+      await s.shot("m4-scanned-menu.png");
+      await s.js(`[...document.querySelectorAll(".ep-menu [role=menuitem]")].find((b) => b.textContent.includes("Add recognised text")).click()`);
+      const note = await s.until(`[...document.querySelectorAll(".ep-status .ep-status-item")].find((b) => b.textContent.includes("Recognised text added"))?.textContent || null`, 60000);
+      const after = await s.js(`window.__TAURI_INTERNALS__.invoke("bus_call", { command: "workspace.list_papers", input: {}, deadlineMs: null, approved: [] }).then((p) => p[0].file.hash)`);
+      check("text_layer_added", !!item && !!note && after !== before, { item, note, changed: after !== before });
+    },
+    scanned,
+  );
+} else {
+  report.scanned_note = "EP_SCANNED_PDF not set: the scanned-paper part was skipped";
+}
 
 report.console = consoleLog;
 report.failures = failures;
