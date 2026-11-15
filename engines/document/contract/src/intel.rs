@@ -30,6 +30,8 @@ pub enum Stage {
     Ocr,
     /// Reference list, citation markers and mentions of figures, tables and equations.
     Links,
+    /// LaTeX of every equation (the formula model, ADR-015).
+    Equations,
 }
 
 /// How a stage stands for one file.
@@ -179,6 +181,13 @@ pub struct RegionRequest {
     /// Width of the cropped image in pixels (default 800).
     #[serde(default)]
     pub width_px: Option<u32>,
+    /// Paper colours for a dark paper (as `document.render`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub colors: Option<crate::PageColors>,
+    /// Crop exactly `rect` (a known object's box) instead of snapping a drag to the object it
+    /// covers best.
+    #[serde(default)]
+    pub exact: bool,
 }
 
 /// Output of `document.region`.
@@ -399,6 +408,9 @@ pub struct ModelInfo {
     pub licence: String,
     /// Shipped with the app (cannot be removed).
     pub bundled: bool,
+    /// The model this file belongs to (files of one model are got and removed together; the
+    /// file whose id equals its group stands for the model).
+    pub group: String,
 }
 
 /// Error kinds of the intelligence commands.

@@ -1351,6 +1351,8 @@ dependencies = [
  "ep-types",
  "ort",
  "parking_lot 0.13.0",
+ "png",
+ "serde_json",
 ]
 
 [[package]]

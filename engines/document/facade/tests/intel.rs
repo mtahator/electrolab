@@ -689,3 +689,111 @@ async fn non_academic_documents() {
     assert_eq!(poster.references, 2, "poster references");
     assert!(poster.markers >= 1, "poster markers");
 }
+
+#[tokio::test]
+#[ignore = "debugging aid"]
+async fn print_equations() {
+    let tmp = tempfile::tempdir().unwrap();
+    let name = std::env::var("EP_PAPER").unwrap_or_else(|_| "arxiv-2111.12066v2.pdf".into());
+    let Some((bus, file, _)) = setup(&name, true, tmp.path()) else {
+        return;
+    };
+    let t0 = Instant::now();
+    let prep: Preparation = call(
+        &bus,
+        "document.prepare",
+        json!({ "file": file, "first_pages": [1] }),
+    )
+    .await
+    .unwrap();
+    eprintln!(
+        "PREPARED in {:.1}s: {:?}",
+        t0.elapsed().as_secs_f32(),
+        prep.stages
+            .iter()
+            .map(|s| format!("{:?}={:?} {}/{}", s.stage, s.status, s.done, s.total))
+            .collect::<Vec<_>>()
+    );
+    let c: Contents = call(&bus, "document.contents", json!({ "file": file }))
+        .await
+        .unwrap();
+    if std::env::var_os("EP_LATEX").is_some() {
+        for o in &c.equations {
+            let t = Instant::now();
+            let e: ep_document_contract::Equation = call(
+                &bus,
+                "document.equation",
+                json!({ "file": file, "object": { "page": o.rect.page, "id": o.id } }),
+            )
+            .await
+            .unwrap();
+            eprintln!(
+                "LATEX {:?} {:.1}s {:?} note={:?}",
+                o.label,
+                t.elapsed().as_secs_f32(),
+                e.latex,
+                e.note
+            );
+        }
+    }
+    for o in c
+        .equations
+        .iter()
+        .chain(c.figures.iter().take(3))
+        .chain(c.tables.iter().take(2))
+    {
+        eprintln!(
+            "{:?} p{} label={:?} number={:?} score={:.2} w={:.0} h={:.0} text={:?}",
+            o.kind,
+            o.rect.page,
+            o.label,
+            o.number,
+            o.score,
+            o.rect.x1 - o.rect.x0,
+            o.rect.y1 - o.rect.y0,
+            o.text
+                .as_deref()
+                .map(|t| t.chars().take(80).collect::<String>())
+        );
+    }
+}
+
+/// Equations are whole formula blocks with their number, and their text is never just
+/// punctuation (founder report: the Equations list showed ","). Without the layout model too.
+#[tokio::test]
+async fn equations_are_whole() {
+    let tmp = tempfile::tempdir().unwrap();
+    let Some((bus, file, _)) = setup("arxiv-2111.12066v2.pdf", false, tmp.path()) else {
+        return;
+    };
+    let c: Contents = call(&bus, "document.contents", json!({ "file": file }))
+        .await
+        .unwrap();
+    let numbers: Vec<String> = c
+        .equations
+        .iter()
+        .filter_map(|o| o.number.clone())
+        .collect();
+    let want: Vec<String> = (1..=13).map(|n| n.to_string()).collect();
+    assert_eq!(numbers, want, "equations found from the text alone");
+    for o in &c.equations {
+        let t = o.text.as_deref().unwrap_or("");
+        assert!(
+            t.is_empty() || t.chars().any(char::is_alphanumeric),
+            "{:?}: text {t:?}",
+            o.label
+        );
+        assert!(
+            !t.chars()
+                .any(|c| c.is_control() || ('\u{e000}'..='\u{f8ff}').contains(&c)),
+            "{:?}: raw glyphs",
+            o.label
+        );
+        assert!(
+            o.rect.x1 - o.rect.x0 > 100.0,
+            "{:?}: only a piece of the formula: {:?}",
+            o.label,
+            o.rect
+        );
+    }
+}

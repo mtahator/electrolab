@@ -70,7 +70,8 @@ const reducedMotion = (): boolean => window.matchMedia("(prefers-reduced-motion:
 /** Pages around the view whose text and links stay loaded. */
 const KEEP_NEAR = 10;
 
-function pageColors(): { background: string; foreground: string } | null {
+/** Page colours of the paper setting (dark papers), or null for pages as printed. */
+export function pageColors(): { background: string; foreground: string } | null {
   const css = getComputedStyle(document.documentElement);
   const ink = css.getPropertyValue("--page-ink").trim();
   const bg = css.getPropertyValue("--page-bg").trim();
@@ -137,6 +138,26 @@ export function Viewer(props: ViewerProps): JSX.Element {
     ),
   );
 
+  // Keep the reader's place when the page scale changes for another reason than zooming: the
+  // window or a side panel changes size (fit width / fit page). Zooming keeps its own anchor.
+  let place: Place | null = null;
+  const zoomKey = (z: Zoom): string => (z.kind === "scale" ? `scale:${z.factor}` : z.kind);
+  let lastZoom = zoomKey(zoom());
+  createEffect(
+    on(
+      scale,
+      () => {
+        const z = zoomKey(zoom());
+        const zoomed = z !== lastZoom;
+        lastZoom = z;
+        const p = place;
+        if (zoomed || !p || !restored) return;
+        queueMicrotask(() => goTo(p.page, p.y, false, true));
+      },
+      { defer: true },
+    ),
+  );
+
   // Redraw sharply only when the zoom has settled (CSS scaling meanwhile).
   createEffect(
     on(scale, (s) => {
@@ -149,7 +170,12 @@ export function Viewer(props: ViewerProps): JSX.Element {
     const l = lay();
     const page = mode() === "single" ? current() : pageAt(l, view().top + 1);
     const s = l.slots.find((x) => x.page === page);
-    return { page, y: s ? Math.max(0, (view().top - s.top) / l.scale) : 0 };
+    if (!s) return { page, y: 0 };
+    // In the gap below a page, the place is the top of the next page (a place past a page's
+    // end would restore to a different page at another zoom).
+    const next = l.slots.find((x) => x.page === page + 1);
+    if (next && mode() !== "single" && view().top + 1 > s.top + s.height) return { page: page + 1, y: 0 };
+    return { page, y: Math.max(0, (view().top - s.top) / l.scale) };
   };
 
   /** Show `page` with page-space `y` near the top. `exact` puts `y` exactly at the top (used to
@@ -172,8 +198,19 @@ export function Viewer(props: ViewerProps): JSX.Element {
       // Nearby jumps glide (the eye can follow where it went); far ones are instant, since gliding
       // past many pages would only draw pages nobody reads.
       const near = Math.abs(to - scroller.scrollTop) < 2.5 * scroller.clientHeight;
-      if (exact || !near || reducedMotion()) scroller.scrollTop = to;
-      else scroller.scrollTo({ top: to, behavior: "smooth" });
+      if (exact || !near || reducedMotion()) {
+        scroller.scrollTop = to;
+        // The page in view, even when the position did not change (no scroll event).
+        if (mode() !== "single") setCurrent(pageAt(lay(), to + scroller.clientHeight / 2));
+      }
+      else {
+        scroller.scrollTo({ top: to, behavior: "smooth" });
+        // Save the place where the glide ends, not a page on the way.
+        if (record) {
+          window.clearTimeout(saveTimer);
+          scroller.addEventListener("scrollend", () => void save(), { once: true });
+        }
+      }
     });
   };
 
@@ -316,6 +353,7 @@ export function Viewer(props: ViewerProps): JSX.Element {
     const loc = st.location;
     if (loc) {
       setCurrent(loc.page);
+      place = { page: loc.page, y: loc.target?.y0 ?? 0 };
       requestAnimationFrame(() => goTo(loc.page, loc.target?.y0 ?? 0, false, true));
     }
     restored = true;
@@ -336,6 +374,7 @@ export function Viewer(props: ViewerProps): JSX.Element {
   // Save the place a moment after scrolling stops.
   const onScroll = (): void => {
     setView((v) => ({ ...v, top: scroller.scrollTop }));
+    place = here();
     if (selBar()) setSelBar(selectionBox());
     if (mode() !== "single") setCurrent(pageAt(lay(), scroller.scrollTop + scroller.clientHeight / 2));
     window.clearTimeout(saveTimer);

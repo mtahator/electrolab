@@ -597,6 +597,11 @@ export interface MetadataRequest {
 export interface ModelInfo {
   /** Shipped with the app (cannot be removed). */
   bundled: boolean;
+  /**
+   * The model this file belongs to (files of one model are got and removed together; the
+   * file whose id equals its group stands for the model).
+   */
+  group: string;
   /** Id ("egret-medium", "ppocrv5-det", …). */
   id: string;
   /** Licence. */
@@ -1002,6 +1007,13 @@ export type RegionHit = {
 
 /** Input of `document.region`: a point (click) or a rectangle (drag) on a page. */
 export type RegionRequest = {
+  /** Paper colours for a dark paper (as `document.render`). */
+  colors?: PageColors | null;
+  /**
+   * Crop exactly `rect` (a known object's box) instead of snapping a drag to the object it
+   * covers best.
+   */
+  exact?: boolean;
   /** The file. */
   file: BlobRef;
   /** 1-based page. */
@@ -1167,7 +1179,7 @@ export type Sort = "position" | "score";
 export type Stability = "experimental" | "stable";
 
 /** A stage of background preparation, in the order they run. */
-export type Stage = "text" | "outline" | "objects" | "ocr" | "links";
+export type Stage = "text" | "outline" | "objects" | "ocr" | "links" | "equations";
 
 /** One stage's state. */
 export type StageState = {

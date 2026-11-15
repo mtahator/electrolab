@@ -82,8 +82,93 @@ pub const OCR_DICT: ModelSpec = ModelSpec {
     bundled: true,
 };
 
+const LATEX_OCR_LICENCE: &str = "MIT (LaTeX-OCR weights), Apache-2.0 (ONNX build)";
+
+/// The formula recogniser's encoder; it stands for the whole model (ADR-015).
+pub const FORMULA_ENCODER: ModelSpec = ModelSpec {
+    id: "latex-ocr",
+    folder: "latex-ocr",
+    purpose: "Shows equations as LaTeX",
+    file: "encoder.onnx",
+    url: const_format_url::ENCODER,
+    sha256: "01bf5dc25539ca0cd5b1bd29296ea495977a6ba5f629dc4178277809d26e5e7d",
+    size: 89_008_136,
+    licence: LATEX_OCR_LICENCE,
+    bundled: false,
+};
+
+/// The formula recogniser's image resizer.
+pub const FORMULA_RESIZER: ModelSpec = ModelSpec {
+    id: "latex-ocr-resizer",
+    folder: "latex-ocr",
+    purpose: "Picks the size a formula image is read at",
+    file: "image_resizer.onnx",
+    url: const_format_url::RESIZER,
+    sha256: "e0b075c39700f64d50400f39c8fc186bbb3b5d84d31864008313f376603aca9d",
+    size: 38_967_751,
+    licence: LATEX_OCR_LICENCE,
+    bundled: false,
+};
+
+/// The formula recogniser's decoder.
+pub const FORMULA_DECODER: ModelSpec = ModelSpec {
+    id: "latex-ocr-decoder",
+    folder: "latex-ocr",
+    purpose: "Writes the LaTeX of a formula",
+    file: "decoder.onnx",
+    url: const_format_url::DECODER,
+    sha256: "bd695497bf1b22279b7626f5916c79226e1e244c84355f8da7edfd2d921d0072",
+    size: 50_952_726,
+    licence: LATEX_OCR_LICENCE,
+    bundled: false,
+};
+
+/// The formula recogniser's tokens.
+pub const FORMULA_TOKENIZER: ModelSpec = ModelSpec {
+    id: "latex-ocr-tokenizer",
+    folder: "latex-ocr",
+    purpose: "LaTeX pieces the decoder writes",
+    file: "tokenizer.json",
+    url: const_format_url::TOKENIZER,
+    sha256: "1dc27b18d6a518d0d5ff3f4bb7bd98521fe80ad39e5b2a246d4109f1bb9d5019",
+    size: 24_174,
+    licence: LATEX_OCR_LICENCE,
+    bundled: false,
+};
+
+/// Download addresses of the formula files (one pinned release).
+mod const_format_url {
+    // One pinned GitHub release of RapidLaTeXOCR; every file is checked against its SHA-256.
+    pub const ENCODER: &str =
+        "https://github.com/RapidAI/RapidLaTeXOCR/releases/download/v0.0.0/encoder.onnx";
+    pub const RESIZER: &str =
+        "https://github.com/RapidAI/RapidLaTeXOCR/releases/download/v0.0.0/image_resizer.onnx";
+    pub const DECODER: &str =
+        "https://github.com/RapidAI/RapidLaTeXOCR/releases/download/v0.0.0/decoder.onnx";
+    pub const TOKENIZER: &str =
+        "https://github.com/RapidAI/RapidLaTeXOCR/releases/download/v0.0.0/tokenizer.json";
+}
+
 /// Every model file the engine knows.
-pub const ALL: &[ModelSpec] = &[LAYOUT, OCR_DET, OCR_REC, OCR_DICT];
+pub const ALL: &[ModelSpec] = &[
+    LAYOUT,
+    OCR_DET,
+    OCR_REC,
+    OCR_DICT,
+    FORMULA_ENCODER,
+    FORMULA_RESIZER,
+    FORMULA_DECODER,
+    FORMULA_TOKENIZER,
+];
+
+/// The files of the model `id` belongs to (all files that share its folder).
+#[must_use]
+pub fn group_of(id: &str) -> Vec<ModelSpec> {
+    let Some(folder) = ALL.iter().find(|m| m.id == id).map(|m| m.folder) else {
+        return Vec::new();
+    };
+    ALL.iter().filter(|m| m.folder == folder).copied().collect()
+}
 
 impl ModelSpec {
     /// Where the file lives under `dir`.
@@ -117,6 +202,7 @@ impl ModelSpec {
             present: self.present(dirs),
             licence: self.licence.into(),
             bundled: self.bundled,
+            group: self.folder.into(),
         }
     }
 }

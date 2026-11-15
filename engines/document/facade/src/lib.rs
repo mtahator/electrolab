@@ -28,7 +28,7 @@ mod annotations;
 mod intel;
 mod models;
 pub use annotations::DATABASE as ANNOTATION_DATABASE;
-pub use models::{ModelSpec, bundled_models_dir, find_onnxruntime};
+pub use models::{ModelSpec, bundled_models_dir, find_onnxruntime, group_of};
 
 pub use ep_document_core::pdf::PdfBackend as Backend;
 

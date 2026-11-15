@@ -32,7 +32,7 @@ import { createStore } from "solid-js/store";
 import { ToolRail } from "./annotations/ToolRail";
 import { annotationsOf, marksHidden, onAnnotationError, picked, redo, remove, saveIntoPdf, savedAt, setMarksHidden, setPicked, setTool, typing, undo } from "./annotations/state";
 import { bus, downloadPdf, onBusEvent, onDropFiles, onOpenFiles, openPaperExternally, pickPdfs, printPaper, takePendingFiles } from "./host";
-import { addTextLayer, canAddTextLayer, download, fetchModel, installChoice, layoutModel, prepare, refreshModels, running } from "./intel/state";
+import { addTextLayer, canAddTextLayer, download, fetchModel, installChoice, layoutModel, prepare, refreshModels, running, setSettingsOpen as setSettings, settingsOpen as settings } from "./intel/state";
 import { importPdf, openDefaultLibrary, refresh } from "./library";
 import { NotesPanel } from "./notes/NotesPanel";
 import { flushAll, onNotesError } from "./notes/state";
@@ -99,7 +99,6 @@ export function App(): JSX.Element {
   const [peek, setPeek] = createSignal(false);
   const [modelDialog, setModelDialog] = createSignal(false);
   const [addingText, setAddingText] = createSignal(false);
-  const [settings, setSettings] = createSignal(false);
   const [note, setNote] = createSignal<string | null>(null);
   const [status, setStatus] = createStore<Record<string, ViewerStatus>>({});
   const [marks, setMarks] = createStore<Record<string, Marks>>({});

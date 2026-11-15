@@ -14,6 +14,10 @@
             "description": "Shipped with the app (cannot be removed).",
             "type": "boolean"
           },
+          "group": {
+            "description": "The model this file belongs to (files of one model are got and removed together; the\nfile whose id equals its group stands for the model).",
+            "type": "string"
+          },
           "id": {
             "description": "Id (\"egret-medium\", \"ppocrv5-det\", …).",
             "type": "string"
@@ -43,7 +47,8 @@
           "size",
           "present",
           "licence",
-          "bundled"
+          "bundled",
+          "group"
         ],
         "type": "object"
       }

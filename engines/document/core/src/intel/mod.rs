@@ -2,6 +2,7 @@
 //! citation markers, the reference list, tables from words, and objects from layout detections.
 //! Deterministic first — the PDF's own text and printed labels — models only fill gaps.
 
+pub mod formula;
 pub mod headings;
 pub mod layout;
 pub mod mentions;

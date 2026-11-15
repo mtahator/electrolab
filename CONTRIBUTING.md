@@ -71,7 +71,8 @@ node e2e/reader.mjs      target/release/electropaper-reader.exe <scratch> <scrat
 node e2e/annotations.mjs target/release/electropaper-reader.exe <scratch> <scratch>/out   # annotations (M3)
 node e2e/perf.mjs        target/release/electropaper-reader.exe <scratch>                 # scrolling and memory
 node e2e/screens.mjs     target/release/electropaper-reader.exe <scratch> <scratch>/out   # design review: every screen in all five themes, control names
-node e2e/intel.mjs       target/release/electropaper-reader.exe <scratch> <scratch>/out   # document intelligence (M4): preparation, contents, mentions, citations, region, tables, scanned pages
+node e2e/intel.mjs       target/release/electropaper-reader.exe <scratch> <scratch>/out   # document intelligence (M4): preparation, contents (pictures), mentions, citations, region, tables, scanned pages
+# intel.mjs options: EP_MODELS_DIR=<folder with egret-medium/ (and latex-ocr/)>, EP_FORMULA=1 (equation LaTeX check), EP_SCANNED_PDF=<image-only PDF>
 ```
 
 Each prints a JSON report and exits non-zero on a failed check; screenshots go to the out folder.

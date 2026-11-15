@@ -36,6 +36,24 @@
         "description": "A media type such as `application/pdf`.",
         "type": "string"
       },
+      "PageColors": {
+        "description": "Page colours (`#rrggbb`) for drawing a page on a dark paper.",
+        "properties": {
+          "background": {
+            "description": "The page.",
+            "type": "string"
+          },
+          "foreground": {
+            "description": "Text and lines.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "background",
+          "foreground"
+        ],
+        "type": "object"
+      },
       "PagePoint": {
         "description": "A point on a page.",
         "properties": {
@@ -99,6 +117,22 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "description": "Input of `document.region`: a point (click) or a rectangle (drag) on a page.",
     "properties": {
+      "colors": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/PageColors"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Paper colours for a dark paper (as `document.render`)."
+      },
+      "exact": {
+        "default": false,
+        "description": "Crop exactly `rect` (a known object's box) instead of snapping a drag to the object it\ncovers best.",
+        "type": "boolean"
+      },
       "file": {
         "$ref": "#/$defs/BlobRef",
         "description": "The file."

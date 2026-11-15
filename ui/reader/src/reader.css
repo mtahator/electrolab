@@ -1426,8 +1426,76 @@
 .jump-item {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: var(--space-1);
   padding-inline-start: 22px;
+}
+
+.jump-label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* The object as it looks on the page: figures and tables as a small picture, equations at
+   reading size (they are short and wide). */
+.jump-picture {
+  display: block;
+  width: 100%;
+  max-height: 120px;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--page-bg);
+  box-shadow: var(--page-shadow);
+}
+
+.jump-picture.equation {
+  max-height: 80px;
+  box-shadow: none;
+}
+
+.jump-picture img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: inherit;
+  object-fit: contain;
+  object-position: left top;
+  animation: ep-fade var(--dur) var(--ease);
+}
+
+.jump-picture-wait {
+  display: block;
+  height: 40px;
+  background: var(--bg-hover);
+}
+
+/* LaTeX of an equation in its popover: selectable source, quiet. */
+.latex {
+  max-height: 160px;
+  margin: 0;
+  padding: var(--space-2);
+  overflow: auto;
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  color: var(--fg);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--text-sm);
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}
+
+.link-button {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  text-decoration: underline;
 }
 
 .table-view {

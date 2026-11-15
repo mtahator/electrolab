@@ -8,6 +8,7 @@ import { For, type JSX, Match, Show, Switch, createEffect, createResource, creat
 import { AnnotationsPanel } from "../annotations/AnnotationsPanel";
 import { bus, onBusEvent, renderUrl } from "../host";
 import { previewWidth } from "../viewer/previews";
+import { pageColors } from "../viewer/Viewer";
 
 export type PanelKind = "outline" | "thumbnails" | "find" | "bookmarks" | "annotations";
 
@@ -112,9 +113,15 @@ function Outline(props: { paper: Paper; onGoTo: (page: number, y: number | null)
               <For each={q.list}>
                 {(o) => (
                   <li>
-                    <button type="button" class="outline-title jump-item" onClick={() => props.onGoTo(o.rect.page, Math.max(0, o.rect.y0 - 40))}>
-                      <strong>{o.label}</strong>
-                      <span class="muted small">{(o.text ?? "").replace(o.label ?? "", "").replace(/^[\s:.]+/, "").slice(0, 90)}</span>
+                    <button type="button" class="outline-title jump-item" classList={{ equation: o.kind === "equation" }} onClick={() => props.onGoTo(o.rect.page, Math.max(0, o.rect.y0 - 40))}>
+                      <ObjectPicture file={props.paper.file} object={o} />
+                      <span class="jump-label">
+                        <strong>{o.label}</strong>
+                        {/* Equations are shown as their picture, never as math-font text. */}
+                        <Show when={o.kind !== "equation"}>
+                          <span class="muted small">{(o.text ?? "").replace(o.label ?? "", "").replace(/^[\s:.]+/, "").slice(0, 90)}</span>
+                        </Show>
+                      </span>
                     </button>
                   </li>
                 )}
@@ -351,5 +358,35 @@ function Bookmarks(props: { paper: Paper; current: number; onGoTo: (page: number
         </ul>
       </Show>
     </div>
+  );
+}
+
+/** A figure, table or equation as it looks on the page (P1.M4.OBJ.6): cut from the page by the
+ *  engine in the paper's colours, loaded when it scrolls into view. */
+function ObjectPicture(props: { file: Paper["file"]; object: DocObject }): JSX.Element {
+  let box!: HTMLSpanElement;
+  const [url, setUrl] = createSignal<string | null>(null);
+  onMount(() => {
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return;
+        io.disconnect();
+        const colors = pageColors();
+        const width = Math.round(Math.min(900, 280 * (window.devicePixelRatio || 1)));
+        void bus("document.region", { file: props.file, page: props.object.rect.page, rect: props.object.rect, exact: true, width_px: width, ...(colors ? { colors } : {}) })
+          .then((h) => setUrl(renderUrl(h.image.hash)))
+          .catch(() => {});
+      },
+      { rootMargin: "200px" },
+    );
+    io.observe(box);
+    onCleanup(() => io.disconnect());
+  });
+  return (
+    <span class="jump-picture" classList={{ equation: props.object.kind === "equation" }} ref={box}>
+      <Show when={url()} fallback={<span class="jump-picture-wait" />}>
+        {(u) => <img src={u()} alt={props.object.label ?? ""} draggable={false} />}
+      </Show>
+    </span>
   );
 }

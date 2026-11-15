@@ -177,6 +177,143 @@ fn xy_cut(rects: &[PageRect], idx: Vec<usize>, depth: u32) -> Vec<usize> {
     out
 }
 
+/// Math-font text made safe to show or search: private-use glyphs (big brackets) and control
+/// characters dropped, spaces collapsed; empty when no letter or digit is left.
+#[must_use]
+pub fn clean_math_text(t: &str) -> String {
+    let kept: String = t
+        .chars()
+        .map(|c| {
+            if c.is_control() || ('\u{e000}'..='\u{f8ff}').contains(&c) {
+                ' '
+            } else {
+                c
+            }
+        })
+        .collect();
+    let out = kept.split_whitespace().collect::<Vec<_>>().join(" ");
+    if out.chars().any(char::is_alphanumeric) {
+        out
+    } else {
+        String::new()
+    }
+}
+
+static PROSE_REF: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)\b(see|in|from|of|by|and|eqs?\.?|equations?|using|with)\s*\(\d")
+        .unwrap_or_else(|_| unreachable!())
+});
+
+/// Whether text reads like a sentence (prose that merely ends in "(3)").
+fn prose(t: &str) -> bool {
+    let words = t
+        .split_whitespace()
+        .filter(|w| {
+            w.chars().count() >= 3
+                && w.chars()
+                    .all(|c| c.is_alphabetic() || matches!(c, ',' | '.' | ';' | '-'))
+        })
+        .count();
+    words >= 4 || PROSE_REF.is_match(t)
+}
+
+/// Displayed, numbered formulas found from the text alone (no layout model): a line ending in a
+/// printed number "(n)" whose formula is set apart from the column's text (indented), together
+/// with the displayed lines right above it. Prose ending in "(3)" is not an equation, and a
+/// lone number takes the formula lines above it (or is no equation).
+#[must_use]
+pub fn equation_blocks(lines: &[Line]) -> Vec<PageRect> {
+    // The column a box sits in: the span of the long (body text) lines that overlap it.
+    let column = |r: &PageRect| -> (f32, f32) {
+        let body: Vec<&Line> = lines
+            .iter()
+            .filter(|b| {
+                b.text.chars().count() > 40 && overlap(b.rect.x0, b.rect.x1, r.x0, r.x1) > 0.0
+            })
+            .collect();
+        if body.is_empty() {
+            return (r.x0 - 13.0, r.x1 + 5.0);
+        }
+        let left = body.iter().map(|b| b.rect.x0).fold(f32::MAX, f32::min);
+        let right = body.iter().map(|b| b.rect.x1).fold(f32::MIN, f32::max);
+        (left, right)
+    };
+    let indented = |l: &Line| l.rect.x0 > column(&l.rect).0 + 12.0;
+    // A row that starts at the column's left edge is running text (PDFium splits a sentence at
+    // its subscripts, so a piece of it can look indented on its own).
+    let text_row = |l: &Line| {
+        let (left, _) = column(&l.rect);
+        lines.iter().any(|o| {
+            o.page == l.page
+                && o.rect.x0 < left + 12.0
+                && overlap(o.rect.y0, o.rect.y1, l.rect.y0, l.rect.y1)
+                    > 0.5 * l.height().min(o.height())
+                && overlap(o.rect.x0, o.rect.x1, left, column(&l.rect).1) > 0.0
+        })
+    };
+    let displayed = |l: &Line| {
+        let (left, right) = column(&l.rect);
+        l.rect.x0 > left + 12.0 && l.rect.x1 < right - 4.0 && !prose(&l.text) && !text_row(l)
+    };
+    let mut out: Vec<PageRect> = Vec::new();
+    for l in lines {
+        let mut words: Vec<&str> = l.text.split_whitespace().collect();
+        let Some(last) = words.pop() else { continue };
+        if !EQ_NUMBER.is_match(last) {
+            continue;
+        }
+        let body = words.join(" ");
+        let has_body = body.chars().any(char::is_alphanumeric);
+        if has_body && (prose(&body) || !indented(l)) {
+            continue;
+        }
+        // Pieces of the same displayed formula: on the same row (PDFium splits a formula's row
+        // at its gaps) or just above, close together, displayed, and not another numbered line.
+        let mut rect = l.rect;
+        let mut taken = vec![false; lines.len()];
+        loop {
+            let mut grew = false;
+            for (k, a) in lines.iter().enumerate() {
+                if taken[k] || a.page != l.page || std::ptr::eq(a, l) {
+                    continue;
+                }
+                let h = l.height().max(a.height());
+                // Close to the block on any side: rows of a formula sit above, beside and below
+                // its number.
+                let vgap = (a.rect.y0 - rect.y1).max(rect.y0 - a.rect.y1);
+                let near = vgap < 1.6 * h
+                    && overlap(a.rect.x0, a.rect.x1, rect.x0 - 60.0, rect.x1 + 60.0) > 0.0;
+                let same_column = (column(&a.rect).0 - column(&l.rect).0).abs() < 20.0;
+                if near
+                    && same_column
+                    && !EQ_NUMBER.is_match(a.text.split_whitespace().last().unwrap_or(""))
+                    && displayed(a)
+                    && rect.union(&a.rect).height() < 12.0 * h
+                {
+                    rect = rect.union(&a.rect);
+                    taken[k] = true;
+                    grew = true;
+                }
+            }
+            if !grew {
+                break;
+            }
+        }
+        // A lone number with no formula above it is not an equation.
+        if !has_body && rect == l.rect {
+            continue;
+        }
+        if out.iter().any(|o| {
+            overlap(o.y0, o.y1, rect.y0, rect.y1) > 0.0
+                && overlap(o.x0, o.x1, rect.x0, rect.x1) > 0.0
+        }) {
+            continue;
+        }
+        out.push(rect);
+    }
+    out
+}
+
 /// Equation number printed beside a formula: a line "(7)" in the same band, right of or at the
 /// end of the formula.
 fn equation_number(lines: &[Line], r: &PageRect) -> Option<(String, PageRect)> {
@@ -240,21 +377,19 @@ pub fn objects(
                     order: 0,
                 });
             }
-            let last = l.text.split_whitespace().last().unwrap_or("");
-            if EQ_NUMBER.is_match(last) && l.rect.x1 > 0.0 {
-                // The equation spans its line(s) up to the number.
-                objs.push(DocObject {
-                    id: String::new(),
-                    kind: ObjectKind::Equation,
-                    rect: l.rect,
-                    label: None,
-                    number: None,
-                    text: None,
-                    caption_rect: None,
-                    score: 1.0,
-                    order: 0,
-                });
-            }
+        }
+        for rect in equation_blocks(lines) {
+            objs.push(DocObject {
+                id: String::new(),
+                kind: ObjectKind::Equation,
+                rect,
+                label: None,
+                number: None,
+                text: None,
+                caption_rect: None,
+                score: 1.0,
+                order: 0,
+            });
         }
         for h in heads.iter().filter(|h| h.line.page == page) {
             objs.push(DocObject {
@@ -271,9 +406,15 @@ pub fn objects(
         }
     }
 
-    // Text of every object.
+    // Text of every object. Equation text is math-font text: cleaned, and dropped when nothing
+    // readable is left (it is never shown as the equation; the picture or LaTeX is).
     for o in &mut objs {
         let t = text_in(pt, &o.rect);
+        let t = if o.kind == ObjectKind::Equation {
+            clean_math_text(&t)
+        } else {
+            t
+        };
         if !t.is_empty() {
             o.text = Some(t);
         }
@@ -517,11 +658,54 @@ mod tests {
     }
 
     #[test]
+    fn text_only_equations_are_formula_blocks_not_prose() {
+        // A column of body text from x=72 to about 300; a displayed formula with its number on
+        // the line below; a sentence ending in "(3)"; a lone number with nothing above it.
+        let p = page(
+            2,
+            &[
+                (
+                    "This is a long line of body text that sets the column width here.",
+                    72.0,
+                    100.0,
+                    10.0,
+                ),
+                ("x_{i+1} = f(x_i, u_i)", 130.0, 130.0, 10.0),
+                (", (2)", 240.0, 143.0, 10.0),
+                (
+                    "The model is trained as described in Section 2 and (3)",
+                    72.0,
+                    180.0,
+                    10.0,
+                ),
+                (
+                    "Another long line of body text that also spans the whole column.",
+                    72.0,
+                    300.0,
+                    10.0,
+                ),
+                ("(4)", 280.0, 400.0, 10.0),
+            ],
+        );
+        let blocks = equation_blocks(&page_lines(&p));
+        assert_eq!(blocks.len(), 1, "{blocks:?}");
+        assert!(blocks[0].y0 < 131.0 && blocks[0].y1 > 143.0, "{blocks:?}");
+        assert_eq!(clean_math_text("x\u{10} = \u{f8ee}y\u{11}"), "x = y");
+        assert_eq!(clean_math_text(" , "), "");
+    }
+
+    #[test]
     fn text_only_finds_captions_and_equations() {
         let p = page(
             3,
             &[
                 ("Figure 4: A caption.", 72.0, 100.0, 10.0),
+                (
+                    "A long line of body text that sets where the column starts and ends.",
+                    72.0,
+                    150.0,
+                    10.0,
+                ),
                 ("a = b + c (12)", 200.0, 200.0, 10.0),
             ],
         );

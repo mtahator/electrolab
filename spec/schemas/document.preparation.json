@@ -114,6 +114,11 @@
             "const": "links",
             "description": "Reference list, citation markers and mentions of figures, tables and equations.",
             "type": "string"
+          },
+          {
+            "const": "equations",
+            "description": "LaTeX of every equation (the formula model, ADR-015).",
+            "type": "string"
           }
         ]
       },

@@ -6,7 +6,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use ep_document::Document;
+use ep_document::ModelSpec;
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Emitter, State};
@@ -37,21 +37,19 @@ fn sha256_of(path: &Path) -> std::io::Result<String> {
     Ok(out)
 }
 
-/// Download a page model (the user asked for it), verify it and load it.
-#[tauri::command]
-pub async fn fetch_model(
-    app: AppHandle,
-    state: State<'_, AppState>,
-    id: String,
+/// Download one model file, resuming a partial one, with progress counted from `before` bytes
+/// of `total` for the whole model; verified against its SHA-256 before it is kept.
+async fn fetch_file(
+    app: &AppHandle,
+    id: &str,
+    spec: &ModelSpec,
+    dir: &Path,
+    before: u64,
+    total: u64,
 ) -> Result<(), String> {
-    let spec = *Document::model_specs()
-        .iter()
-        .find(|m| m.id == id)
-        .ok_or_else(|| format!("unknown model {id}"))?;
-    let dir = state.models_dir.clone();
-    let dest = spec.path(&dir);
+    let dest = spec.path(dir);
     let part = dest.with_extension("part");
-    std::fs::create_dir_all(dest.parent().unwrap_or(&dir)).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(dest.parent().unwrap_or(dir)).map_err(|e| e.to_string())?;
     let mut cmd = std::process::Command::new("curl.exe");
     cmd.args([
         "--location",
@@ -91,7 +89,7 @@ pub async fn fetch_model(
         let received = std::fs::metadata(&part).map_or(0, |m| m.len());
         let _ = app.emit(
             "model-progress",
-            json!({ "id": spec.id, "received": received, "total": spec.size }),
+            json!({ "id": id, "received": before + received, "total": total }),
         );
         tokio::time::sleep(Duration::from_millis(400)).await;
     };
@@ -118,31 +116,60 @@ pub async fn fetch_model(
             spec.id
         ));
     }
-    std::fs::rename(&part, &dest).map_err(|e| e.to_string())?;
+    std::fs::rename(&part, &dest).map_err(|e| e.to_string())
+}
+
+/// Download a page model the user asked for: every file of it (a model can have several, e.g.
+/// the formula model's encoder, decoder, resizer and tokens), verify each, then load it.
+#[tauri::command]
+pub async fn fetch_model(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
+    let files = ep_document::group_of(&id);
+    if files.is_empty() {
+        return Err(format!("unknown model {id}"));
+    }
+    let dir = state.models_dir.clone();
+    let missing: Vec<ModelSpec> = files
+        .iter()
+        .filter(|f| !f.present(&state.model_dirs))
+        .copied()
+        .collect();
+    let total: u64 = files.iter().map(|f| f.size).sum();
+    let mut before: u64 = total - missing.iter().map(|f| f.size).sum::<u64>();
+    for f in &missing {
+        fetch_file(&app, &id, f, &dir, before, total).await?;
+        before += f.size;
+    }
     let _ = app.emit(
         "model-progress",
-        json!({ "id": spec.id, "received": spec.size, "total": spec.size, "done": true }),
+        json!({ "id": id, "received": total, "total": total, "done": true }),
     );
     state.document.load_page_models(&state.model_dirs)?;
     Ok(())
 }
 
-/// Remove a downloaded page model (Settings). Models shipped with the app cannot be removed.
+/// Remove a downloaded page model, all its files (Settings). Models shipped with the app cannot
+/// be removed.
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)] // Tauri commands take their arguments by value
 pub fn remove_model(state: State<'_, AppState>, id: String) -> Result<(), String> {
-    let spec = *Document::model_specs()
-        .iter()
-        .find(|m| m.id == id)
-        .ok_or_else(|| format!("unknown model {id}"))?;
-    if spec.bundled {
+    let files = ep_document::group_of(&id);
+    if files.is_empty() {
+        return Err(format!("unknown model {id}"));
+    }
+    if files.iter().any(|f| f.bundled) {
         return Err(format!("{id} is part of the app and cannot be removed"));
     }
-    let path = spec.path(&state.models_dir);
-    if path.exists() {
-        std::fs::remove_file(&path).map_err(|e| e.to_string())?;
+    for f in &files {
+        let path = f.path(&state.models_dir);
+        if path.exists() {
+            std::fs::remove_file(&path).map_err(|e| e.to_string())?;
+        }
+        let _ = std::fs::remove_dir(path.parent().unwrap_or(&state.models_dir));
     }
-    let _ = std::fs::remove_dir(path.parent().unwrap_or(&state.models_dir));
     state.document.load_page_models(&state.model_dirs)?;
     Ok(())
 }

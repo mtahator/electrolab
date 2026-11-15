@@ -7,8 +7,15 @@ import { For, type JSX, Show, createSignal } from "solid-js";
 
 import { download, fetchModel, models, removeModel } from "../intel/state";
 
-/** The models a person thinks of: the recogniser's character list is part of the recogniser. */
-const shown = (ms: ModelInfo[]): ModelInfo[] => ms.filter((m) => !m.id.endsWith("-dict"));
+/** The models a person thinks of: one row per model, its files together (size summed,
+ *  present only when every file is). */
+const shown = (ms: ModelInfo[]): ModelInfo[] =>
+  ms
+    .filter((m) => m.id === m.group)
+    .map((m) => {
+      const files = ms.filter((f) => f.group === m.group);
+      return { ...m, size: files.reduce((a, f) => a + f.size, 0), present: files.every((f) => f.present) };
+    });
 
 export function Settings(props: { onClose: () => void; onModelReady: () => void }): JSX.Element {
   const [busy, setBusy] = createSignal<string | null>(null);

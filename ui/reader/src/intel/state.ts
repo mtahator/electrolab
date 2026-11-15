@@ -70,6 +70,15 @@ export async function installChoice(): Promise<boolean> {
   }
 }
 
+/** The Settings dialog (opened from the menu, or from an offer such as "Equations as LaTeX"). */
+export const [settingsOpen, setSettingsOpen] = createSignal(false);
+
+/** Whether every file of a model is present (a model may have several files). */
+export function modelReady(group: string): boolean {
+  const files = models().filter((m) => m.group === group);
+  return files.length > 0 && files.every((m) => m.present);
+}
+
 export const layoutModel = (): ModelInfo | undefined => models().find((m) => m.id === "egret-medium");
 
 /** Download a model the user asked for; progress shows in the status line. */

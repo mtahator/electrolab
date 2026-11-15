@@ -75,7 +75,19 @@ The layout model stays the first choice. These rules only fill in for papers pre
 | LaTeX quality: single-line equations of the fixture papers compile and are close to the printed formula (normalised edit distance on a golden set) | `fixtures/golden/equations/` (P1.M4.EQ.1) |
 | Contents lists show pictures for figures, tables and equations; a click goes to the object | `e2e/intel.mjs` |
 
-## 5. Not in this change
+## 5. Status (2026-11-15) — done and measured
+
+- **Text-only equations:** 13 of 13 numbered equations of `arxiv-2111.12066v2` are found as whole blocks (was 3, as pieces). Their boxes match the layout model's within a few points.
+- **Clean text:** no private-use glyphs or control characters. No equation entry is text only.
+- **Contents:** figures, tables and equations are shown as pictures (exact crops, in the paper's colours, loaded when visible). `e2e/intel.mjs` checks 22 pictures, Figure 1 as the figure and not its caption, and no text-only equation entry.
+- **LaTeX:** the Rust pipeline gives the reference implementation's exact LaTeX on 7–8 of the 9 spike S5 crops. The other differences are the reference's own sampling noise and our repeat stop.
+- **On the test paper:** (1)–(6) and (12) are correct. Matrices and case distinctions, (7)–(11) and (13), are partly right, which is the limit of pix2tex and the reason stronger models will be compared on the golden set.
+- **Speed:** about 1–3 s per equation in the background (13 equations ≈ 35 s after the other stages). The popover reads its equation at once if it is not done yet.
+- **Found on the way:**
+  - "prepared" is now announced before the equations stage too, so the panels do not wait for it;
+  - the reading place is kept when a panel or split view changes the page scale (it was lost after a restart in split view).
+
+## 6. Not in this change
 
 - LaTeX for inline math inside sentences: text search already finds `C_p` and similar notation (`document.search`).
 - Stronger formula models (UniMERNet, PP-FormulaNet_plus, TexTeller): they have no ready ONNX build or are heavier. To be re-measured against the golden set later (ADR-015).

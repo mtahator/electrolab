@@ -66,14 +66,14 @@ Event: `document.annotations_changed { paper }` after every change.
 Rendering: `document.render` and `document.thumbnails` leave annotations out of page images (the viewer draws them from the store).
 
 ### Document intelligence (experimental, T1) — P1.M4, ADR-007, ADR-013
-A paper is **prepared** in the background: text → outline → objects → OCR → index → equations → tables → references. Every result is cached by file hash and implementation version, so preparing again costs nothing. Deterministic rules (the PDF's text, printed labels) come first; models fill what text cannot give. Pages are 1-based; positions in page space.
+A paper is **prepared** in the background: text → OCR (scanned pages) → outline → objects → links; `document.prepared` is published then, and again after the last stage, equations as LaTeX (formula model, about 1–3 s per equation). Every result is cached by file hash and implementation version, so preparing again costs nothing. Deterministic rules (the PDF's text, printed labels) come first; models fill what text cannot give. Pages are 1-based; positions in page space.
 
 | Command | Input → Output | Permission |
 |---|---|---|
 | `document.prepare` | `PrepareRequest { file, first_pages }` → `Preparation { file, stages, image_only_pages }`, streaming; `first_pages` (the page in view) go first | read |
 | `document.preparation` | `{ file }` → `Preparation` (state now, without starting work) | read |
 | `document.objects` | `{ file, page }` → `PageObjects` with `DocObject { id, kind, rect, label, number, text, caption_rect, score, order }`; kinds figure, table, equation, heading, paragraph, caption, list, … | read |
-| `document.region` | `RegionRequest { file, page, point or rect, width_px }` → `RegionHit { object?, rect, image (PNG blob), text }` — a lookup on prepared objects | read |
+| `document.region` | `RegionRequest { file, page, point or rect, width_px, colors?, exact }` → `RegionHit { object?, rect, image (PNG blob), text }` — a lookup on prepared objects; a dragged `rect` snaps to the object it covers best, `exact: true` crops exactly `rect` (a known object's box, e.g. the Contents pictures); `colors` as `document.render` | read |
 | `document.contents` | `{ file }` → `Contents { sections (generated outline), figures, tables, equations }` | read |
 | `document.mentions` | `{ file, page }` → `[Mention { kind, text, numbers, quads, target? }]` ("Fig. 3(b)", "Figs. 2–4", "Table 2", "Eq. (5)", "Section 4.2") | read |
 | `document.citation_markers` | `{ file, page }` → `[CitationMarker { text, quads, entries }]` ("[3–5, 9]", "(Smith et al., 2020)", "Smith and Lee [4]") | read |
@@ -81,7 +81,7 @@ A paper is **prepared** in the background: text → outline → objects → OCR 
 | `document.equation` | `EquationRequest { file, id or number }` → `Equation { object, page, latex?, note?, image, text }`. `image` is the formula without its number; `latex` comes from the formula model (ADR-015) and is empty, with a `note` saying why, until it is installed; `text` is cleaned PDF text (no private-use glyphs or control characters), empty when nothing readable is left | read |
 | `document.table` | `TableRequest { file, id }` → `Table { rows: [[Cell]], header_rows, units, csv }` (numbers parsed) | read |
 | `document.ocr` | `{ file }` → `Ocred { file, pages, words }`: a **new** PDF = the original bytes + an incremental update with an invisible text layer on every scanned page (ADR-013); the original is never changed | create |
-| `document.models` | `{}` → `[ModelInfo { id, purpose, size, present, licence }]` | read |
+| `document.models` | `{}` → `[ModelInfo { id, purpose, size, present, licence, bundled, group }]`; a model can have several files (`group`; the file whose id equals the group stands for the model) | read |
 
 Errors: `not_found`, `unreadable`, `bad_page`, `model_missing` (a model the command needs is not installed), `no_object` (nothing at that place, or no scanned page with text), `write_failed`.
 Events: `document.preparing { file, stage }` while a stage runs; `document.prepared { file }` when preparation ends.

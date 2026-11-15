@@ -13,13 +13,14 @@ use ep_bus::cache::cache_key;
 use ep_bus::{CommandError, Cx};
 use ep_document_contract::{
     CitationMarker, Contents, DocObject, Equation, EquationRequest, FileOnly, Mention, MentionKind,
-    ModelInfo, ObjectKind, ObjectRef, ObjectsRequest, Ocred, PageObjects, PageText, Preparation,
-    PrepareRequest, Reference, RegionHit, RegionRequest, Stage, StageState, StageStatus, Table,
-    TableRequest, errors, intel_errors, intel_events,
+    ModelInfo, ObjectKind, ObjectRef, ObjectsRequest, Ocred, PageColors, PageObjects, PageText,
+    Preparation, PrepareRequest, Reference, RegionHit, RegionRequest, Stage, StageState,
+    StageStatus, Table, TableRequest, errors, intel_errors, intel_events,
 };
+use ep_document_core::intel::formula::FormulaModel;
 use ep_document_core::intel::headings::{self, Heading};
 use ep_document_core::intel::{
-    self as core, LayoutModel, Line, layout, mentions, references, tables,
+    self as core, LayoutModel, Line, formula, layout, mentions, references, tables,
 };
 use ep_document_core::pdf::{Bitmap, PageGeom};
 use ep_types::{BlobRef, Hash, MediaType, PageRect};
@@ -29,7 +30,7 @@ use crate::models::{self, LAYOUT};
 use crate::{Document, backend_err, blocking, png};
 
 /// Version of the rules that shape objects; bump to recompute cached objects.
-const INTEL_IMPL: &str = "intel-2";
+const INTEL_IMPL: &str = "intel-3";
 /// Papers whose analysis stays in memory.
 const ANALYSES: usize = 4;
 /// Width the page is rendered at for the layout model.
@@ -51,6 +52,7 @@ pub(crate) struct Analysis {
 pub(crate) struct Models {
     dirs: Vec<PathBuf>,
     layout: Option<Arc<dyn LayoutModel>>,
+    formula: Option<Arc<dyn FormulaModel>>,
 }
 
 static RUNTIME: OnceLock<Result<ep_document_adapter_onnx::Runtime, String>> = OnceLock::new();
@@ -89,7 +91,17 @@ impl Document {
         if !models::LAYOUT.present(dirs) {
             self.models.write().layout = None;
         }
-        let need = models::LAYOUT.present(dirs) || models::OCR_REC.present(dirs);
+        let formula_files = (
+            models::FORMULA_RESIZER.find(dirs),
+            models::FORMULA_ENCODER.find(dirs),
+            models::FORMULA_DECODER.find(dirs),
+            models::FORMULA_TOKENIZER.find(dirs),
+        );
+        let formula_present = matches!(formula_files, (Some(_), Some(_), Some(_), Some(_)));
+        if !formula_present {
+            self.models.write().formula = None;
+        }
+        let need = models::LAYOUT.present(dirs) || models::OCR_REC.present(dirs) || formula_present;
         if !need {
             return Ok(());
         }
@@ -111,7 +123,122 @@ impl Document {
         ) {
             *self.ocr.write() = Some(Arc::new(runtime.ppocr(&det, &rec, &dict)?));
         }
+        if let (Some(r), Some(e), Some(d), Some(t)) = formula_files {
+            self.models.write().formula = Some(Arc::new(runtime.latex_ocr(&r, &e, &d, &t)?));
+        }
         Ok(())
+    }
+
+    fn formula_model(&self) -> Option<Arc<dyn FormulaModel>> {
+        self.models.read().formula.clone()
+    }
+
+    fn latex_key(file: &BlobRef, object: &str, model: &str) -> Hash {
+        cache_key(
+            "document.equation_latex",
+            INTEL_IMPL,
+            &json!({ "file": file.hash, "object": object, "model": model }),
+        )
+    }
+
+    fn cached_latex(&self, file: &BlobRef, object: &str) -> Option<String> {
+        let (_, index) = self.renders.as_ref()?;
+        let model = self.formula_model()?;
+        index
+            .get(&Self::latex_key(file, object, model.id()))
+            .and_then(|v| v.as_str().map(str::to_string))
+    }
+
+    /// The equation's printed number, as a box, when it sits at the right end of the formula
+    /// (it is not part of the formula the model reads).
+    fn number_box(pt: &PageText, o: &DocObject) -> Option<PageRect> {
+        let label = o.label.as_deref()?;
+        let chars: Vec<char> = pt.text.chars().collect();
+        let want: Vec<char> = label.chars().collect();
+        let mid = f32::midpoint(o.rect.x0, o.rect.x1);
+        (0..chars.len().saturating_sub(want.len() - 1))
+            .filter(|&i| chars[i..i + want.len()] == want[..])
+            .filter_map(|i| {
+                pt.boxes[i..i + want.len()]
+                    .iter()
+                    .flatten()
+                    .map(|b| PageRect {
+                        page: o.rect.page,
+                        x0: b[0],
+                        y0: b[1],
+                        x1: b[2],
+                        y1: b[3],
+                    })
+                    .reduce(|a, b| a.union(&b))
+            })
+            .find(|b| {
+                b.x0 >= mid
+                    && b.x1 <= o.rect.x1 + 2.0
+                    && b.y0 >= o.rect.y0 - 2.0
+                    && b.y1 <= o.rect.y1 + 2.0
+            })
+    }
+
+    /// LaTeX of an equation: from the cache, else read by the formula model (the formula cut
+    /// from a 4× drawing without its number, split into lines, each line read and the lines
+    /// joined). `None` when the formula model is not installed.
+    #[allow(clippy::many_single_char_names)] // rect, scale, object as in the region code
+    pub(crate) fn equation_latex(
+        &self,
+        file: &BlobRef,
+        path: &Path,
+        o: &DocObject,
+    ) -> Result<Option<String>, CommandError> {
+        let Some(model) = self.formula_model() else {
+            return Ok(None);
+        };
+        if let Some(l) = self.cached_latex(file, &o.id) {
+            return Ok(Some(l));
+        }
+        let page = o.rect.page;
+        let (sizes, _) = self.sizes(file.hash, path)?;
+        let idx = Self::page_index_of(sizes.len(), page)?;
+        let size = sizes[idx as usize];
+        let mut r = o.rect;
+        let a = self.analysis(file, path)?;
+        if let Some(n) = Self::number_box(&a.pages[idx as usize], o) {
+            r.x1 = r.x1.min(n.x0 - 1.0);
+        }
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // positive, bounded
+        let width = ((size.width * 4.0) as u32).clamp(800, 8192);
+        let bmp = self
+            .backend()?
+            .render(path, idx, width)
+            .map_err(backend_err)?;
+        #[allow(clippy::cast_precision_loss)]
+        let s = bmp.width as f32 / size.width.max(1.0);
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let px = |v: f32| (v * s).max(0.0).round() as u32;
+        let pad = 3.0;
+        let gray = formula::Gray::from_bitmap(
+            &bmp,
+            px(r.x0 - pad),
+            px(r.y0 - pad),
+            px(r.x1 + pad),
+            px(r.y1 + pad),
+        );
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let line_px = (11.0 * s) as u32;
+        // The printed number is cut off even when its box was not found in the text.
+        let gray = formula::drop_number(&gray, line_px);
+        let mut lines = Vec::new();
+        for (y0, y1) in formula::split_lines(&gray, line_px) {
+            let part = gray.rows(y0.saturating_sub(4), y1 + 4);
+            match model.latex(&part) {
+                Ok(l) => lines.push(l),
+                Err(e) => tracing::warn!(error = %e, "formula model failed on a line"),
+            }
+        }
+        let latex = formula::join_lines(&lines);
+        if let Some((_, index)) = self.renders.as_ref() {
+            let _ = index.put(&Self::latex_key(file, &o.id, model.id()), &json!(latex));
+        }
+        Ok(Some(latex))
     }
 
     /// The model specs (hosts download from these).
@@ -380,9 +507,58 @@ impl Document {
                     if analysed { pages as usize } else { 0 },
                     None,
                 ),
+                self.equations_state(file, a.is_some()),
             ],
             image_only_pages: image_only,
         }
+    }
+
+    /// Equations stage: how many equations have their LaTeX.
+    fn equations_state(&self, file: &BlobRef, analysed: bool) -> StageState {
+        if self.formula_model().is_none() {
+            return StageState {
+                stage: Stage::Equations,
+                status: StageStatus::Skipped,
+                done: 0,
+                total: 0,
+                note: Some("The formula model is not downloaded.".into()),
+            };
+        }
+        let eqs = self.cached_equations(file);
+        let n = eqs
+            .iter()
+            .filter(|o| self.cached_latex(file, &o.id).is_some())
+            .count();
+        StageState {
+            stage: Stage::Equations,
+            status: if analysed && n == eqs.len() {
+                StageStatus::Done
+            } else {
+                StageStatus::Pending
+            },
+            done: u32::try_from(n).unwrap_or(0),
+            total: u32::try_from(eqs.len()).unwrap_or(0),
+            note: None,
+        }
+    }
+
+    /// Equations of the pages whose objects are already known (no work done here).
+    fn cached_equations(&self, file: &BlobRef) -> Vec<DocObject> {
+        let Ok(path) = self.path(file) else {
+            return Vec::new();
+        };
+        let Ok((sizes, _)) = self.sizes(file.hash, &path) else {
+            return Vec::new();
+        };
+        let model = self.layout_model().map_or("none", |_| LAYOUT.id);
+        (1..=u32::try_from(sizes.len()).unwrap_or(0))
+            .filter_map(|p| {
+                self.cached_objects(file, p, model)
+                    .or_else(|| self.cached_objects(file, p, "none"))
+            })
+            .flat_map(|po| po.objects)
+            .filter(|o| o.kind == ObjectKind::Equation)
+            .collect()
     }
 
     pub(crate) async fn prepare(
@@ -423,6 +599,7 @@ impl Document {
         }
     }
 
+    #[allow(clippy::too_many_lines)] // one block per stage, in order
     fn run_preparation(
         &self,
         cx: &Cx,
@@ -521,15 +698,46 @@ impl Document {
                 }
             }
         }
+        // Objects, contents and links are ready: say so now, so the panels update at once.
+        self.publish_prepared(cx, &self.preparation_state(&i.file, Some(&a), pages));
+        // Then equations as LaTeX, last (about a second per formula line), one at a time.
+        if self.formula_model().is_some() {
+            let eqs: Vec<DocObject> = self
+                .all_objects(&i.file, path)?
+                .into_iter()
+                .flat_map(|p| p.objects)
+                .filter(|o| o.kind == ObjectKind::Equation)
+                .collect();
+            let total = u32::try_from(eqs.len()).unwrap_or(0);
+            for (k, o) in eqs.iter().enumerate() {
+                if cx.is_cancelled() {
+                    return Err(CommandError::Cancelled);
+                }
+                if let Err(e) = self.equation_latex(&i.file, path, o) {
+                    tracing::warn!(object = %o.id, error = %e, "formula model failed");
+                }
+                let mut s = state(
+                    Stage::Equations,
+                    StageStatus::Running,
+                    u32::try_from(k + 1).unwrap_or(0),
+                );
+                s.total = total;
+                self.report(cx, &i.file, &s);
+            }
+        }
         let out = self.preparation_state(&i.file, Some(&a), pages);
+        self.publish_prepared(cx, &out);
+        Ok(out)
+    }
+
+    fn publish_prepared(&self, cx: &Cx, p: &Preparation) {
         if let Some(bus) = self.bus.lock().upgrade() {
             bus.events().publish(
                 intel_events::PREPARED,
-                serde_json::to_value(&out).unwrap_or_default(),
+                serde_json::to_value(p).unwrap_or_default(),
                 cx.clock.now_ms(),
             );
         }
-        Ok(out)
     }
 
     pub(crate) async fn preparation(
@@ -713,6 +921,7 @@ impl Document {
         page: u32,
         r: &PageRect,
         width_px: u32,
+        colors: Option<&PageColors>,
     ) -> Result<BlobRef, CommandError> {
         let (store, _) = self.renders.as_ref().ok_or_else(|| {
             CommandError::failed(errors::UNREADABLE, "no render cache configured")
@@ -730,7 +939,15 @@ impl Document {
         let s = bmp.width as f32 / size.width.max(1.0);
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let px = |v: f32| (v * s).max(0.0).round() as u32;
-        let part = crop(&bmp, px(r.x0), px(r.y0), px(r.x1), px(r.y1));
+        let mut part = crop(&bmp, px(r.x0), px(r.y0), px(r.x1), px(r.y1));
+        if let Some(c) = colors
+            && let (Some(bg), Some(fg)) = (
+                ep_document_core::pdf::hex_color(&c.background),
+                ep_document_core::pdf::hex_color(&c.foreground),
+            )
+        {
+            ep_document_core::pdf::recolor(&mut part.rgba, bg, fg);
+        }
         let bytes = png(part.width, part.height, &part.rgba)?;
         store
             .put(&bytes[..], MediaType("image/png".into()))
@@ -756,6 +973,15 @@ impl Document {
                     let r = o.rect;
                     (Some(o), r)
                 }
+                (None, Some(r)) if i.exact => {
+                    let o = objs
+                        .objects
+                        .iter()
+                        .filter(|o| core::iou(&o.rect, r) > 0.9)
+                        .max_by(|a, b| core::iou(&a.rect, r).total_cmp(&core::iou(&b.rect, r)))
+                        .cloned();
+                    (o, PageRect { page: i.page, ..*r })
+                }
                 (None, Some(r)) => {
                     let o = layout::best_cover(&objs.objects, r).cloned();
                     // Snap to the object when the drag nearly covers it.
@@ -776,7 +1002,14 @@ impl Document {
             };
             let a = me.analysis(&i.file, &path)?;
             let text = core::text_in(&a.pages[(i.page - 1) as usize], &rect);
-            let image = me.region_image(&path, &g, i.page, &rect, i.width_px.unwrap_or(800))?;
+            let image = me.region_image(
+                &path,
+                &g,
+                i.page,
+                &rect,
+                i.width_px.unwrap_or(800),
+                i.colors.as_ref(),
+            )?;
             Ok(RegionHit {
                 object,
                 rect,
@@ -822,14 +1055,24 @@ impl Document {
                 (None, None) => return Err(CommandError::InvalidInput { message: "give an object or a number".into() }),
             };
             let page = object.rect.page;
-            let image = me.region_image(&path, &g, page, &object.rect, 900)?;
             let a = me.analysis(&i.file, &path)?;
-            let text = core::text_in(&a.pages[(page - 1) as usize], &object.rect);
+            let pt = &a.pages[(page - 1) as usize];
+            // The picture is the formula without its number.
+            let mut rect = object.rect;
+            if let Some(n) = Self::number_box(pt, &object) {
+                rect.x1 = rect.x1.min(n.x0 - 1.0);
+            }
+            let image = me.region_image(&path, &g, page, &rect, 900, None)?;
+            let text = layout::clean_math_text(&core::text_in(pt, &object.rect));
+            let latex = me.equation_latex(&i.file, &path, &object)?;
+            let note = latex.is_none().then(|| {
+                "Equations are shown as LaTeX once the formula model is downloaded (Settings → Page models).".to_string()
+            });
             Ok(Equation {
                 object,
                 page,
-                latex: None,
-                note: Some("Converting equations to LaTeX needs the formula model, which is not installed yet.".into()),
+                latex,
+                note,
                 image,
                 text,
             })

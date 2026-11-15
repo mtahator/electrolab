@@ -122,6 +122,31 @@ if (models) {
     const picked = await s.until(`(() => { const t = document.querySelector(".peek .ep-card-head strong")?.textContent; const i = document.querySelector(".peek .peek-image"); return t && i && i.naturalWidth > 50 ? t : null; })()`, 15000);
     check("region_pick_figure", picked === figs.figures[0].label, { picked, expected: figs.figures[0].label });
     await s.key("Escape");
+    // Contents: figures, tables and equations are shown as pictures; no equation entry is text.
+    await s.js(`(() => { if (!document.querySelector(".side.left")) document.querySelector('.topbar [aria-label="Side panel"]').click(); })()`);
+    await s.js(`document.querySelector('.side.left .ep-panel-tabs [aria-label="Contents"]')?.click()`);
+    await s.js(`[...document.querySelectorAll(".jumps .jump-head")].forEach((h) => h.getAttribute("aria-expanded") === "false" && h.click())`);
+    // Pictures load as their entries scroll into view: bring each into view in turn.
+    const entries = await s.js(`document.querySelectorAll(".jumps .jump-picture").length`);
+    for (let k = 0; k < entries; k++) {
+      await s.js(`document.querySelectorAll(".jumps .jump-picture")[${k}]?.scrollIntoView({ block: "nearest" })`);
+      await sleep(60);
+    }
+    const pictures = await s.until(`(() => { const imgs = [...document.querySelectorAll(".jumps .jump-picture img")]; return imgs.length === ${entries} && imgs.every((i) => i.complete && i.naturalWidth > 20) ? imgs.length : null; })()`, 60000);
+    const eqText = await s.js(`[...document.querySelectorAll(".jumps .jump-item.equation .muted")].length`);
+    // Figure 1 of this paper is taller than wide: its picture is the figure, not its caption.
+    const fig1 = await s.js(`(() => { const i = document.querySelector(".jumps .jump-picture:not(.equation) img"); return i ? i.naturalHeight / i.naturalWidth : 0; })()`);
+    check("contents_pictures", !!pictures && eqText === 0 && fig1 > 0.8, { pictures, equation_text_entries: eqText, figure1_height_per_width: Math.round(fig1 * 100) / 100 });
+    await s.shot("m4-contents-pictures.png");
+    // An equation's popover shows its LaTeX when the formula model is there.
+    const eq = figs.equations[0];
+    if (eq && process.env.EP_FORMULA === "1") {
+      await ctrlClick(eq);
+      const latex = await s.until(`document.querySelector(".peek pre.latex")?.textContent || null`, 60000);
+      check("equation_latex", !!latex && latex.length > 3, latex?.slice(0, 80));
+      await s.shot("m4-equation-latex.png");
+      await s.key("Escape");
+    }
     if (figs.tables[0]) {
       await ctrlClick(figs.tables[0]);
       await s.until(`document.querySelector('.peek [aria-label="Open as table"]')`, 15000);

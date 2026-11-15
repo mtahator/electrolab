@@ -1,5 +1,6 @@
 //! ONNX Runtime adapter for the Document engine's page models (ADR-007, ADR-013): the layout
-//! model (Docling Egret-medium, D-FINE) and PP-OCRv5 text recognition; formulas join later.
+//! model (Docling Egret-medium, D-FINE), PP-OCRv5 text recognition and LaTeX-OCR formulas
+//! (ADR-015).
 //!
 //! ONNX Runtime is loaded at run time from a pinned build (`natives.toml`), one environment per
 //! process; each model has one shared session with 4 intra-op threads, so preparation leaves
@@ -15,7 +16,9 @@ use ort::session::Session;
 use ort::value::Tensor;
 use parking_lot::Mutex;
 
+mod formula;
 mod ppocr;
+pub use formula::LatexOcr;
 pub use ppocr::PpOcr;
 
 /// Square input size of the Docling layout models.
@@ -73,6 +76,20 @@ impl Runtime {
     /// A model file cannot be loaded.
     pub fn ppocr(&self, det: &Path, rec: &Path, dict: &Path) -> Result<PpOcr, String> {
         PpOcr::load(self, det, rec, dict)
+    }
+
+    /// The formula recogniser (LaTeX-OCR: resizer, encoder, decoder and tokenizer files).
+    ///
+    /// # Errors
+    /// A file cannot be loaded.
+    pub fn latex_ocr(
+        &self,
+        resizer: &Path,
+        encoder: &Path,
+        decoder: &Path,
+        tokenizer: &Path,
+    ) -> Result<LatexOcr, String> {
+        LatexOcr::load(self, resizer, encoder, decoder, tokenizer)
     }
 
     /// The Docling layout model at `model` (Egret-medium ONNX: `pixel_values` in, logits and

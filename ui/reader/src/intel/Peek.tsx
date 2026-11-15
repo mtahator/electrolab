@@ -8,7 +8,7 @@ import { For, type JSX, Show, createResource, onCleanup, onMount } from "solid-j
 
 import { bus, openExternal, renderUrl } from "../host";
 import { quoteToNotes } from "../notes/state";
-import { type Peek, peek, setPeek } from "./state";
+import { type Peek, peek, setPeek, setSettingsOpen } from "./state";
 import { TableView } from "./TableView";
 import { createSignal } from "solid-js";
 
@@ -187,6 +187,27 @@ function RegionPeek(props: { p: Exclude<Peek, { kind: "citation" }>; paper: stri
             {(r) => (
               <>
                 <img class="peek-image" src={renderUrl(r().image.hash)} alt={title()} />
+                <Show when={object()?.kind === "equation"}>
+                  <Show
+                    when={!eq.loading}
+                    fallback={<p class="muted small">{t("intel.reading_formula")}</p>}
+                  >
+                    <Show
+                      when={eq()?.latex}
+                      fallback={
+                        <button type="button" class="link-button small" onClick={() => (setPeek(null), setSettingsOpen(true))}>
+                          {t("intel.latex_offer")}
+                        </button>
+                      }
+                    >
+                      {(l) => (
+                        <pre class="latex" aria-label={t("intel.latex")}>
+                          {l()}
+                        </pre>
+                      )}
+                    </Show>
+                  </Show>
+                </Show>
                 <Show when={object()?.text && object()?.kind !== "equation"}>
                   <p class="peek-caption">{object()?.text}</p>
                 </Show>

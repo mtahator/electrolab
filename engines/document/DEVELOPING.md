@@ -18,7 +18,7 @@ Turn PDFs (later other documents) into positioned, searchable content for every 
 - `cargo nextest run -p ep-document-contract -p ep-document-core -p ep-document-adapter-pdfium -p ep-document` (needs `cargo xtask fetch-natives pdfium`; adapter tests skip without it)
 - `cargo clippy -p ep-document-core --all-targets -- -D warnings`
 - `cargo xtask arch-check`
-- Page models: `cargo xtask fetch-natives onnxruntime` and `cargo xtask fetch-models` (OCR models; `--all` adds the 78 MB layout model). `tests/intel.rs` runs the OCR test with the bundled models and the layout test when `EP_MODELS_DIR` holds the layout model.
+- Page models: `cargo xtask fetch-natives onnxruntime` and `cargo xtask fetch-models` (OCR models; `--all` adds the 78 MB layout model and the 170 MB formula model). `adapters/onnx/tests/formula_reference.rs` compares our LaTeX with the reference implementation on spike S5's crops (with `EP_MODELS_DIR`). `tests/intel.rs` runs the OCR test with the bundled models and the layout test when `EP_MODELS_DIR` holds the layout model.
 - `cargo run -p ep-document-core --example search_bench --release -- spikes/s2-pdfium/out` (needs `cargo xtask fetch-fixtures` and spike S2's output)
 
 ## Known pitfalls (from spikes S1, S2, S4, S5)
