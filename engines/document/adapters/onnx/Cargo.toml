@@ -8,7 +8,6 @@ description = "Document engine adapter: page models on ONNX Runtime (layout, OCR
 
 [dependencies]
 ep-document-core = { path = "../../core" }
-ep-types = { path = "../../../../foundation/types" }
 ort.workspace = true
 parking_lot.workspace = true
 serde_json.workspace = true
