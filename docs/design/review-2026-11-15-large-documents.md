@@ -95,6 +95,10 @@ The founder's own book stays outside the repository (copyright). `e2e/large.mjs`
 - **Show the page beside the scroll bar while dragging it** (§17.5).
 - **Pinch zoom on the touchpad and on touch screens; everything must work on touch laptops.** This is now a binding rule (§17.8) with gesture tests. Cause: the earlier design and tests assumed a mouse; the browser's own pinch zoomed the whole interface instead of the page.
 
+**Printing printed the app window** (founder screenshot): Ctrl+P reached the browser's own print, and the Print action handed the file to the system PDF app. Cause: no print design in the documents (design language had no printing section) and no test of what is printed. Now §17.9 and an e2e check of the print document.
+
+**Library:** no way to remove a paper or rename it, and no cover view. Now §17.10.
+
 ## 5. Results after the fixes (same laptop, release build, while preparation runs)
 
 `e2e/large.mjs` on the generated 800-page book and on the founder's 759-page book: **every check passes on both**.

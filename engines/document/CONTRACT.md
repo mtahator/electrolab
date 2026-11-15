@@ -39,7 +39,7 @@ All positions are in page space (points, top-left origin, rotation applied; ADR-
 |---|---|
 | `document.info` | `{ file }` → `DocInfo { pages, sizes: [PageSize], encrypted }` (every page size before anything is drawn) |
 | `document.text` | `{ file, page }` → `PageText { page, text, boxes, words, lines, unknown }` (layout level 0; `\n` line ends, U+00AD soft hyphens) |
-| `document.render` | `{ file, page, width_px, colors? }` → `Rendered { page, image: BlobRef (PNG), width_px, height_px }` (render cache, keyed by file, page, width, colours and renderer version). `colors: { background, foreground }` (`#rrggbb`) draws the page for a dark paper: greys (paper, text, lines) are mapped from white → background to black → foreground; coloured figures keep their colours |
+| `document.render` | `{ file, page, width_px, colors?, background?, annotations? }` (`annotations: true` draws the annotations stored in the file, for printing an annotated copy) → `Rendered { page, image: BlobRef (PNG), width_px, height_px }` (render cache, keyed by file, page, width, colours and renderer version). `colors: { background, foreground }` (`#rrggbb`) draws the page for a dark paper: greys (paper, text, lines) are mapped from white → background to black → foreground; coloured figures keep their colours |
 | `document.thumbnails` | `{ file, pages?, width_px ≤ 512 }` → `[Rendered]`, streaming one item per page |
 | `document.outline` | `{ file }` → `[OutlineItem { title, target?, children }]` (the PDF's bookmarks; generated outlines come in M4) |
 | `document.links` | `{ file, page }` → `[Link { rect, target }]`; `target` is `page { page, top? }`, `url { url }` (http, https, mailto only) or `unsupported` (launch, script, other files: never followed) |

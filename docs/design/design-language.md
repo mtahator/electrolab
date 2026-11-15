@@ -470,6 +470,20 @@ Every app works fully on touch laptops and with precision touchpads, not only wi
 - **Pens and touch:** drawing tools, highlighting, selection and the region tool use pointer events, so mouse, pen and touch behave the same; palm and second fingers do not draw.
 - **Tests:** end-to-end checks use real gestures (DevTools `Input.synthesizePinchGesture` for touchpad and touch, `Input.dispatchTouchEvent` for taps and drags) as well as the mouse.
 
+### 17.9 Printing (added 2026-11-15)
+**Printing prints the paper, never the window.** Ctrl+P and Print open the Reader's print sheet:
+- **pages:** all, the current page, or a range ("1-5, 8, 11-13");
+- **annotations:** included or not (on by default when the paper has some).
+
+The chosen pages are drawn sharp (about 200 dpi) with progress in the sheet, and the system print dialog then shows exactly those pages. The browser's own print of the interface is never reachable.
+
+### 17.10 The library (added 2026-11-15)
+- **Two views, remembered:**
+  - **List:** text, dense — title, authors, year, pages, added;
+  - **Covers:** a grid of first-page thumbnails with title and authors, like a shelf.
+- **Rename** (F2 or the row menu): the title shown in the library and tabs. The file name stays as the original name.
+- **Remove from library** (Delete or the row menu) takes a paper out at once, with **Undo** for 10 s in a toast; no confirmation dialog (§9.8: undo instead of confirm). Its notes and annotations go with it and come back with Undo. The managed copy is deleted when the library is next opened, unless Undo was used.
+
 ### 17.7 Transient things
 Hover popovers and previews close by themselves when:
 - the pointer leaves both the trigger and the popover (after 300 ms);
@@ -505,5 +519,6 @@ Copy into the review of any UI change.
 - [ ] AI (if any): on request, marked with `sparkles`, evidence chips, Stop, short by default.
 - [ ] Answers within 100 ms; results stream; budgets of §17.3 met on the large book while preparation runs.
 - [ ] Transient UI closes on scroll, pointer leave and Esc; splits resizable.
+- [ ] Print prints the paper (§17.9); library actions undoable (§17.10).
 - [ ] Works with touch and touchpad (§17.8): pinch zooms the page, taps replace hover, targets large enough on coarse pointers.
 - [ ] End-to-end check added or updated, with **real input** (mouse, wheel, keys, pinch, touch) where the user would use them.

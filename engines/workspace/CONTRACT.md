@@ -24,7 +24,9 @@ All experimental. Errors are `CommandError::Failed { kind }` with the kinds belo
 | `workspace.save_notes` | `{ paper, text, base_version? }` → `PaperNotes` (a new version; refused with `conflict` when `base_version` is given and the notes moved on) | create |
 | `workspace.notes_history` | `{ paper }` → `[NotesVersion { version, saved_ms, chars, preview }]`, newest first (one entry per minute of editing, at most 200) | read |
 | `workspace.restore_notes` | `{ paper, version }` → `PaperNotes` (the old text as a new version) | create |
-| `workspace.set_paper_metadata` | `{ id, title?, authors?, doi?, pages?, source }` → `Paper` | create |
+| `workspace.set_paper_metadata` | `{ id, title?, authors?, doi?, pages?, source }` → `Paper` (also used to rename: `title`, `source: "user"`) | create |
+| `workspace.remove_paper` | `{ id }` → `null`: the paper leaves the library at once (lists no longer show it); it can be brought back with `restore_paper` until the library is next opened, when removed papers and their managed copies are deleted for good | create (undoable) |
+| `workspace.restore_paper` | `{ id }` → `Paper`: undo of `remove_paper` | create |
 | `workspace.create_collection` / `rename_collection` | `{ name }` / `{ id, name }` → `Collection` | create |
 | `workspace.delete_collection` | `{ id }` → `null` (papers stay in the library) | **destructive** (the policy asks first) |
 | `workspace.list_collections` | `null` → `[Collection { id, name, papers, created_ms }]` | read |
