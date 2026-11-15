@@ -78,7 +78,7 @@ A paper is **prepared** in the background: text → outline → objects → OCR 
 | `document.mentions` | `{ file, page }` → `[Mention { kind, text, numbers, quads, target? }]` ("Fig. 3(b)", "Figs. 2–4", "Table 2", "Eq. (5)", "Section 4.2") | read |
 | `document.citation_markers` | `{ file, page }` → `[CitationMarker { text, quads, entries }]` ("[3–5, 9]", "(Smith et al., 2020)", "Smith and Lee [4]") | read |
 | `document.references` | `{ file }` → `[Reference { index, label, text, authors, year, title, doi?, arxiv?, url?, page, rect }]` | read |
-| `document.equation` | `EquationRequest { file, id or number }` → `Equation { object, page, latex?, note?, image, text }` (`latex` is empty until the formula model is installed; `note` says why) | read |
+| `document.equation` | `EquationRequest { file, id or number }` → `Equation { object, page, latex?, note?, image, text }`. `image` is the formula without its number; `latex` comes from the formula model (ADR-015) and is empty, with a `note` saying why, until it is installed; `text` is cleaned PDF text (no private-use glyphs or control characters), empty when nothing readable is left | read |
 | `document.table` | `TableRequest { file, id }` → `Table { rows: [[Cell]], header_rows, units, csv }` (numbers parsed) | read |
 | `document.ocr` | `{ file }` → `Ocred { file, pages, words }`: a **new** PDF = the original bytes + an incremental update with an invisible text layer on every scanned page (ADR-013); the original is never changed | create |
 | `document.models` | `{}` → `[ModelInfo { id, purpose, size, present, licence }]` | read |
@@ -92,8 +92,13 @@ Events: `document.preparing { file, stage }` while a stage runs; `document.prepa
 
 **Models.** Pinned in `facade/src/models.rs` by folder, file, size and SHA-256. Hosts pass every folder to look in (bundled `models/` next to the executable first, then the user's data folder) to `Document::load_page_models`. The OCR models (13 MB) are bundled; the layout model (Egret-medium, 78 MB) is downloaded on request by the host, and without it objects come from text rules only.
 
+**Equations** (design note `docs/design/equations-figures-tables.md`):
+- An equation object is the displayed formula block, without its number.
+- Without the layout model, it is found as a centred block of lines ending in a printed number; prose such as "see (3)" never counts.
+- An equation is shown as its picture (`document.region` crop) or LaTeX, never as raw math-font text.
+
 ### Planned (Phase 1, contracts written before code)
-`document.extract` (Draft 2.2 §14.2, §28.6); LaTeX for `document.equation` (formula model, P1.M4.EQ.1).
+`document.extract` (Draft 2.2 §14.2, §28.6).
 
 ## Events
 - `document.preparing`, `document.prepared` — see Document intelligence.

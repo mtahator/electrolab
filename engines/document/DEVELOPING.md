@@ -1,7 +1,7 @@
 # Working on the Document engine
 
 ## Purpose
-Turn PDFs (later other documents) into positioned, searchable content for every host. The contract is [CONTRACT.md](CONTRACT.md); decisions are ADR-003 (PDFium extracts and writes, PDF.js displays), ADR-006 (annotations), ADR-007 (page models), ADR-013 (OCR: PP-OCRv5 everywhere, shipped with the app).
+Turn PDFs (later other documents) into positioned, searchable content for every host. The contract is [CONTRACT.md](CONTRACT.md); decisions are ADR-003 (PDFium extracts and writes, PDF.js displays), ADR-006 (annotations), ADR-007 (page models), ADR-013 (OCR: PP-OCRv5 everywhere, shipped with the app), ADR-015 (formulas: LaTeX-OCR, optional download).
 
 ## Never change without a version bump
 - Stable command inputs/outputs and guarantees in CONTRACT.md (everything is experimental today).
@@ -32,6 +32,7 @@ Turn PDFs (later other documents) into positioned, searchable content for every 
 - **f32 rounding:** `(1 − 0.8) × 10` is `1.9999999`; edit budgets need a small tolerance.
 
 - **Rotation:** `PDFium` renders with `/Rotate` applied; our page space applies it too (`PageGeom`). `tests/robustness.rs` checks that both agree on a rotated copy of a fixture.
+- **Math-font text is not the formula:** PDFium returns flattened subscripts, private-use bracket glyphs and control characters for equations. Never show it as the equation; show the picture or LaTeX (`docs/design/equations-figures-tables.md`).
 - **OCR speed:** recognition is about 11 s per scanned page on 8 cores; more threads make it slower (16 threads: 31 s). Keep 4.
 - **PDFium starts once per process:** a second start crashes it; `PdfiumBackend::start` shares the first worker.
 - **Image-only pages** are judged on the PDF's own text, not on cached OCR text, or a page would stop counting as scanned once recognised.
