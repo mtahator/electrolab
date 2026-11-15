@@ -531,3 +531,64 @@ mod tests {
         );
     }
 }
+
+/// `#rrggbb` as RGB, or `None`.
+#[must_use]
+pub fn hex_color(s: &str) -> Option<[u8; 3]> {
+    let h = s.strip_prefix('#')?;
+    if h.len() != 6 || !h.is_ascii() {
+        return None;
+    }
+    let v = |i: usize| u8::from_str_radix(&h[i..i + 2], 16).ok();
+    Some([v(0)?, v(2)?, v(4)?])
+}
+
+/// Recolour a drawn page for a dark paper, in place: greys (paper, text, lines, their smooth
+/// edges) are mapped from white → `bg` to black → `fg` by lightness; coloured pixels (figures,
+/// photos, coloured links) keep their colours. Like a reader's dark mode, but done on the drawing
+/// so pages stay on the fast path.
+pub fn recolor(rgba: &mut [u8], bg: [u8; 3], fg: [u8; 3]) {
+    // How far a pixel may be from grey and still count as ink or paper.
+    const GREY: u8 = 28;
+    for px in rgba.chunks_exact_mut(4) {
+        let (r, g, b) = (px[0], px[1], px[2]);
+        let hi = r.max(g).max(b);
+        let lo = r.min(g).min(b);
+        if hi - lo > GREY {
+            continue;
+        }
+        // Lightness 0..=255 (Rec. 709 weights, integer).
+        let l = (u32::from(r) * 54 + u32::from(g) * 183 + u32::from(b) * 19) >> 8;
+        for c in 0..3 {
+            let (f, k) = (u32::from(fg[c]), u32::from(bg[c]));
+            // Integer blend: f + (k - f) * l / 255, in either direction.
+            let v = if k >= f {
+                f + (k - f) * l / 255
+            } else {
+                f - (f - k) * l / 255
+            };
+            px[c] = u8::try_from(v).unwrap_or(u8::MAX);
+        }
+    }
+}
+
+#[cfg(test)]
+mod recolor_tests {
+    use super::*;
+
+    #[test]
+    fn greys_follow_the_paper_colours_and_colours_stay() {
+        let bg = hex_color("#1e1f22").unwrap();
+        let fg = hex_color("#e2e4e8").unwrap();
+        // white paper, black text, mid grey, a red line
+        let mut px = vec![
+            255, 255, 255, 255, 0, 0, 0, 255, 128, 128, 128, 255, 220, 30, 30, 255,
+        ];
+        recolor(&mut px, bg, fg);
+        assert_eq!(&px[0..3], &bg);
+        assert_eq!(&px[4..7], &fg);
+        assert!(px[8] > bg[0] && px[8] < fg[0]);
+        assert_eq!(&px[12..15], &[220, 30, 30]);
+        assert_eq!(hex_color("#zz0000"), None);
+    }
+}

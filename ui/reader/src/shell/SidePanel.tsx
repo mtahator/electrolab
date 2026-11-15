@@ -7,6 +7,7 @@ import { For, type JSX, Match, Show, Switch, createEffect, createResource, creat
 
 import { AnnotationsPanel } from "../annotations/AnnotationsPanel";
 import { bus, onBusEvent, renderUrl } from "../host";
+import { previewWidth } from "../viewer/previews";
 
 export type PanelKind = "outline" | "thumbnails" | "find" | "bookmarks" | "annotations";
 
@@ -157,7 +158,7 @@ function Thumbnails(props: { paper: Paper; pages: number; current: number; onGoT
           if (!e.isIntersecting) continue;
           const page = Number((e.target as HTMLElement).dataset.page);
           io.unobserve(e.target);
-          void bus("document.render", { file: props.paper.file, page, width_px: Math.round(120 * (window.devicePixelRatio || 1)) })
+          void bus("document.render", { file: props.paper.file, page, width_px: previewWidth() })
             .then((r) => setUrls((u) => ({ ...u, [page]: renderUrl(r.image.hash) })))
             .catch(() => {});
         }

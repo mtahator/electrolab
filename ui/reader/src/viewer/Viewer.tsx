@@ -23,6 +23,7 @@ import { History, type Place } from "./history";
 import { type Layout, type ViewMode, type Zoom, clamp, layout, pageAt, scaleFor, toPage, toScreen, visible } from "./layout";
 import { Page, selectedText } from "./Page";
 import { type PDFDocumentProxy, acquire, release } from "./pdf";
+import { loadPreviews, previewsDone } from "./previews";
 
 /** What the shell can do with a viewer. */
 export interface ViewerApi {
@@ -65,6 +66,7 @@ export interface ViewerProps {
 }
 
 const RECORD_EVERY_S = 15;
+const reducedMotion = (): boolean => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 /** Pages around the view whose text and links stay loaded. */
 const KEEP_NEAR = 10;
 
@@ -80,6 +82,15 @@ export function Viewer(props: ViewerProps): JSX.Element {
   let scroller!: HTMLDivElement;
   const hash = props.paper.file.hash;
   const [doc, setDoc] = createSignal<PDFDocumentProxy | null>(null);
+  // PDF.js is loaded only when needed (recoloured papers, link previews): PDFium draws pages, so
+  // the first page never waits for it.
+  let docP: Promise<PDFDocumentProxy> | null = null;
+  let stopPreviews = (): void => {};
+  const getDoc = (): Promise<PDFDocumentProxy> =>
+    (docP ??= acquire(hash).then((d) => {
+      setDoc(d);
+      return d;
+    }));
   const [info, setInfo] = createSignal<DocInfo | null>(null);
   const [error, setError] = createSignal<string | null>(null);
   const [zoom, setZoomSignal] = createSignal<Zoom>({ kind: "fit_width" });
@@ -104,7 +115,8 @@ export function Viewer(props: ViewerProps): JSX.Element {
   // must not rebuild (and redraw) every page.
   const layoutPage = createMemo(() => (mode() === "single" ? current() : 1));
   const lay = createMemo<Layout>(() => layout(sizes(), scale(), mode(), view().w - margin(), layoutPage()));
-  const shown = createMemo(() => visible(lay(), view().top - view().h, view().top + 2 * view().h));
+  // Pages mounted around the view: more ahead than behind, so pages are drawn before they arrive.
+  const shown = createMemo(() => visible(lay(), view().top - view().h, view().top + 3 * view().h));
   // Page colours follow the paper setting (independent of the app theme).
   const colors = createMemo(() => {
     paper();
@@ -141,7 +153,13 @@ export function Viewer(props: ViewerProps): JSX.Element {
     if (mode() === "single") setCurrent(p);
     queueMicrotask(() => {
       const pt = toScreen(lay(), p, 0, y ?? 0);
-      if (pt) scroller.scrollTop = Math.max(0, pt.y - (exact ? 0 : y === null ? 16 : 40));
+      if (!pt) return;
+      const to = Math.max(0, pt.y - (exact ? 0 : y === null ? 16 : 40));
+      // Nearby jumps glide (the eye can follow where it went); far ones are instant, since gliding
+      // past many pages would only draw pages nobody reads.
+      const near = Math.abs(to - scroller.scrollTop) < 2.5 * scroller.clientHeight;
+      if (exact || !near || reducedMotion()) scroller.scrollTop = to;
+      else scroller.scrollTo({ top: to, behavior: "smooth" });
     });
   };
 
@@ -241,12 +259,24 @@ export function Viewer(props: ViewerProps): JSX.Element {
     onCleanup(() => ro.disconnect());
     void loadAnnotations(props.paper);
     try {
-      const [i, d, st] = await Promise.all([bus("document.info", { file: props.paper.file }), acquire(hash), bus("workspace.get_reading_state", { paper: props.paper.id })]);
+      const [i, st] = await Promise.all([bus("document.info", { file: props.paper.file }), bus("workspace.get_reading_state", { paper: props.paper.id })]);
       setInfo(i);
-      setDoc(d);
       restore(st);
-      // Prepare the paper in the background (objects, links), starting with the page in view.
-      window.setTimeout(() => void prepare(props.paper.file, [st.location?.page ?? 1]), 1200);
+      stopPreviews = loadPreviews(props.paper.file, i.pages, current);
+      window.setTimeout(() => void getDoc().catch(() => {}), 1500);
+      // Prepare the paper in the background (objects, links), starting with the page in view, once
+      // the pages have their previews (both use the one PDF engine; drawing comes first), or after
+      // a few seconds at most.
+      const startPrep = (): void => void prepare(props.paper.file, [current()]);
+      let prepStarted = false;
+      const once = (): void => {
+        if (!prepStarted) {
+          prepStarted = true;
+          startPrep();
+        }
+      };
+      void previewsDone(hash).then(once);
+      window.setTimeout(once, 6000);
     } catch (e) {
       setError(String((e as Error).message ?? e));
     }
@@ -261,7 +291,8 @@ export function Viewer(props: ViewerProps): JSX.Element {
     document.removeEventListener("visibilitychange", onHide);
     window.removeEventListener("pagehide", onHide);
     void save();
-    release(hash);
+    stopPreviews();
+    if (docP) release(hash);
   });
 
   const restore = (st: ReadingState): void => {
@@ -385,7 +416,7 @@ export function Viewer(props: ViewerProps): JSX.Element {
     }
     const step = (dir: number): void => {
       if (single) goTo(current() + dir, 0, false);
-      else scroller.scrollBy({ top: dir * (h - 40) });
+      else scroller.scrollBy({ top: dir * (h - 40), behavior: reducedMotion() ? "auto" : "smooth" });
     };
     switch (key) {
       case "PageDown":
@@ -451,7 +482,7 @@ export function Viewer(props: ViewerProps): JSX.Element {
         <p class="error center">{error()}</p>
       </Show>
       <div class="scroller" ref={scroller} tabIndex={0} onScroll={onScroll} onWheel={onWheel} onKeyDown={onKey} onCopy={onCopy} onMouseUp={onMouseUp}>
-        <Show when={doc() && info()} fallback={<p class="muted center">{t("viewer.loading")}</p>}>
+        <Show when={info()} fallback={<p class="muted center">{t("viewer.loading")}</p>}>
           <div class="canvas-area" style={{ width: `${Math.max(lay().width + margin(), view().w)}px`, height: `${lay().height}px` }}>
             <For each={shown()}>
               {(s) => (
@@ -459,7 +490,7 @@ export function Viewer(props: ViewerProps): JSX.Element {
                   <Page
                     paper={props.paper.id}
                     file={props.paper.file}
-                    doc={doc() as PDFDocumentProxy}
+                    doc={getDoc}
                     page={s.page}
                     width={s.width}
                     height={s.height}

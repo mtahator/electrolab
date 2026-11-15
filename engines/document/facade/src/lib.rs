@@ -15,8 +15,8 @@ use ep_bus::cache::{ResultCache, cache_key};
 use ep_bus::{Bus, CommandError, Cx, Permission, RegisterError, Spec, Stability};
 use ep_document_contract::{
     AnnotationOp, ApplyAnnotations, DocInfo, FileRequest, Link, MetadataRequest, OutlineItem,
-    PageRequest, PageText, PaperRef, PdfMetadata, RenderRequest, Rendered, SearchRequest,
-    SearchResult, ThumbnailsRequest, commands, errors, pdf_errors,
+    PageColors, PageRequest, PageText, PaperRef, PdfMetadata, RenderRequest, Rendered,
+    SearchRequest, SearchResult, ThumbnailsRequest, commands, errors, pdf_errors,
 };
 use ep_document_core::pdf::{BackendError, PageGeom, PdfBackend};
 use ep_document_core::search::{PageChars, SearchIndex};
@@ -464,6 +464,7 @@ impl Document {
         path: &Path,
         page: u32,
         width_px: u32,
+        colors: Option<&PageColors>,
     ) -> Result<Rendered, CommandError> {
         let (store, index) = self.renders.as_ref().ok_or_else(|| {
             CommandError::failed(errors::UNREADABLE, "no render cache configured")
@@ -472,7 +473,13 @@ impl Document {
         let key = cache_key(
             commands::RENDER,
             RENDER_IMPL,
-            &json!({ "file": file.hash, "page": page, "width_px": width_px }),
+            &match colors {
+                // Without colours, the key is the one cached drawings already have.
+                None => json!({ "file": file.hash, "page": page, "width_px": width_px }),
+                Some(c) => {
+                    json!({ "file": file.hash, "page": page, "width_px": width_px, "colors": c })
+                }
+            },
         );
         if let Some(r) = index
             .get(&key)
@@ -483,10 +490,16 @@ impl Document {
         }
         let (g, _) = self.geoms(file.hash, path)?;
         let idx = Self::page_index(&g, page)?;
-        let bmp = self
+        let mut bmp = self
             .backend()?
             .render(path, idx, width_px)
             .map_err(backend_err)?;
+        if let Some(c) = colors {
+            let bad = || CommandError::failed("invalid_colors", "colors must be #rrggbb");
+            let bg = ep_document_core::pdf::hex_color(&c.background).ok_or_else(bad)?;
+            let fg = ep_document_core::pdf::hex_color(&c.foreground).ok_or_else(bad)?;
+            ep_document_core::pdf::recolor(&mut bmp.rgba, bg, fg);
+        }
         let bytes = png(bmp.width, bmp.height, &bmp.rgba)?;
         let image = store
             .put(&bytes[..], MediaType("image/png".into()))
@@ -504,7 +517,7 @@ impl Document {
     async fn render(self: Arc<Self>, _cx: Cx, i: RenderRequest) -> Result<Rendered, CommandError> {
         let path = self.path(&i.file)?;
         let me = self.clone();
-        blocking(move || me.render_one(&i.file, &path, i.page, i.width_px)).await
+        blocking(move || me.render_one(&i.file, &path, i.page, i.width_px, i.colors.as_ref())).await
     }
 
     async fn thumbnails(
@@ -526,7 +539,7 @@ impl Document {
                 if cx.is_cancelled() {
                     return Err(CommandError::Cancelled);
                 }
-                let r = me.render_one(&i.file, &path, p, i.width_px.min(512))?;
+                let r = me.render_one(&i.file, &path, p, i.width_px.min(512), None)?;
                 cx.progress(&r);
                 out.push(r);
             }

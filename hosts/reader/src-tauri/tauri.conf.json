@@ -45,7 +45,8 @@
     "shortDescription": "Read, annotate and understand research papers",
     "windows": {
       "nsis": {
-        "installMode": "currentUser"
+        "installMode": "currentUser",
+        "installerHooks": "./windows/installer-hooks.nsh"
       }
     },
     "fileAssociations": [

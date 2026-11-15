@@ -397,6 +397,8 @@ pub struct ModelInfo {
     pub present: bool,
     /// Licence.
     pub licence: String,
+    /// Shipped with the app (cannot be removed).
+    pub bundled: bool,
 }
 
 /// Error kinds of the intelligence commands.

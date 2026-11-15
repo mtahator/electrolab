@@ -15,7 +15,8 @@ import { For, type JSX, Show, createEffect, createMemo, createSignal, onCleanup 
 import { AnnotationLayer } from "../annotations/AnnotationLayer";
 import { bus, renderUrl } from "../host";
 import { PageLinks, RegionTool } from "../intel/PageLinks";
-import type { PDFDocumentProxy, RenderTask } from "./pdf";
+import type { PDFDocumentProxy } from "./pdf";
+import { drawnOf, keepDrawn, previewOf } from "./previews";
 import { enqueue } from "./queue";
 
 /** Largest drawing for one page (pixels), so high zoom does not exhaust memory. */
@@ -25,7 +26,8 @@ export interface PageProps {
   /** The paper (annotations belong to it). */
   paper: string;
   file: BlobRef;
-  doc: PDFDocumentProxy;
+  /** The PDF.js document, loaded only when a recoloured paper needs it. */
+  doc: () => Promise<PDFDocumentProxy>;
   page: number;
   width: number;
   height: number;
@@ -59,23 +61,35 @@ function box(r: PageRect, scale: number): JSX.CSSProperties {
 
 export function Page(props: PageProps): JSX.Element {
   let host!: HTMLDivElement;
-  const [image, setImage] = createSignal<string | null>(null);
+  // A recent sharp drawing shows at once; otherwise the preview does until the drawing is ready.
+  const [image, setImage] = createSignal<string | null>(props.colors ? null : (drawnOf(props.file.hash, props.page)?.url ?? null));
+  const [fresh, setFresh] = createSignal(false);
+  const preview = (): string | undefined => previewOf(props.file.hash, props.page);
 
   createEffect(() => {
     const scale = props.renderScale;
     const colors = props.colors;
     const pageNo = props.page;
-    let task: RenderTask | null = null;
+    if (!colors) {
+      const ratio = window.devicePixelRatio || 1;
+      const want = (props.width / props.layoutScale) * scale * ratio;
+      const have = drawnOf(props.file.hash, pageNo);
+      if (have && have.width >= Math.min(want, 8192) * 0.95) {
+        setImage(have.url);
+        return;
+      }
+    }
     const cancel = enqueue({
       priority: props.priority,
       run: async (signal) => {
         const ratio = window.devicePixelRatio || 1;
-        if (!colors) {
+        {
           // Width in device pixels, capped so the image stays under MAX_PIXELS.
           const aspect = props.height / Math.max(1, props.width);
           const want = (props.width / props.layoutScale) * scale * ratio;
           const width = Math.max(16, Math.round(Math.min(want, Math.sqrt(MAX_PIXELS / Math.max(0.01, aspect)), 8192)));
-          const r = await bus("document.render", { file: props.file, page: pageNo, width_px: width });
+          // Dark papers are recoloured by the engine, so every paper uses this fast path.
+          const r = await bus("document.render", { file: props.file, page: pageNo, width_px: width, ...(colors ? { colors } : {}) });
           if (signal.aborted) return;
           const url = renderUrl(r.image.hash);
           const img = new Image();
@@ -84,41 +98,21 @@ export function Page(props: PageProps): JSX.Element {
           await Promise.race([img.decode().catch(() => {}), new Promise((r) => setTimeout(r, 5000))]);
           if (signal.aborted) return;
           host.querySelector("canvas.page-canvas")?.remove();
+          if (!colors) keepDrawn(props.file.hash, pageNo, url, width);
+          setFresh(!image());
           setImage(url);
           return;
         }
-        const page = await props.doc.getPage(pageNo);
-        if (signal.aborted) return;
-        let s = scale * ratio;
-        const base = page.getViewport({ scale: 1 });
-        const area = base.width * base.height * s * s;
-        if (area > MAX_PIXELS) s *= Math.sqrt(MAX_PIXELS / area);
-        const viewport = page.getViewport({ scale: s });
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.floor(viewport.width);
-        canvas.height = Math.floor(viewport.height);
-        canvas.className = "page-canvas";
-        // Annotations are drawn by the annotation layer from the store, not from the file.
-        task = page.render({ canvas, viewport, annotationMode: 0, ...(colors ? { pageColors: colors } : {}) });
-        signal.addEventListener("abort", () => task?.cancel());
-        await task.promise;
-        if (signal.aborted) return;
-        // Swap only when the new drawing is complete: the old one stays visible meanwhile.
-        const old = host.querySelector("canvas.page-canvas");
-        if (old) old.replaceWith(canvas);
-        else host.prepend(canvas);
-        setImage(null);
       },
     });
-    onCleanup(() => {
-      cancel();
-      task?.cancel();
-    });
+    onCleanup(cancel);
   });
 
   return (
     <div class="page" ref={host} style={{ width: `${props.width}px`, height: `${props.height}px` }} data-page={props.page}>
-      <Show when={image()}>{(src) => <img class="page-canvas" src={src()} alt="" draggable={false} />}</Show>
+      {/* The preview stays under the sharp drawing, so the drawing fades in over it, never over an empty page. */}
+      <Show when={!props.colors && (!image() || fresh()) && preview()}>{(src) => <img class="page-preview" src={src()} alt="" draggable={false} />}</Show>
+      <Show when={image()}>{(src) => <img class="page-canvas" classList={{ fresh: fresh() }} src={src()} alt="" draggable={false} onAnimationEnd={() => setFresh(false)} />}</Show>
       <div class="highlight-layer">
         <For each={props.highlights}>{(r) => <div class="hit" classList={{ active: props.activeHighlight === r }} style={box(r, props.layoutScale)} />}</For>
       </div>

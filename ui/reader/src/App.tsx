@@ -32,7 +32,7 @@ import { createStore } from "solid-js/store";
 import { ToolRail } from "./annotations/ToolRail";
 import { annotationsOf, marksHidden, onAnnotationError, picked, redo, remove, saveIntoPdf, savedAt, setMarksHidden, setPicked, setTool, typing, undo } from "./annotations/state";
 import { bus, downloadPdf, onBusEvent, onDropFiles, onOpenFiles, openPaperExternally, pickPdfs, printPaper, takePendingFiles } from "./host";
-import { addTextLayer, canAddTextLayer, download, fetchModel, layoutModel, prepare, refreshModels, running } from "./intel/state";
+import { addTextLayer, canAddTextLayer, download, fetchModel, installChoice, layoutModel, prepare, refreshModels, running } from "./intel/state";
 import { importPdf, openDefaultLibrary, refresh } from "./library";
 import { NotesPanel } from "./notes/NotesPanel";
 import { flushAll, onNotesError } from "./notes/state";
@@ -56,6 +56,7 @@ import {
 import { LibraryView } from "./shell/LibraryView";
 import { KeymapSettings, Palette, Prompt } from "./shell/Overlays";
 import { activate, activeTab, closeTab, moveTab, openPapers, openTab, restore, session, setShowLibrary, toggleSplit, updatePaper } from "./shell/session";
+import { Settings } from "./shell/Settings";
 import { SidePanel } from "./shell/SidePanel";
 import type { Marks, ViewerApi, ViewerStatus } from "./viewer/Viewer";
 import { Viewer } from "./viewer/Viewer";
@@ -98,6 +99,7 @@ export function App(): JSX.Element {
   const [peek, setPeek] = createSignal(false);
   const [modelDialog, setModelDialog] = createSignal(false);
   const [addingText, setAddingText] = createSignal(false);
+  const [settings, setSettings] = createSignal(false);
   const [note, setNote] = createSignal<string | null>(null);
   const [status, setStatus] = createStore<Record<string, ViewerStatus>>({});
   const [marks, setMarks] = createStore<Record<string, Marks>>({});
@@ -238,6 +240,7 @@ export function App(): JSX.Element {
     { id: "view.library", title: () => t("library.title"), keys: "Ctrl+L", run: () => setShowLibrary(!session.showLibrary) },
     { id: "palette", title: () => t("palette.title"), keys: "Ctrl+K", run: () => setPalette(true) },
     { id: "keymap", title: () => t("keymap.title"), run: () => setKeymap(true) },
+    { id: "settings", title: () => t("settings.title"), keys: "Ctrl+,", run: () => setSettings(true) },
     { id: "find", title: () => t("panel.find"), keys: "Ctrl+F", run: openFind },
     { id: "panel.left", title: () => t("frame.left_panel"), keys: "Ctrl+B", enabled: () => !typing(), run: () => setLeftPanel(leftPanel() ? null : "outline") },
     ...LEFT_TABS.filter((x) => x.id !== "find").map((x) => ({ id: `panel.${x.id}`, title: x.label, run: () => toggleLeft(x.id) })),
@@ -322,8 +325,16 @@ export function App(): JSX.Element {
     { id: "view.density", title: () => t("settings.compact"), run: () => setDensity(density() === "compact" ? "comfortable" : "compact") },
   ]);
 
+  // Prepare the open papers again, now with a new model.
+  const prepareAll = (): void => {
+    for (const pane of session.panes) for (const tab of pane.tabs) void prepare(tab.paper.file, [status[tab.id]?.page ?? 1]);
+  };
+
   onMount(async () => {
-    void refreshModels();
+    void refreshModels().then(async () => {
+      // The user chose the layout model while installing: get it now, progress in the status line.
+      if ((await installChoice()) && !layoutModel()?.present) void fetchModel("egret-medium").then((ok) => ok && prepareAll());
+    });
     try {
       await openDefaultLibrary();
       await restore(async (id) => bus("workspace.get_paper", { id }).catch(() => null));
@@ -406,6 +417,7 @@ export function App(): JSX.Element {
       ...TEXT_SIZES.map((n) => ({ label: `${n} %`, checked: textSize() === n, run: () => setTextSize(n) })),
       { separator: true },
       { label: t("keymap.title"), icon: "keyboard", run: () => setKeymap(true) },
+      { label: t("settings.title"), icon: "settings", shortcut: "Ctrl+,", run: () => setSettings(true) },
     );
     openMenu(t("frame.more"), items, at);
   };
@@ -681,6 +693,9 @@ export function App(): JSX.Element {
       <Show when={palette()}>
         <Palette onClose={() => setPalette(false)} />
       </Show>
+      <Show when={settings()}>
+        <Settings onClose={() => setSettings(false)} onModelReady={prepareAll} />
+      </Show>
       <Show when={keymap()}>
         <KeymapSettings onClose={() => setKeymap(false)} />
       </Show>
@@ -706,10 +721,7 @@ export function App(): JSX.Element {
                 icon="file-down"
                 onClick={() => {
                   setModelDialog(false);
-                  void fetchModel("egret-medium").then((ok) => {
-                    // Prepare the open papers again, now with the model.
-                    if (ok) for (const pane of session.panes) for (const tab of pane.tabs) void prepare(tab.paper.file, [status[tab.id]?.page ?? 1]);
-                  });
+                  void fetchModel("egret-medium").then((ok) => ok && prepareAll());
                 }}
               >
                 {t("intel.download", { mb: Math.round((layoutModel()?.size ?? 0) / 1e6) })}

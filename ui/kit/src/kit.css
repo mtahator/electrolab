@@ -521,6 +521,21 @@ button.ep-status-item:hover {
   cursor: pointer;
 }
 
+/* Pressing a control gives a small, quick sink: the app feels like it answered. */
+.ep-button:active:not(:disabled),
+.ep-icon-button:active:not(:disabled),
+button.ep-status-item:active {
+  transform: scale(0.96);
+}
+
+.ep-button,
+.ep-icon-button,
+button.ep-status-item {
+  transition-property: background, border-color, color, transform;
+  transition-duration: var(--dur-fast);
+  transition-timing-function: var(--ease);
+}
+
 @keyframes ep-in {
   from {
     opacity: 0;

@@ -55,6 +55,21 @@ export async function addTextLayer(paper: Paper): Promise<{ paper: Paper; pages:
   return { paper: updated, pages: out.pages.length };
 }
 
+/** Remove a downloaded model (Settings); figures and tables already found stay. */
+export async function removeModel(id: string): Promise<void> {
+  await invoke("remove_model", { id });
+  await refreshModels();
+}
+
+/** If the user asked for the layout model while installing, get it now (once). */
+export async function installChoice(): Promise<boolean> {
+  try {
+    return await invoke<boolean>("take_install_choice");
+  } catch {
+    return false;
+  }
+}
+
 export const layoutModel = (): ModelInfo | undefined => models().find((m) => m.id === "egret-medium");
 
 /** Download a model the user asked for; progress shows in the status line. */

@@ -10,6 +10,10 @@
       "ModelInfo": {
         "description": "Page models the engine can use, and whether each is present.",
         "properties": {
+          "bundled": {
+            "description": "Shipped with the app (cannot be removed).",
+            "type": "boolean"
+          },
           "id": {
             "description": "Id (\"egret-medium\", \"ppocrv5-det\", …).",
             "type": "string"
@@ -38,7 +42,8 @@
           "purpose",
           "size",
           "present",
-          "licence"
+          "licence",
+          "bundled"
         ],
         "type": "object"
       }

@@ -82,6 +82,19 @@ pub struct RenderRequest {
     pub page: u32,
     /// Width of the image in device pixels (height follows the page's shape).
     pub width_px: u32,
+    /// Page colours for dark papers: text and lines take `foreground`, the page `background`;
+    /// colour figures keep their colours. `None`: the page as printed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub colors: Option<PageColors>,
+}
+
+/// Page colours (`#rrggbb`) for drawing a page on a dark paper.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct PageColors {
+    /// The page.
+    pub background: String,
+    /// Text and lines.
+    pub foreground: String,
 }
 
 /// A rendered page image (PNG in the render cache).

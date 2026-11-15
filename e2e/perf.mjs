@@ -14,8 +14,8 @@ import { join, resolve } from "node:path";
 
 const [exe, scratch] = process.argv.slice(2);
 const root = resolve(import.meta.dirname, "..");
-const papers = ["arxiv-2511.21915v1.pdf", "arxiv-2106.03711v2.pdf", "plos-pone-0232683.pdf"];
-const themes = ["light", "dark"];
+const papers = process.env.EP_PERF_PAPERS?.split(",") ?? ["arxiv-2511.21915v1.pdf", "arxiv-2106.03711v2.pdf", "plos-pone-0232683.pdf"];
+const themes = process.env.EP_PERF_THEMES?.split(",") ?? ["light", "dark"];
 const port = 9336;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = {};
@@ -78,6 +78,23 @@ for (const theme of themes) for (const name of papers) {
         if (++steps % 5 === 0) { await new Promise((r) => setTimeout(r, 120)); last = performance.now(); }
       }
       const scrollMs = performance.now() - started;
+      // Steady fast scrolling (about 2400 px/s, like a quick wheel or trackpad flick) from the
+      // top: in each frame, count the visible pages with nothing drawn on them yet.
+      const painted = (p) => [...p.querySelectorAll("img.page-canvas, img.page-preview")].some((i) => i.complete && i.naturalWidth > 0 && getComputedStyle(i).opacity !== "0") || !!p.querySelector("canvas.page-canvas");
+      const blankNow = () => {
+        const v = sc.getBoundingClientRect();
+        return [...sc.querySelectorAll(".page")].filter((p) => { const r = p.getBoundingClientRect(); return r.bottom > v.top && r.top < v.bottom && !painted(p); }).length;
+      };
+      sc.scrollTop = 0;
+      await new Promise((r) => setTimeout(r, 600));
+      let flickFrames = 0, blankFrames = 0, blankPages = 0;
+      const flickEnd = Math.min(sc.scrollHeight - sc.clientHeight, sc.clientHeight * 25);
+      while (sc.scrollTop < flickEnd - 1 && flickFrames < 1500) {
+        sc.scrollTop += 40;
+        await new Promise((r) => requestAnimationFrame(r));
+        const b = blankNow();
+        flickFrames++; if (b > 0) { blankFrames++; blankPages += b; }
+      }
       await new Promise((r) => setTimeout(r, 1500));
       obs.disconnect();
       const canvases = [...document.querySelectorAll("canvas.page-canvas")];
@@ -89,6 +106,9 @@ for (const theme of themes) for (const name of papers) {
         scroll_steps: steps,
         scroll_ms: Math.round(scrollMs),
         frames_over_33ms: slow,
+        flick_frames: flickFrames,
+        flick_blank_frames: blankFrames,
+        flick_blank_pct: Math.round((100 * blankFrames) / Math.max(1, flickFrames)),
         frame_p95_ms: Math.round([...frames].sort((a, b) => a - b)[Math.floor(frames.length * 0.95)] ?? 0),
         long_tasks: longTasks.length,
         longest_task_ms: Math.max(0, ...longTasks),

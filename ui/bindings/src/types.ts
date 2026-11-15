@@ -595,6 +595,8 @@ export interface MetadataRequest {
 
 /** Page models the engine can use, and whether each is present. */
 export interface ModelInfo {
+  /** Shipped with the app (cannot be removed). */
+  bundled: boolean;
   /** Id ("egret-medium", "ppocrv5-det", …). */
   id: string;
   /** Licence. */
@@ -673,6 +675,14 @@ export type OutlineItem = {
   /** Title. */
   title: string;
 };
+
+/** Page colours (`#rrggbb`) for drawing a page on a dark paper. */
+export interface PageColors {
+  /** The page. */
+  background: string;
+  /** Text and lines. */
+  foreground: string;
+}
 
 /** Objects of one page. */
 export interface PageObjects {
@@ -1013,14 +1023,19 @@ export interface RenameCollection {
 }
 
 /** Input of `document.render`. */
-export interface RenderRequest {
+export type RenderRequest = {
+  /**
+   * Page colours for dark papers: text and lines take `foreground`, the page `background`;
+   * colour figures keep their colours. `None`: the page as printed.
+   */
+  colors?: PageColors | null;
   /** The stored PDF. */
   file: BlobRef;
   /** 1-based page. */
   page: number;
   /** Width of the image in device pixels (height follows the page's shape). */
   width_px: number;
-}
+};
 
 /** A rendered page image (PNG in the render cache). */
 export interface Rendered {

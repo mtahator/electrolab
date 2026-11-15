@@ -115,6 +115,21 @@
   background: var(--bg-panel);
 }
 
+.side {
+  animation: ep-side-in var(--dur) var(--ease);
+}
+
+@keyframes ep-side-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--side-from, -8px));
+  }
+}
+
+.side.right {
+  --side-from: 8px;
+}
+
 .side.left {
   border-inline-end: 1px solid var(--border);
 }
@@ -360,11 +375,44 @@
   z-index: 5;
 }
 
-.page-canvas {
+.page-canvas,
+.page-preview {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+}
+
+/* A sharp drawing that replaces a preview fades in over it, so pages sharpen instead of popping. */
+.page-canvas.fresh {
+  animation: ep-fade var(--dur) var(--ease);
+}
+
+/* The preview is a small drawing stretched to the page: soften it slightly so it reads as
+   "loading", not as a blurry page. */
+.page-preview {
+  filter: blur(0.4px);
+}
+
+/* Nothing drawn yet (rare: the first moment after opening): a quiet shimmer, never a white hole. */
+.page:not(:has(.page-canvas, .page-preview))::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, var(--bg-hover) 50%, transparent 70%) 0 0 / 300% 100%;
+  animation: ep-shimmer 1.4s linear infinite;
+}
+
+@keyframes ep-shimmer {
+  to {
+    background-position: -150% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page:not(:has(.page-canvas, .page-preview))::before {
+    animation: none;
+  }
 }
 
 /* Sepia paper: the white of the page takes the paper colour; ink and figures keep theirs. */
@@ -1434,4 +1482,57 @@
   color: inherit;
   font: inherit;
   cursor: pointer;
+}
+
+/* Settings ------------------------------------------------------------------------------------ */
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: min(560px, 80vw);
+}
+
+.settings h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: var(--control-h);
+}
+
+.model-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.model-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.model-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.model-state {
+  font-size: var(--text-sm);
+  white-space: nowrap;
 }

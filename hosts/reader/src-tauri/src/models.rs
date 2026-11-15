@@ -126,3 +126,39 @@ pub async fn fetch_model(
     state.document.load_page_models(&state.model_dirs)?;
     Ok(())
 }
+
+/// Remove a downloaded page model (Settings). Models shipped with the app cannot be removed.
+#[tauri::command]
+pub fn remove_model(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    let spec = *Document::model_specs()
+        .iter()
+        .find(|m| m.id == id)
+        .ok_or_else(|| format!("unknown model {id}"))?;
+    if spec.bundled {
+        return Err(format!("{id} is part of the app and cannot be removed"));
+    }
+    let path = spec.path(&state.models_dir);
+    if path.exists() {
+        std::fs::remove_file(&path).map_err(|e| e.to_string())?;
+    }
+    let _ = std::fs::remove_dir(path.parent().unwrap_or(&state.models_dir));
+    state.document.load_page_models(&state.model_dirs)?;
+    Ok(())
+}
+
+/// Name of the flag the installer leaves next to the app when the user chose, while installing,
+/// to get the layout model (the download itself runs in the app, verified like any other).
+const INSTALL_CHOICE: &str = "get-layout-model";
+
+/// Whether the user asked for the layout model while installing; asked once (the flag is removed).
+#[tauri::command]
+pub fn take_install_choice() -> bool {
+    let Some(dir) = std::env::current_exe()
+        .ok()
+        .and_then(|e| e.parent().map(Path::to_path_buf))
+    else {
+        return false;
+    };
+    let flag = dir.join(INSTALL_CHOICE);
+    flag.exists() && std::fs::remove_file(&flag).is_ok()
+}

@@ -116,6 +116,7 @@ impl ModelSpec {
             size: self.size,
             present: self.present(dirs),
             licence: self.licence.into(),
+            bundled: self.bundled,
         }
     }
 }

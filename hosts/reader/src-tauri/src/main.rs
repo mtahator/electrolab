@@ -198,6 +198,8 @@ fn main() -> anyhow::Result<()> {
             shell::take_pending_files,
             shell::download_pdf,
             models::fetch_model,
+            models::remove_model,
+            models::take_install_choice,
             shell::save_text_file
         ])
         .setup(move |app| {

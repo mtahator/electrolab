@@ -35,11 +35,40 @@
       "MediaType": {
         "description": "A media type such as `application/pdf`.",
         "type": "string"
+      },
+      "PageColors": {
+        "description": "Page colours (`#rrggbb`) for drawing a page on a dark paper.",
+        "properties": {
+          "background": {
+            "description": "The page.",
+            "type": "string"
+          },
+          "foreground": {
+            "description": "Text and lines.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "background",
+          "foreground"
+        ],
+        "type": "object"
       }
     },
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "description": "Input of `document.render`.",
     "properties": {
+      "colors": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/PageColors"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Page colours for dark papers: text and lines take `foreground`, the page `background`;\ncolour figures keep their colours. `None`: the page as printed."
+      },
       "file": {
         "$ref": "#/$defs/BlobRef",
         "description": "The stored PDF."

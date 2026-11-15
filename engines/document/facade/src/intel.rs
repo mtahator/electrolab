@@ -85,6 +85,10 @@ impl Document {
     /// ONNX Runtime or a present model could not be loaded (the engine keeps working without).
     pub fn load_page_models(&self, dirs: &[PathBuf]) -> Result<(), String> {
         self.models.write().dirs = dirs.to_vec();
+        // A model the user removed is unloaded.
+        if !models::LAYOUT.present(dirs) {
+            self.models.write().layout = None;
+        }
         let need = models::LAYOUT.present(dirs) || models::OCR_REC.present(dirs);
         if !need {
             return Ok(());
