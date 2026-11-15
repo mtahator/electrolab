@@ -106,17 +106,41 @@ export function Viewer(props: ViewerProps): JSX.Element {
   const [scrolling, setScrolling] = createSignal(false);
   let scrollIdle: number | undefined;
   let lastScroll = { top: 0, at: 0 };
-  // Motion blur of previews (design language §7): vertical only, in proportion to the scroll
-  // speed, none at rest. One SVG filter per viewer, its strength set as the speed changes.
+  // Motion blur of previews (design language §7): vertical only, and only while the reader
+  // flies through several pages — fast (about a page per 0.4 s or more) and far (more than a
+  // page in this movement). Small or slow movements stay sharp so they can be read.
   const blurId = `ep-motion-${Math.random().toString(36).slice(2, 8)}`;
-  let blurNode: SVGFEGaussianBlurElement | undefined;
   let blurNow = 0;
-  const motion = (pxPerMs: number): void => {
-    const amount = Math.min(10, Math.round(pxPerMs * 2.5));
-    if (amount === blurNow || !blurNode) return;
+  let samples: { at: number; dy: number }[] = []; // the last 100 ms of movement
+  let flight = 0; // px travelled since the movement became fast
+  const FAST = 2.5;
+  const setBlur = (amount: number): void => {
+    const node = document.getElementById(`${blurId}-fe`);
+    if (amount === blurNow || !node) return;
     blurNow = amount;
-    blurNode.setAttribute("stdDeviation", `0 ${amount}`);
+    node.setAttribute("stdDeviation", `0 ${amount}`);
     scroller.style.setProperty("--preview-filter", amount > 0 ? `url(#${blurId})` : "none");
+  };
+  const motion = (dy: number, now: number): void => {
+    if (dy === 0) return;
+    samples.push({ at: now, dy: Math.abs(dy) });
+    samples = samples.filter((x) => now - x.at <= 100);
+    const span = Math.max(16, now - (samples[0]?.at ?? now) + 16);
+    const speed = samples.reduce((a, x) => a + x.dy, 0) / span;
+    flight = speed > FAST ? flight + Math.abs(dy) : 0;
+    const pageH = lay().slots[0]?.height ?? scroller.clientHeight;
+    setBlur(speed > FAST && flight > pageH ? Math.min(8, Math.round((speed - FAST) * 2) + 1) : 0);
+  };
+  // Where the scroll bar's thumb is, for the page label beside it (design language §17.5).
+  const [thumb, setThumb] = createSignal({ y: 0, right: 14 });
+  const [thumbDrag, setThumbDrag] = createSignal(false);
+  const measureThumb = (): void => {
+    const h = scroller.clientHeight;
+    const total = Math.max(1, scroller.scrollHeight);
+    const thumbH = Math.max(24, (h * h) / total);
+    const range = Math.max(1, scroller.scrollHeight - h);
+    const top = (scroller.scrollTop / range) * (h - thumbH);
+    setThumb({ y: top + thumbH / 2, right: Math.max(8, scroller.offsetWidth - scroller.clientWidth) + 6 });
   };
   const [flashAt, setFlashAt] = createSignal<{ page: number; y: number; n: number } | null>(null);
   const margin = (): number => (marginView(props.paper.id) ? MARGIN_W : 0);
@@ -405,14 +429,16 @@ export function Viewer(props: ViewerProps): JSX.Element {
   const onScroll = (): void => {
     const now = performance.now();
     const dy = scroller.scrollTop - lastScroll.top;
-    const dt = Math.max(1, now - lastScroll.at);
     lastScroll = { top: scroller.scrollTop, at: now };
-    motion(Math.abs(dy) / dt);
+    motion(dy, now);
+    measureThumb();
     setScrolling(true);
     window.clearTimeout(scrollIdle);
     scrollIdle = window.setTimeout(() => {
       setScrolling(false);
-      motion(0);
+      samples = [];
+      flight = 0;
+      setBlur(0);
     }, 900);
     if (preview()) setPreview(null);
     setView((v) => ({ ...v, top: scroller.scrollTop }));
@@ -471,6 +497,73 @@ export function Viewer(props: ViewerProps): JSX.Element {
       void bus("workspace.record_reading", { paper: props.paper.id, page: current(), seconds: RECORD_EVERY_S }).catch(() => {});
     }, RECORD_EVERY_S * 1000);
     onCleanup(() => window.clearInterval(id));
+  });
+
+  // Touch (design language §17.8): two fingers pinch-zoom the page around them (the browser's
+  // own pinch is off, see `touch-action`), a double tap toggles between fit width and 200 %.
+  // The scroll bar thumb: pressing in the bar shows the page label beside the thumb.
+  const touches = new Map<number, { x: number; y: number }>();
+  let pinch: { dist: number; scale: number } | null = null;
+  let pinchFrame: { factor: number; x: number; y: number } | null = null;
+  let lastTap = { at: 0, x: 0, y: 0 };
+  const spread = (): { dist: number; x: number; y: number } => {
+    const [a, b] = [...touches.values()] as [{ x: number; y: number }, { x: number; y: number }];
+    return { dist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  };
+  const onPointerDown = (e: PointerEvent): void => {
+    if (e.pointerType === "mouse" && e.offsetX >= scroller.clientWidth) {
+      measureThumb();
+      setThumbDrag(true);
+      const up = (): void => {
+        setThumbDrag(false);
+        window.removeEventListener("pointerup", up);
+      };
+      window.addEventListener("pointerup", up);
+      return;
+    }
+    if (e.pointerType !== "touch") return;
+    touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (touches.size === 2) {
+      pinch = { dist: spread().dist, scale: scale() };
+    } else if (touches.size === 1) {
+      const now = performance.now();
+      if (now - lastTap.at < 300 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) {
+        const z = zoom();
+        zoomAround(z.kind === "fit_width" ? { kind: "scale", factor: clamp(scale() * 2) } : { kind: "fit_width" }, e.clientX, e.clientY);
+        lastTap = { at: 0, x: 0, y: 0 };
+      } else {
+        lastTap = { at: now, x: e.clientX, y: e.clientY };
+      }
+    }
+  };
+  const onPointerMove = (e: PointerEvent): void => {
+    if (e.pointerType !== "touch" || !touches.has(e.pointerId)) return;
+    touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (!pinch || touches.size !== 2) return;
+    const s = spread();
+    const start = pinch;
+    const first = pinchFrame === null;
+    pinchFrame = { factor: s.dist / start.dist, x: s.x, y: s.y };
+    if (!first) return;
+    requestAnimationFrame(() => {
+      const f = pinchFrame;
+      pinchFrame = null;
+      if (f && pinch) zoomAround({ kind: "scale", factor: clamp(pinch.scale * f.factor) }, f.x, f.y);
+    });
+  };
+  const onPointerEnd = (e: PointerEvent): void => {
+    touches.delete(e.pointerId);
+    if (touches.size < 2) pinch = null;
+  };
+  // A finger lifted outside the page still ends its touch.
+  const endAnywhere = (e: PointerEvent): void => {
+    if (e.pointerType === "touch") onPointerEnd(e);
+  };
+  window.addEventListener("pointerup", endAnywhere);
+  window.addEventListener("pointercancel", endAnywhere);
+  onCleanup(() => {
+    window.removeEventListener("pointerup", endAnywhere);
+    window.removeEventListener("pointercancel", endAnywhere);
   });
 
   // Ctrl + wheel and trackpad pinch (which arrives as Ctrl + wheel) zoom around the pointer.
@@ -598,15 +691,33 @@ export function Viewer(props: ViewerProps): JSX.Element {
       </Show>
       <svg class="motion-filter" aria-hidden="true" width="0" height="0">
         <filter id={blurId} x="0" y="-10%" width="100%" height="120%">
-          <feGaussianBlur ref={blurNode} stdDeviation="0 0" />
+          <feGaussianBlur id={`${blurId}-fe`} stdDeviation="0 0" />
         </filter>
       </svg>
-      <Show when={scrolling() && info()}>
-        <div class="page-indicator" aria-hidden="true">
-          {current()} / {info()?.pages}
+      <Show when={(scrolling() || thumbDrag()) && info()}>
+        <div
+          class="page-indicator"
+          classList={{ dragging: thumbDrag() }}
+          aria-hidden="true"
+          style={{ top: `${thumb().y}px`, right: `${thumb().right}px` }}
+        >
+          {thumbDrag() ? t("viewer.page_indicator", { n: current(), total: info()?.pages ?? 0 }) : `${current()} / ${info()?.pages}`}
         </div>
       </Show>
-      <div class="scroller" ref={scroller} tabIndex={0} onScroll={onScroll} onWheel={onWheel} onKeyDown={onKey} onCopy={onCopy} onMouseUp={onMouseUp}>
+      <div
+        class="scroller"
+        ref={scroller}
+        tabIndex={0}
+        onScroll={onScroll}
+        onWheel={onWheel}
+        onKeyDown={onKey}
+        onCopy={onCopy}
+        onMouseUp={onMouseUp}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerEnd}
+        onPointerCancel={onPointerEnd}
+      >
         <Show when={info()} fallback={<p class="muted center">{t("viewer.loading")}</p>}>
           <div class="canvas-area" style={{ width: `${Math.max(lay().width + margin(), view().w)}px`, height: `${lay().height}px` }}>
             <For each={shown()}>

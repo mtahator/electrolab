@@ -111,6 +111,75 @@ try {
   const gone = await timeUntil(`document.querySelector(".page-indicator") ? null : true`, 3000);
   check("page_indicator", !!indicator.value && !!gone.value, { shown: indicator.value, hidden_after_ms: gone.ms });
 
+  // 5b. Motion blur only while flying through pages: a small scroll stays sharp.
+  const filterNow = `getComputedStyle(document.querySelector(".pane.focused .scroller")).getPropertyValue("--preview-filter").trim() || "none"`;
+  await sleep(1200);
+  await s.send("Input.dispatchMouseEvent", { type: "mouseWheel", x: mid.x, y: mid.y, deltaX: 0, deltaY: 120 });
+  await sleep(50);
+  const smallBlur = await s.js(filterNow);
+  const flightBlur = await s.js(`(async () => { const sc = document.querySelector(".pane.focused .scroller"); let seen = false; for (let k = 0; k < 20; k++) { sc.scrollTop += 500; await new Promise((r) => requestAnimationFrame(r)); if ((getComputedStyle(sc).getPropertyValue("--preview-filter").trim() || "none") !== "none") seen = true; } return seen; })()`);
+  await sleep(1200);
+  const restBlur = await s.js(filterNow);
+  check("motion_blur_only_in_flight", smallBlur === "none" && flightBlur === true && restBlur === "none", { small_scroll: smallBlur, fast_flight: flightBlur, at_rest: restBlur });
+
+  // 5c. Dragging the scroll bar thumb shows the page beside the thumb.
+  const sbar = await s.js(`(() => { const sc = document.querySelector(".pane.focused .scroller"); const r = sc.getBoundingClientRect(); const w = sc.offsetWidth - sc.clientWidth; const h = sc.clientHeight; const thumbH = Math.max(24, h * h / sc.scrollHeight); const top = sc.scrollTop / (sc.scrollHeight - h) * (h - thumbH); return { x: r.right - Math.max(4, w / 2), y: r.top + top + thumbH / 2, w }; })()`);
+  let thumbLabel = null;
+  if (sbar.w > 0) {
+    await s.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: sbar.x, y: sbar.y });
+    await s.send("Input.dispatchMouseEvent", { type: "mousePressed", x: sbar.x, y: sbar.y, button: "left", clickCount: 1, buttons: 1 });
+    for (let k = 1; k <= 6; k++) await s.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: sbar.x, y: sbar.y + 20 * k, button: "left", buttons: 1 });
+    await sleep(150);
+    thumbLabel = await s.js(`(() => { const e = document.querySelector(".page-indicator.dragging"); if (!e) return null; const b = e.getBoundingClientRect(); return { text: e.textContent, dy: Math.round(Math.abs((b.top + b.bottom) / 2 - ${sbar.y + 120})), right_gap: Math.round(innerWidth - b.right) }; })()`);
+    await s.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: sbar.x, y: sbar.y + 120, button: "left", clickCount: 1 });
+  }
+  check("page_beside_scroll_thumb", !!thumbLabel && thumbLabel.dy < 60 && /Page \d+ of \d+/.test(thumbLabel.text), { scrollbar_width: sbar.w, label: thumbLabel });
+
+  // 5d. Pinch: on a touchpad and on a touch screen the page zooms (never the whole interface).
+  const zoomText = () => s.js(`document.querySelector(".zoom-button")?.textContent`);
+  const pinchOn = async (source) => {
+    const z0 = await zoomText();
+    await s.send("Input.synthesizePinchGesture", { x: Math.round(mid.x), y: Math.round(mid.y), scaleFactor: 1.6, gestureSourceType: source });
+    await sleep(600);
+    const z1 = await zoomText();
+    const ui = await s.js(`window.visualViewport ? window.visualViewport.scale : 1`);
+    await key("0", "Digit0", 48, 2);
+    await sleep(300);
+    return { before: z0, after: z1, interface_scale: ui };
+  };
+  // A touchpad pinch reaches the page as Ctrl + wheel with small steps (Chromium on Windows);
+  // DevTools cannot synthesize a touchpad pinch there, so the same events are sent.
+  const touchpadPinch = async () => {
+    const z0 = await zoomText();
+    for (let k = 0; k < 24; k++) await s.send("Input.dispatchMouseEvent", { type: "mouseWheel", x: Math.round(mid.x), y: Math.round(mid.y), deltaX: 0, deltaY: -6, modifiers: 2 });
+    await sleep(600);
+    const z1 = await zoomText();
+    const ui = await s.js(`window.visualViewport ? window.visualViewport.scale : 1`);
+    await key("0", "Digit0", 48, 2);
+    await sleep(300);
+    return { before: z0, after: z1, interface_scale: ui };
+  };
+  const touchpad = await touchpadPinch();
+  const touchscreen = await pinchOn("touch");
+  const zoomed = (r) => parseInt(r.after) > parseInt(r.before) && r.interface_scale === 1;
+  check("pinch_zoom_touchpad", zoomed(touchpad), touchpad);
+  check("pinch_zoom_touch_screen", zoomed(touchscreen), touchscreen);
+
+  // 5e. A double tap toggles zoom.
+  const tap = async () => {
+    await s.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: Math.round(mid.x), y: Math.round(mid.y) }] });
+    await s.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  };
+  const dz0 = await zoomText();
+  await tap();
+  await sleep(80);
+  await tap();
+  await sleep(500);
+  const dz1 = await zoomText();
+  check("double_tap_zoom", dz0 !== dz1, { before: dz0, after: dz1 });
+  await key("0", "Digit0", 48, 2);
+  await sleep(300);
+
   // 6. Ctrl + wheel zooms around the pointer: the point under the pointer stays under it.
   const at = { x: mid.x - 120, y: mid.y + 60 };
   const under = (p) =>

@@ -400,12 +400,12 @@
   height: 0;
 }
 
-/* Where you are, while scrolling (design language §17.5). */
+/* Where you are, while scrolling (design language §17.5): beside the scroll bar's thumb,
+   moving with it; larger while the thumb is dragged. */
 .page-indicator {
   position: absolute;
   z-index: 5;
-  top: var(--space-3);
-  right: calc(var(--space-4) + 12px);
+  transform: translateY(-50%);
   padding: 4px 10px;
   border-radius: 999px;
   background: var(--bg);
@@ -415,6 +415,37 @@
   font-variant-numeric: tabular-nums;
   pointer-events: none;
   animation: ep-fade var(--dur-fast) var(--ease);
+}
+
+.page-indicator.dragging {
+  padding: 6px 12px;
+  font-size: var(--text-md, var(--text-sm));
+  font-weight: 600;
+}
+
+/* Touch (design language §17.8): the browser never zooms the whole interface — a pinch zooms
+   the page (handled by the viewer); one finger still scrolls. */
+html,
+body,
+.scroller {
+  touch-action: pan-x pan-y;
+}
+
+/* Coarse pointers (touch screens): larger targets and handles. */
+@media (pointer: coarse) {
+  :root {
+    --control-h: 40px;
+  }
+
+  .resizer,
+  .pane-resizer {
+    width: 16px;
+    margin: 0 -8px;
+  }
+
+  .mention {
+    min-height: 24px;
+  }
 }
 
 /* The find bar over the page (design language §17.4): one compact row, like the page's own
