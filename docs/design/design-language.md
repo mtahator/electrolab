@@ -1,6 +1,6 @@
 # ElectroPaper design language and UX guideline
 
-Version 1.2 · 2026-11-14 · applies to **every ElectroPaper app**: the Reader, the Lab desktop app, later the web and server consoles, and any panel an engine contributes. Owner: `ui/kit`. Decision: [ADR-012](../adr/ADR-012-design-language-and-icons.md).
+Version 1.3 · 2026-11-15 · applies to **every ElectroPaper app**: the Reader, the Lab desktop app, later the web and server consoles, and any panel an engine contributes. Owner: `ui/kit`. Decision: [ADR-012](../adr/ADR-012-design-language-and-icons.md).
 
 > **In one sentence:** the paper is the hero; the app is a quiet, well-made desk around it that shows tools when you reach for them and puts them away when you don't.
 
@@ -238,7 +238,12 @@ Rules:
 
 - Motion explains a change of place (a panel opening, a card appearing next to its mark); it never decorates.
 - Durations: 120 ms for small things (hover, press, tooltips after a 500 ms delay), 180 ms for panels and cards, never above 240 ms. Easing: `cubic-bezier(0.2, 0, 0, 1)` in, linear for progress.
-- **The page never animates** while reading: no smooth zoom bounces, no page-turn effects. Scrolling is the user's.
+- **Motion follows the hand** (amended 2026-11-15, founder request; review R8):
+  - pages that are still loading show a preview that blurs **only along the scroll direction and in proportion to the scroll speed**, sharp at rest;
+  - a sharp page fades in over its preview;
+  - a jump within about two screens glides; longer jumps are instant;
+  - a zoom gesture scales what is shown at once, and the pages are redrawn sharp when the gesture ends.
+- No page-turn effects, no bounces.
 - No looping animation except a progress indicator while something is actually running.
 - `prefers-reduced-motion`: all transitions become instant.
 
@@ -280,6 +285,12 @@ Selecting text shows the **selection bar** above it (below when near the top): h
 ### 9.2 Tools are modes with a way out
 A tool stays chosen until the user picks another or presses **Esc** (back to Select). The pointer shows the tool (crosshair to draw, text cursor to mark). One-shot tools (sticky note, text on page) return to Select after use.
 
+**Every tool is understandable on first use** (review R5):
+- **Tooltip:** name, shortcut and what to do ("Highlight (H) — drag over text").
+- **While a tool is chosen:** the status line says the same and how to stop ("Highlight: drag over text · Esc to stop").
+- **Text tools** work as soon as the page shows: the page's text must be there (§17).
+- **Mark colour:** the current colour is shown on the tool.
+
 ### 9.3 Saving and undo
 - Every change is stored immediately; the status line says *Saved* for 2 s, then shows nothing. Never a spinner for local saves.
 - Undo (`Ctrl+Z`) and redo (`Ctrl+Y`) work for every change to user content, survive restarts, and are offered instead of confirmations.
@@ -291,10 +302,12 @@ Plain sentence: what happened, and what to do. No codes in the main text (detail
 ### 9.5 Waiting
 | Time | Show |
 |---|---|
-| < 100 ms | nothing |
-| 100 ms – 1 s | the control shows *busy* (subtle) |
-| 1 – 10 s | progress in place (skeleton in a panel, thin bar in a card) |
+| < 100 ms | the control's pressed state (always) |
+| 100 ms – 1 s | the control shows *busy* (subtle) **and the first results as they arrive** |
+| 1 – 10 s | results streaming in place, with a count that grows and what is being done ("searching page 240 / 759") |
 | > 10 s | a background task in the status line, with progress and Cancel; the user keeps reading |
+
+Partial results are never held back until the work is done (§17).
 
 ### 9.6 Keyboard
 Every action has a place in the command palette (`Ctrl+K`); frequent ones have shortcuts, all remappable. Single-letter tool keys work only when focus is not in a text field. `Esc` always closes the innermost thing (card → popover → tool → selection).
@@ -405,6 +418,49 @@ Rules: one `ui/kit` package for all apps; an app may add components to the kit, 
 
 ---
 
+## 17. Responsiveness (binding, added 2026-11-15)
+
+From the review of a 759-page book (`docs/design/review-2026-11-15-large-documents.md`).
+
+### 17.1 Answer at once, refine later
+- Every action shows a visible response within **100 ms**: pressed state, spinner, or a first partial result.
+- **Streaming:** results appear as they are found (search hits, contents entries, LaTeX), and counts grow while the work goes on. A result may be corrected later (a sharper picture, a final count); it is never withheld until everything is finished.
+- Long work says what it is doing and how far it is ("128 matches · searching 240 / 759").
+
+### 17.2 What the user looks at goes first
+The page in view, its text and links, a search being typed and a click come before background work: previews ahead, preparation, indexes, models. Background work runs in small pieces between them.
+
+### 17.3 Budgets on a large book (750+ pages, while preparation runs)
+| What | Budget |
+|---|---|
+| First picture of the page | < 1 s |
+| Page text selectable (highlight, copy) | < 1.5 s |
+| First search hit | < 1 s; hits keep arriving page by page |
+| Sharp page after a jump | < 0.8 s |
+| Blank pages while scrolling | none (a preview at least) |
+
+### 17.4 Find
+`Ctrl+F` opens a **find bar** over the page:
+- it shows "*n / m*", Previous and Next (Enter / Shift + Enter), and a close button;
+- the count grows while the search runs;
+- the side panel keeps the full list with options.
+
+### 17.5 Where you are
+- **While scrolling,** a small page indicator ("46 / 759") shows by the scroll bar and fades out 1 s after scrolling stops.
+- **Zoom:** Ctrl + wheel and a trackpad pinch zoom around the pointer, at once (scaled view), then sharp.
+
+### 17.6 Splits and panels
+- **Resizing:** every split (side panels, two panes) has a drag handle; a double-click restores the default.
+- **Sizes and minimums:** sizes are remembered; each pane keeps a minimum width at which it still works.
+
+### 17.7 Transient things
+Hover popovers and previews close by themselves when:
+- the pointer leaves both the trigger and the popover (after 300 ms);
+- the view scrolls or zooms;
+- Esc is pressed, or the user clicks outside.
+
+---
+
 ## 15. Governance and review
 
 - **Source of truth:** this document for rules, `ui/kit` for implementation (tokens, components, icons, strings). If they disagree, fix one of them in the same change.
@@ -430,4 +486,6 @@ Copy into the review of any UI change.
 - [ ] Text: plain, sentence case, verbs on buttons, through `t()`.
 - [ ] Changes saved at once and undoable; confirmation only for the irreversible.
 - [ ] AI (if any): on request, marked with `sparkles`, evidence chips, Stop, short by default.
-- [ ] End-to-end check added or updated.
+- [ ] Answers within 100 ms; results stream; budgets of §17.3 met on the large book while preparation runs.
+- [ ] Transient UI closes on scroll, pointer leave and Esc; splits resizable.
+- [ ] End-to-end check added or updated, with **real input** (mouse, wheel, keys) where the user would use them.

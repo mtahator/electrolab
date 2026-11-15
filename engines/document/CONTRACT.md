@@ -20,7 +20,8 @@ Fast, deterministic, notation-aware word search with context. Full design: [`doc
 - **Output:** `SearchResult { hits: [Hit], counts: [TermCount], truncated, elapsed_us }`
   - `Hit { term, label, paper, page, matched, before, after, kind: exact | notation | word_form | prefix | substring | fuzzy, similarity, rects: [PageRect], section, char_range, merged }`
   - `TermCount { term, total, per_page, per_kind }`
-- **Errors:** `PaperNotPrepared(paper)` — prepare first; `EmptyQuery`; `TermTooLong(term)`; `InvalidOption(text)`.
+- **Streaming** (added 2026-11-15, review R1): the command streams partial `SearchResult`s as pages are searched (pages near `near_page` first), each with `pages_searched` / `pages_total`; the final result is complete. A paper does not need to be prepared: page text is extracted on the way (once per file, shared with preparation) in the interactive lane.
+- **Errors:** `EmptyQuery`; `TermTooLong(term)`; `InvalidOption(text)`.
 - **Permission:** read.
 - **Example:** `terms: ["C_p"]` on a paper containing `Cp`, `C_p`, `C_{p}`, `𝐶ₚ` and `C p` → five hits, kinds `exact`/`notation`, each with page, boxes and 12 words either side; "C. P. Burgess" is not a hit.
 
@@ -43,7 +44,7 @@ All positions are in page space (points, top-left origin, rotation applied; ADR-
 | `document.outline` | `{ file }` → `[OutlineItem { title, target?, children }]` (the PDF's bookmarks; generated outlines come in M4) |
 | `document.links` | `{ file, page }` → `[Link { rect, target }]`; `target` is `page { page, top? }`, `url { url }` (http, https, mailto only) or `unsupported` (launch, script, other files: never followed) |
 
-The PDF backend is the `PdfBackend` port; the `PDFium` adapter owns one thread, answers through a channel with a 30 s timeout, and keeps four documents open (ADR-003). Hosts find `PDFium` with `ep_document::find_pdfium()` (`EP_PDFIUM_DIR`, next to the executable, or `.natives/pdfium/bin`).
+The PDF backend is the `PdfBackend` port; the `PDFium` adapter owns one thread, answers through a channel with a 30 s timeout, and keeps four documents open (ADR-003). Its queue has two lanes (review R2): requests for what the user sees go first; preparation, previews ahead (`document.render` with `background: true`), the search index and whole-paper geometry wait in the background lane and run in small pieces. Hosts find `PDFium` with `ep_document::find_pdfium()` (`EP_PDFIUM_DIR`, next to the executable, or `.natives/pdfium/bin`).
 
 ### Annotations (experimental, T1) — P1.M3, ADR-006
 The store is the truth; a PDF is an export. Annotations belong to a **paper** (`PaperId`), so they survive "Save into PDF". They are kept in the engine's own database, `document.sqlite`, in the open library folder (ADR-010 amendment 1), reached through the host's `BlobAccess::project()` port. Positions are in page space.
@@ -91,6 +92,8 @@ Events: `document.preparing { file, stage }` while a stage runs; `document.prepa
 **Scanned pages.** Pages with almost no text of their own are recognised with PP-OCRv5 (ONNX Runtime, the same on every system, models shipped with the app). The recognised text is cached per page and returned by `document.text`, and used by search and every rule above, so a scanned paper works like any other. About 11 s per page on the minimum hardware, in the background, page in view first.
 
 **Models.** Pinned in `facade/src/models.rs` by folder, file, size and SHA-256. Hosts pass every folder to look in (bundled `models/` next to the executable first, then the user's data folder) to `Document::load_page_models`. The OCR models (13 MB) are bundled; the layout model (Egret-medium, 78 MB) is downloaded on request by the host, and without it objects come from text rules only.
+
+**Labels** (review R7): labels keep the printed number in full — "Figure 2.3", "Table A.1", "Figure S2". A caption is a label followed by caption text ("Table 1.1 Comparison of …", "Figure 2: …"), never a sentence that starts with a label ("Table 1.1 provides …"). A "(Continued)" caption continues the earlier object of the same label and is not listed again.
 
 **Equations** (design note `docs/design/equations-figures-tables.md`):
 - An equation object is the displayed formula block, without its number.
