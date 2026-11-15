@@ -23,7 +23,7 @@ import { History, type Place } from "./history";
 import { type Layout, type ViewMode, type Zoom, clamp, layout, pageAt, scaleFor, toPage, toScreen, visible } from "./layout";
 import { Page, selectedText } from "./Page";
 import { type PDFDocumentProxy, acquire, release } from "./pdf";
-import { loadPreviews, previewKey, previewsDone } from "./previews";
+import { loadPreviews, previewKey, previewsDone, previewsNear } from "./previews";
 
 /** What the shell can do with a viewer. */
 export interface ViewerApi {
@@ -103,6 +103,21 @@ export function Viewer(props: ViewerProps): JSX.Element {
   const [links, setLinks] = createStore<Record<number, Link[]>>({});
   const [preview, setPreview] = createSignal<{ page: number; top: number | null; at: DOMRect } | null>(null);
   const [selBar, setSelBar] = createSignal<DOMRect | null>(null);
+  const [scrolling, setScrolling] = createSignal(false);
+  let scrollIdle: number | undefined;
+  let lastScroll = { top: 0, at: 0 };
+  // Motion blur of previews (design language §7): vertical only, in proportion to the scroll
+  // speed, none at rest. One SVG filter per viewer, its strength set as the speed changes.
+  const blurId = `ep-motion-${Math.random().toString(36).slice(2, 8)}`;
+  let blurNode: SVGFEGaussianBlurElement | undefined;
+  let blurNow = 0;
+  const motion = (pxPerMs: number): void => {
+    const amount = Math.min(10, Math.round(pxPerMs * 2.5));
+    if (amount === blurNow || !blurNode) return;
+    blurNow = amount;
+    blurNode.setAttribute("stdDeviation", `0 ${amount}`);
+    scroller.style.setProperty("--preview-filter", amount > 0 ? `url(#${blurId})` : "none");
+  };
   const [flashAt, setFlashAt] = createSignal<{ page: number; y: number; n: number } | null>(null);
   const margin = (): number => (marginView(props.paper.id) ? MARGIN_W : 0);
   const history = new History();
@@ -124,6 +139,9 @@ export function Viewer(props: ViewerProps): JSX.Element {
     return pageColors();
   });
 
+  // Previews are made near where the reader is, and more as they move.
+  createEffect(on(current, (p) => previewsNear(previewKey(hash, untrack(colors)), p), { defer: true }));
+
   // A different paper colour needs its own previews.
   createEffect(
     on(
@@ -137,6 +155,16 @@ export function Viewer(props: ViewerProps): JSX.Element {
       { defer: true },
     ),
   );
+
+  // A saved place is applied when the layout of the pages exists (and the scroller has its size).
+  const [restoreTo, setRestoreTo] = createSignal<Place | null>(null);
+  createEffect(() => {
+    const p = restoreTo();
+    const l = lay();
+    if (!p || l.slots.length === 0 || view().h < 50) return;
+    setRestoreTo(null);
+    queueMicrotask(() => goTo(p.page, p.y, false, true));
+  });
 
   // Keep the reader's place when the page scale changes for another reason than zooming: the
   // window or a side panel changes size (fit width / fit page). Zooming keeps its own anchor.
@@ -354,7 +382,9 @@ export function Viewer(props: ViewerProps): JSX.Element {
     if (loc) {
       setCurrent(loc.page);
       place = { page: loc.page, y: loc.target?.y0 ?? 0 };
-      requestAnimationFrame(() => goTo(loc.page, loc.target?.y0 ?? 0, false, true));
+      // Applied once the pages are laid out at the real size (an effect below), not on a
+      // timer: opening is fast now, and a place applied before the layout exists is lost.
+      setRestoreTo(place);
     }
     restored = true;
   };
@@ -373,6 +403,18 @@ export function Viewer(props: ViewerProps): JSX.Element {
 
   // Save the place a moment after scrolling stops.
   const onScroll = (): void => {
+    const now = performance.now();
+    const dy = scroller.scrollTop - lastScroll.top;
+    const dt = Math.max(1, now - lastScroll.at);
+    lastScroll = { top: scroller.scrollTop, at: now };
+    motion(Math.abs(dy) / dt);
+    setScrolling(true);
+    window.clearTimeout(scrollIdle);
+    scrollIdle = window.setTimeout(() => {
+      setScrolling(false);
+      motion(0);
+    }, 900);
+    if (preview()) setPreview(null);
     setView((v) => ({ ...v, top: scroller.scrollTop }));
     place = here();
     if (selBar()) setSelBar(selectionBox());
@@ -395,10 +437,14 @@ export function Viewer(props: ViewerProps): JSX.Element {
       const p = s.page;
       if (!(p in texts)) {
         setTexts(p, { page: p, text: "", boxes: [], words: [], lines: [], unknown: 0 });
-        const idle = (window as Window & { requestIdleCallback?: (f: () => void) => number }).requestIdleCallback ?? ((f: () => void) => window.setTimeout(f, 30));
+        // Soon, not "when idle": a busy app is never idle, and text tools need the text
+        // (design language §17.3: selectable within 1.5 s).
+        const idle =
+          (window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }).requestIdleCallback ??
+          ((f: () => void) => window.setTimeout(f, 30));
         idle(() => {
           void bus("document.text", { file: props.paper.file, page: p }).then((tx) => setTexts(p, tx)).catch(() => {});
-        });
+        }, { timeout: 150 });
       }
       if (!(p in links)) {
         setLinks(p, []);
@@ -427,10 +473,26 @@ export function Viewer(props: ViewerProps): JSX.Element {
     onCleanup(() => window.clearInterval(id));
   });
 
+  // Ctrl + wheel and trackpad pinch (which arrives as Ctrl + wheel) zoom around the pointer.
+  // Steps are gathered and applied once per frame, so a fast gesture lays the pages out once
+  // per frame instead of once per event; pages are drawn sharp when the gesture ends.
+  let wheelZoom: { factor: number; x: number; y: number } | null = null;
   const onWheel = (e: WheelEvent): void => {
     if (!e.ctrlKey) return;
     e.preventDefault();
-    zoomAround({ kind: "scale", factor: clamp(scale() * Math.exp(-e.deltaY * 0.0015)) }, e.clientX, e.clientY);
+    const step = Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0025));
+    if (wheelZoom) {
+      wheelZoom.factor *= step;
+      wheelZoom.x = e.clientX;
+      wheelZoom.y = e.clientY;
+      return;
+    }
+    wheelZoom = { factor: step, x: e.clientX, y: e.clientY };
+    requestAnimationFrame(() => {
+      const z = wheelZoom;
+      wheelZoom = null;
+      if (z) zoomAround({ kind: "scale", factor: clamp(scale() * z.factor) }, z.x, z.y);
+    });
   };
 
   const onKey = (e: KeyboardEvent): void => {
@@ -533,6 +595,16 @@ export function Viewer(props: ViewerProps): JSX.Element {
     <div class="viewer-host">
       <Show when={error()}>
         <p class="error center">{error()}</p>
+      </Show>
+      <svg class="motion-filter" aria-hidden="true" width="0" height="0">
+        <filter id={blurId} x="0" y="-10%" width="100%" height="120%">
+          <feGaussianBlur ref={blurNode} stdDeviation="0 0" />
+        </filter>
+      </svg>
+      <Show when={scrolling() && info()}>
+        <div class="page-indicator" aria-hidden="true">
+          {current()} / {info()?.pages}
+        </div>
       </Show>
       <div class="scroller" ref={scroller} tabIndex={0} onScroll={onScroll} onWheel={onWheel} onKeyDown={onKey} onCopy={onCopy} onMouseUp={onMouseUp}>
         <Show when={info()} fallback={<p class="muted center">{t("viewer.loading")}</p>}>

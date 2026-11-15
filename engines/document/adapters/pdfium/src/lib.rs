@@ -7,7 +7,7 @@
 
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
-use std::sync::mpsc;
+use std::sync::{Arc, Condvar, Mutex, mpsc};
 use std::time::Duration;
 
 use ep_document_core::pdf::{
@@ -19,6 +19,8 @@ use pdfium_render::prelude::*;
 const OPEN_DOCS: usize = 4;
 /// Longest wait for one request.
 const TIMEOUT: Duration = Duration::from_secs(30);
+/// Background work waits behind interactive work, so it gets much longer.
+const BACKGROUND_TIMEOUT: Duration = Duration::from_secs(600);
 
 type Job = Box<dyn FnOnce(&mut State) + Send>;
 
@@ -150,10 +152,25 @@ fn bookmarks(first: Option<PdfBookmark<'_>>, depth: usize) -> Vec<RawBookmark> {
     out
 }
 
+/// The worker's queue: requests for what the user is looking at (interactive) go before
+/// background work; within a lane, first come first served.
+#[derive(Default)]
+struct Lanes {
+    interactive: VecDeque<Job>,
+    background: VecDeque<Job>,
+}
+
+type Queue = Arc<(Mutex<Lanes>, Condvar)>;
+
 /// The `PDFium` backend.
-#[derive(Debug)]
 pub struct PdfiumBackend {
-    tx: mpsc::Sender<Job>,
+    queue: Queue,
+}
+
+impl std::fmt::Debug for PdfiumBackend {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PdfiumBackend").finish_non_exhaustive()
+    }
 }
 
 impl PdfiumBackend {
@@ -164,18 +181,19 @@ impl PdfiumBackend {
     /// # Errors
     /// The library cannot be loaded.
     pub fn start(dir: &Path) -> Result<Self, String> {
-        static WORKER: std::sync::Mutex<Option<mpsc::Sender<Job>>> = std::sync::Mutex::new(None);
+        static WORKER: std::sync::Mutex<Option<Queue>> = std::sync::Mutex::new(None);
         let mut worker = WORKER.lock().map_err(|e| e.to_string())?;
-        if let Some(tx) = worker.as_ref() {
-            return Ok(Self { tx: tx.clone() });
+        if let Some(q) = worker.as_ref() {
+            return Ok(Self { queue: q.clone() });
         }
         let started = Self::spawn(dir)?;
-        *worker = Some(started.tx.clone());
+        *worker = Some(started.queue.clone());
         Ok(started)
     }
 
     fn spawn(dir: &Path) -> Result<Self, String> {
-        let (tx, rx) = mpsc::channel::<Job>();
+        let queue: Queue = Arc::new((Mutex::new(Lanes::default()), Condvar::new()));
+        let worker_queue = queue.clone();
         let (ready_tx, ready_rx) = mpsc::channel::<Result<(), String>>();
         let lib = Pdfium::pdfium_platform_library_name_at_path(dir);
         std::thread::Builder::new()
@@ -195,13 +213,30 @@ impl PdfiumBackend {
                     pdfium,
                     docs: VecDeque::new(),
                 };
-                while let Ok(job) = rx.recv() {
+                let (lock, ready) = &*worker_queue;
+                loop {
+                    let job = {
+                        let mut lanes = lock
+                            .lock()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner);
+                        loop {
+                            if let Some(j) = lanes.interactive.pop_front() {
+                                break j;
+                            }
+                            if let Some(j) = lanes.background.pop_front() {
+                                break j;
+                            }
+                            lanes = ready
+                                .wait(lanes)
+                                .unwrap_or_else(std::sync::PoisonError::into_inner);
+                        }
+                    };
                     job(&mut state);
                 }
             })
             .map_err(|e| e.to_string())?;
         ready_rx.recv().map_err(|e| e.to_string())??;
-        Ok(Self { tx })
+        Ok(Self { queue })
     }
 
     fn run<T: Send + 'static>(
@@ -212,11 +247,26 @@ impl PdfiumBackend {
         let job: Job = Box::new(move |s| {
             let _ = rtx.send(f(s));
         });
-        self.tx
-            .send(job)
-            .map_err(|_| BackendError::Unreadable("PDF backend stopped".into()))?;
-        rrx.recv_timeout(TIMEOUT)
-            .map_err(|_| BackendError::Timeout)?
+        let background = ep_document_core::pdf::is_background();
+        {
+            let (lock, ready) = &*self.queue;
+            let mut lanes = lock
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            if background {
+                lanes.background.push_back(job);
+            } else {
+                lanes.interactive.push_back(job);
+            }
+            ready.notify_one();
+        }
+        // Background work may wait behind a lot of interactive work; it is not timed out.
+        let limit = if background {
+            BACKGROUND_TIMEOUT
+        } else {
+            TIMEOUT
+        };
+        rrx.recv_timeout(limit).map_err(|_| BackendError::Timeout)?
     }
 }
 

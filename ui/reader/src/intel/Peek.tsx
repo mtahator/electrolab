@@ -8,7 +8,7 @@ import { For, type JSX, Show, createResource, onCleanup, onMount } from "solid-j
 
 import { bus, openExternal, renderUrl } from "../host";
 import { quoteToNotes } from "../notes/state";
-import { type Peek, peek, setPeek, setSettingsOpen } from "./state";
+import { hoverLeave, hoverStay, type Peek, peek, setPeek, setSettingsOpen } from "./state";
 import { TableView } from "./TableView";
 import { createSignal } from "solid-js";
 
@@ -57,18 +57,36 @@ export function PeekHost(props: { paper: string; goTo: (page: number, y: number)
         setPeek(null);
       }
     };
+    // Scrolling or zooming the page closes a hover popover (design language §17.7).
+    const moved = (e: Event): void => {
+      const p = peek();
+      if (!p?.hover) return;
+      if (e.type === "wheel" || (e.target instanceof HTMLElement && e.target.classList.contains("scroller"))) setPeek(null);
+    };
     window.addEventListener("pointerdown", down, true);
     window.addEventListener("keydown", key, true);
+    window.addEventListener("scroll", moved, true);
+    window.addEventListener("wheel", moved, { capture: true, passive: true });
     onCleanup(() => {
       window.removeEventListener("pointerdown", down, true);
       window.removeEventListener("keydown", key, true);
+      window.removeEventListener("scroll", moved, true);
+      window.removeEventListener("wheel", moved, true);
     });
   });
   return (
     <Show when={peek()} keyed>
       {(p) => (
-        <div class="peek" ref={box} style={place(p.at)}>
-          {p.kind === "citation" ? <CitationPeek p={p} goTo={props.goTo} /> : <RegionPeek p={p} paper={props.paper} goTo={props.goTo} />}
+        <div class="peek" ref={box} style={place(p.at)} onPointerEnter={hoverStay} onPointerLeave={() => p.hover && hoverLeave()}>
+          {p.kind === "citation" ? (
+            <CitationPeek p={p} goTo={props.goTo} />
+          ) : p.kind === "loading" ? (
+            <Card title={p.title} icon="image" onClose={() => setPeek(null)} closeLabel={t("common.close")}>
+              <Skeleton lines={4} />
+            </Card>
+          ) : (
+            <RegionPeek p={p} paper={props.paper} goTo={props.goTo} />
+          )}
         </div>
       )}
     </Show>
@@ -103,7 +121,7 @@ function CitationPeek(props: { p: Extract<Peek, { kind: "citation" }>; goTo: (pa
   );
 }
 
-function RegionPeek(props: { p: Exclude<Peek, { kind: "citation" }>; paper: string; goTo: (page: number, y: number) => void }): JSX.Element {
+function RegionPeek(props: { p: Exclude<Peek, { kind: "citation" } | { kind: "loading" }>; paper: string; goTo: (page: number, y: number) => void }): JSX.Element {
   const [table, setTable] = createSignal(false);
   const request = (): { page: number; rect?: unknown; point?: unknown } => {
     const p = props.p;

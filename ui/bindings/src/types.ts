@@ -1036,6 +1036,8 @@ export interface RenameCollection {
 
 /** Input of `document.render`. */
 export type RenderRequest = {
+  /** Background work (previews of pages ahead): waits behind what the user is looking at. */
+  background?: boolean;
   /**
    * Page colours for dark papers: text and lines take `foreground`, the page `background`;
    * colour figures keep their colours. `None`: the page as printed.
@@ -1108,22 +1110,26 @@ export interface Scope {
 }
 
 /** Input of `document.search`. */
-export interface SearchRequest {
+export type SearchRequest = {
   /** What is returned around each hit. */
   context?: ContextOptions;
   /** Caps on the size of the result. */
   limits?: Limits;
   /** How strict a match is. */
   match?: MatchOptions;
+  /** Pages near this one are searched first (the page in view). */
+  near_page?: number | null;
   /** Papers to search (one, several, or a whole collection). */
   papers: PaperRef[];
   /** Which pages and sections are searched. */
   scope?: Scope;
   /** Order of hits. */
   sort?: Sort;
+  /** Stream partial results as hub events while searching. */
+  stream?: unknown & (SearchStream | null);
   /** What to look for; each term is searched and counted separately. */
   terms: Term[];
-}
+};
 
 /** Output of `document.search`. */
 export interface SearchResult {
@@ -1133,8 +1139,20 @@ export interface SearchResult {
   elapsed_us: number;
   /** The hits, in the requested order. */
   hits: Hit[];
+  /** Pages searched so far (partial results while streaming; all pages in the final result). */
+  pages_searched?: number;
+  /** Pages to search in all. */
+  pages_total?: number;
   /** True when a limit cut the hits. */
   truncated: boolean;
+}
+
+/** How a search streams its partial results (review 2026-11-15, rule R1). */
+export interface SearchStream {
+  /** A newer search in the same group cancels this one (the find bar of one tab). */
+  group: string;
+  /** Sent back with every partial result (`document.searching` event). */
+  id: string;
 }
 
 /**

@@ -17,7 +17,7 @@ import { enqueue } from "./queue";
 export const previewWidth = (): number => Math.round(160 * (window.devicePixelRatio || 1));
 
 const [previews, setPreviews] = createStore<Record<string, Record<number, string>>>({});
-const loading = new Map<string, { users: number; cancel: () => void; done: Promise<void> }>();
+const loading = new Map<string, { users: number; cancel: () => void; done: Promise<void>; ensure: (page: number) => void }>();
 
 type Colors = { background: string; foreground: string } | null;
 
@@ -37,8 +37,12 @@ export function previewOf(key: string, page: number): string | undefined {
   return previews[key]?.[page];
 }
 
-/** Make previews of every page of `file`, the pages nearest `near()` first. Returns a function
- *  that stops (when the last viewer of the file closes). */
+/** Pages on each side of the view that get previews (design language §17.2: the engine is
+ *  shared, so previews are made only near where the reader is, as background work). */
+const AHEAD = 40;
+
+/** Make previews of the pages near `near()`, nearest first, and more as the reader moves
+ *  (`previewsNear`). Returns a function that stops (when the last viewer of the file closes). */
 export function loadPreviews(file: BlobRef, pages: number, near: () => number, colors: Colors = null): () => void {
   const hash = previewKey(file.hash, colors);
   const cur = loading.get(hash);
@@ -46,36 +50,42 @@ export function loadPreviews(file: BlobRef, pages: number, near: () => number, c
     cur.users += 1;
   } else {
     if (!previews[hash]) setPreviews(hash, {});
-    const cancels: (() => void)[] = [];
+    const cancels = new Map<number, () => void>();
     let left = 0;
     let finished = (): void => {};
     const done = new Promise<void>((ok) => (finished = ok));
-    const one = (): void => {
-      left -= 1;
-      if (left <= 0) finished();
+    const ensure = (center: number): void => {
+      const from = Math.max(1, center - AHEAD);
+      const to = Math.min(pages, center + AHEAD);
+      for (let p = from; p <= to; p++) {
+        if (previews[hash]?.[p] || cancels.has(p)) continue;
+        left += 1;
+        cancels.set(
+          p,
+          enqueue({
+            // Ahead of sharp drawings of pages out of view (whose priority is their distance in
+            // pixels), behind those in view (0): a preview costs a few milliseconds.
+            priority: () => 1 + Math.abs(p - near()) * 40,
+            background: true,
+            run: async (signal) => {
+              const r = await bus("document.render", { file, page: p, width_px: previewWidth(), background: true, ...(colors ? { colors } : {}) }).finally(() => {
+                left -= 1;
+                if (left <= 0) finished();
+              });
+              if (signal.aborted) return;
+              const url = renderUrl(r.image.hash);
+              const img = new Image();
+              img.src = url;
+              await Promise.race([img.decode().catch(() => {}), new Promise((ok) => setTimeout(ok, 3000))]);
+              setPreviews(hash, p, url);
+            },
+          }),
+        );
+      }
+      if (left === 0) finished();
     };
-    for (let p = 1; p <= pages; p++) {
-      if (previews[hash]?.[p]) continue;
-      left += 1;
-      cancels.push(
-        enqueue({
-          // Ahead of sharp drawings of pages out of view (whose priority is their distance in
-          // pixels), behind those in view (0): a preview costs a few milliseconds.
-          priority: () => 1 + Math.abs(p - near()) * 40,
-          run: async (signal) => {
-            const r = await bus("document.render", { file, page: p, width_px: previewWidth(), ...(colors ? { colors } : {}) }).finally(one);
-            if (signal.aborted) return;
-            const url = renderUrl(r.image.hash);
-            const img = new Image();
-            img.src = url;
-            await Promise.race([img.decode().catch(() => {}), new Promise((ok) => setTimeout(ok, 3000))]);
-            setPreviews(hash, p, url);
-          },
-        }),
-      );
-    }
-    if (left === 0) finished();
-    loading.set(hash, { users: 1, cancel: () => cancels.forEach((c) => c()), done });
+    ensure(near());
+    loading.set(hash, { users: 1, cancel: () => cancels.forEach((c) => c()), done, ensure });
   }
   return () => {
     const e = loading.get(hash);
@@ -86,6 +96,11 @@ export function loadPreviews(file: BlobRef, pages: number, near: () => number, c
       loading.delete(hash);
     }
   };
+}
+
+/** The reader moved: make previews around `page` too. */
+export function previewsNear(key: string, page: number): void {
+  loading.get(key)?.ensure(page);
 }
 
 // ---- drawn pages ---------------------------------------------------------------------------------

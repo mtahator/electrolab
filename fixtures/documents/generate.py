@@ -11,6 +11,10 @@ Each covers layouts a research paper does not have:
 - brochure.pdf         landscape tri-fold, three panels per page
 - report-business.pdf  quarterly report: headings, KPI table, bullet lists, no references
 - rotated-pages.pdf    pages turned 0, 90, 180 and 270 degrees (/Rotate), for page geometry
+- book-800.pdf         an 800-page book (review 2026-11-15): chapters, two-level numbering
+                       ("Figure 3.2", "Table 12.4"), sentences that start with a label, tables
+                       continued on the next page, charts, references, dense text — the large
+                       document every budget is measured on (design language §17.3)
 """
 
 from pathlib import Path
@@ -416,6 +420,83 @@ def rotated():
     c.save()
 
 
+# ---------------------------------------------------------------- 800-page book ---------------
+WORDS = ("energy system hydrogen transport carbon policy demand storage grid wind solar battery "
+         "emission building network model cost market supply heat efficiency capacity sector "
+         "transition urban industry fuel electric vehicle data analysis scenario target").split()
+
+
+def sentence(rng, n):
+    w = [rng.choice(WORDS) for _ in range(n)]
+    w[0] = w[0].capitalize()
+    return " ".join(w) + "."
+
+
+def book():
+    import random
+    rng = random.Random(800)
+    W, H = letter
+    c = canvas.Canvas(str(OUT / "book-800.pdf"), pagesize=letter, invariant=1, pageCompression=1)
+    c.setTitle("Large Book Fixture")
+    c.setAuthor(INFO["author"])
+    c.setCreator(INFO["creator"])
+    page = 0
+    chapter = 0
+    fig = tab = 0
+
+    def new_page():
+        nonlocal page
+        if page:
+            c.showPage()
+        page += 1
+        c.setFont("Helvetica", 8)
+        c.drawRightString(W - 60, 30, str(page))
+
+    def text_block(y, lines=6):
+        for _ in range(lines):
+            if y < 80:
+                break
+            y = para(c, 60, y, W - 120, sentence(rng, rng.randint(14, 24)) + " " + sentence(rng, rng.randint(10, 18)), size=10, leading=13)
+            y -= 4
+        return y
+
+    while page < 800:
+        if page % 40 == 0:
+            chapter += 1
+            fig = tab = 0
+            new_page()
+            c.setFont("Helvetica-Bold", 22)
+            c.drawString(60, H - 120, f"{chapter} Chapter {chapter}")
+            text_block(H - 170, 30)
+            continue
+        new_page()
+        y = H - 70
+        kind = page % 5
+        if kind == 1:
+            fig += 1
+            y = para(c, 60, y, W - 120, f"As Figure {chapter}.{fig} shows, the {rng.choice(WORDS)} grows with {rng.choice(WORDS)} (see also Table {chapter}.{max(1, tab)}).", size=10, leading=13)
+            bar_chart(c, 120, y - 230, 360, 200, [rng.randint(5, 50) for _ in range(6)], ["A", "B", "C", "D", "E", "F"])
+            c.setFont("Helvetica", 9)
+            c.drawString(60, y - 255, f"Figure {chapter}.{fig} {sentence(rng, 8)}")
+            text_block(y - 285, 14)
+        elif kind == 3:
+            tab += 1
+            y = para(c, 60, y, W - 120, f"Table {chapter}.{tab} provides a detailed comparison of the {rng.choice(WORDS)} options.", size=10, leading=13)
+            c.setFont("Helvetica-Bold", 9)
+            c.drawString(60, y - 10, f"Table {chapter}.{tab} Comparison of {rng.choice(WORDS)} and {rng.choice(WORDS)}.")
+            y = table(c, 60, y - 20, [160, 100, 100, 100], [["Option", "Cost", "Share", "Change"]] + [[rng.choice(WORDS), rng.randint(10, 99), f"{rng.randint(1, 60)} %", f"+{rng.randint(1, 9)} %"] for _ in range(12)])
+            text_block(y - 10, 10)
+        elif kind == 4 and tab:
+            c.setFont("Helvetica-Bold", 9)
+            c.drawString(60, y, f"Table {chapter}.{tab} (Continued)")
+            y = table(c, 60, y - 10, [160, 100, 100, 100], [["Option", "Cost", "Share", "Change"]] + [[rng.choice(WORDS), rng.randint(10, 99), f"{rng.randint(1, 60)} %", f"+{rng.randint(1, 9)} %"] for _ in range(8)])
+            text_block(y - 10, 12)
+        else:
+            text_block(y, 40)
+    c.showPage()
+    c.save()
+
+
 if __name__ == "__main__":
     manual()
     poster_research()
@@ -424,4 +505,5 @@ if __name__ == "__main__":
     brochure()
     report()
     rotated()
+    book()
     print("written to", OUT)

@@ -8,6 +8,7 @@
 
 use std::collections::{HashSet, VecDeque};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Weak};
 
 use ep_blob::BlobStore;
@@ -61,6 +62,8 @@ const INDEXES: usize = 8;
 /// Cached page geometry of one file: hash, pages, encrypted.
 type GeomEntry = (Hash, Arc<Vec<PageGeom>>, bool);
 type SizeEntry = (Hash, Arc<Vec<PageSize>>, bool);
+/// A file's page texts, by page index.
+type PageTexts = (Hash, Vec<Option<Arc<PageText>>>);
 
 /// The Document engine.
 pub struct Document {
@@ -73,6 +76,13 @@ pub struct Document {
     /// Geometry of single pages read before the whole paper's (the pages being shown).
     page_geoms: Mutex<VecDeque<(Hash, u32, PageGeom)>>,
     indexes: Mutex<VecDeque<(Hash, Arc<SearchIndex>)>>,
+    /// Running searches by group (a newer one stops the older one).
+    searches: Mutex<std::collections::HashMap<String, Arc<AtomicBool>>>,
+    /// Page text of recent files, extracted once and shared by the text layer, search and
+    /// preparation (review R2).
+    texts: Mutex<VecDeque<PageTexts>>,
+    /// One whole-paper analysis at a time per file (others wait for it, then share it).
+    analysing: Mutex<std::collections::HashMap<Hash, Arc<Mutex<()>>>>,
     /// The open project's annotation database, by project id.
     annotation_db: Mutex<Option<(String, Arc<ep_store::Store>)>>,
     /// For hub events.
@@ -188,6 +198,9 @@ impl Document {
             sizes: Mutex::new(VecDeque::new()),
             page_geoms: Mutex::new(VecDeque::new()),
             indexes: Mutex::new(VecDeque::new()),
+            searches: Mutex::new(std::collections::HashMap::new()),
+            texts: Mutex::new(VecDeque::new()),
+            analysing: Mutex::new(std::collections::HashMap::new()),
             annotation_db: Mutex::new(None),
             bus: Mutex::new(Weak::new()),
             author: RwLock::new(String::new()),
@@ -572,7 +585,15 @@ impl Document {
     async fn render(self: Arc<Self>, _cx: Cx, i: RenderRequest) -> Result<Rendered, CommandError> {
         let path = self.path(&i.file)?;
         let me = self.clone();
-        blocking(move || me.render_one(&i.file, &path, i.page, i.width_px, i.colors.as_ref())).await
+        blocking(move || {
+            let work = || me.render_one(&i.file, &path, i.page, i.width_px, i.colors.as_ref());
+            if i.background {
+                ep_document_core::pdf::background(work)
+            } else {
+                work()
+            }
+        })
+        .await
     }
 
     async fn thumbnails(
@@ -642,76 +663,205 @@ impl Document {
         .await
     }
 
-    /// The search index of a file, built from every page's text on first use.
-    fn index(&self, hash: Hash, cx: &Cx) -> Result<Arc<SearchIndex>, CommandError> {
-        if let Some((_, ix)) = self.indexes.lock().iter().find(|(h, _)| *h == hash) {
-            return Ok(ix.clone());
-        }
-        let path = self.blobs.path_of(&hash).ok_or_else(|| {
-            CommandError::failed(errors::NOT_FOUND, format!("paper {hash} is not available"))
-        })?;
-        let (g, _) = self.geoms(hash, &path)?;
-        let backend = self.backend()?;
-        let mut pages = Vec::with_capacity(g.len());
-        for (i, geom) in g.iter().enumerate() {
-            if cx.is_cancelled() {
-                return Err(CommandError::Cancelled);
-            }
-            let idx = u32::try_from(i).unwrap_or(u32::MAX);
-            let _ = (geom, &backend);
-            let t = self.page_text_of(&hash, &path, &g[idx as usize], idx)?;
-            let chars = t
-                .text
-                .chars()
-                .zip(t.boxes)
-                .map(|(c, b)| {
-                    (
-                        c,
-                        b.map(|r| ep_types::PageRect {
-                            page: idx + 1,
-                            x0: r[0],
-                            y0: r[1],
-                            x1: r[2],
-                            y1: r[3],
-                        }),
-                    )
-                })
-                .collect();
-            pages.push(PageChars {
-                page: idx + 1,
-                chars,
-            });
-        }
-        let ix = Arc::new(SearchIndex::build(&pages, Vec::new()));
-        let mut cache = self.indexes.lock();
-        if cache.len() >= INDEXES {
-            cache.pop_back();
-        }
-        cache.push_front((hash, ix.clone()));
-        Ok(ix)
-    }
-
     async fn search(
         self: Arc<Self>,
         cx: Cx,
         i: SearchRequest,
     ) -> Result<SearchResult, CommandError> {
         let me = self.clone();
-        blocking(move || {
-            let mut indexes = Vec::with_capacity(i.papers.len());
-            for p in &i.papers {
-                let hash: Hash = p.0.parse().map_err(|_| CommandError::InvalidInput {
-                    message: format!("paper {:?} is not a file hash", p.0),
-                })?;
-                indexes.push((PaperRef(p.0.clone()), me.index(hash, &cx)?));
+        blocking(move || me.search_streaming(&cx, &i)).await
+    }
+
+    /// A newer search in the same group stops this one.
+    fn search_token(&self, i: &SearchRequest) -> Arc<AtomicBool> {
+        let token = Arc::new(AtomicBool::new(false));
+        if let Some(s) = &i.stream {
+            let mut running = self.searches.lock();
+            if let Some(old) = running.insert(s.group.clone(), token.clone()) {
+                old.store(true, Ordering::Relaxed);
             }
-            let refs: Vec<(PaperRef, &SearchIndex)> = indexes
-                .iter()
-                .map(|(p, ix)| (p.clone(), ix.as_ref()))
-                .collect();
-            ep_document_core::search::search(&refs, &i)
+        }
+        token
+    }
+
+    fn publish_partial(&self, cx: &Cx, i: &SearchRequest, r: &SearchResult) {
+        let (Some(s), Some(bus)) = (&i.stream, self.bus.lock().upgrade()) else {
+            return;
+        };
+        bus.events().publish(
+            ep_document_contract::SEARCHING,
+            json!({ "id": s.id, "result": r }),
+            cx.clock.now_ms(),
+        );
+    }
+
+    /// Search, streaming partial results (review R1): papers with a built index are searched at
+    /// once; for the others pages are read in small batches, nearest to `near_page` first, each
+    /// batch searched and its hits sent on; the index is kept for the next search. The final
+    /// result is the exact one.
+    fn search_streaming(&self, cx: &Cx, i: &SearchRequest) -> Result<SearchResult, CommandError> {
+        const BATCH: usize = 12;
+        let token = self.search_token(i);
+        let stopped = || token.load(Ordering::Relaxed) || cx.is_cancelled();
+        let started = std::time::Instant::now();
+        let mut targets = Vec::with_capacity(i.papers.len());
+        let mut total_pages = 0u32;
+        for p in &i.papers {
+            let hash: Hash = p.0.parse().map_err(|_| CommandError::InvalidInput {
+                message: format!("paper {:?} is not a file hash", p.0),
+            })?;
+            let path = self.blobs.path_of(&hash).ok_or_else(|| {
+                CommandError::failed(errors::NOT_FOUND, format!("paper {hash} is not available"))
+            })?;
+            let (sizes, _) = self.sizes(hash, &path)?;
+            total_pages += u32::try_from(sizes.len()).unwrap_or(0);
+            targets.push((p.clone(), hash, path, sizes.len()));
+        }
+        let mut partial = SearchResult {
+            pages_total: total_pages,
+            ..SearchResult::default()
+        };
+        let mut indexes: Vec<(PaperRef, Arc<SearchIndex>)> = Vec::new();
+        let run = |refs: &[(PaperRef, &SearchIndex)], only: &PaperRef| {
+            let mut one = i.clone();
+            one.papers = vec![only.clone()];
+            ep_document_core::search::search(refs, &one)
                 .map_err(|e| CommandError::failed("search", format!("{e:?}")))
+        };
+        for (pref, hash, path, n) in targets {
+            if let Some(ix) = self.cached_index(hash) {
+                let r = run(&[(pref.clone(), ix.as_ref())], &pref)?;
+                merge(&mut partial, r, u32::try_from(n).unwrap_or(0), i);
+                self.publish_partial(cx, i, &partial);
+                indexes.push((pref, ix));
+                continue;
+            }
+            // Pages nearest the page in view first.
+            let mut order: Vec<u32> = (0..u32::try_from(n).unwrap_or(0)).collect();
+            if let Some(near) = i.near_page {
+                order.sort_by_key(|&p| (i64::from(p) - i64::from(near.saturating_sub(1))).abs());
+            }
+            let mut all: Vec<Option<PageChars>> = vec![None; n];
+            for batch in order.chunks(BATCH) {
+                if stopped() {
+                    return Err(CommandError::Cancelled);
+                }
+                let mut chunk = Vec::with_capacity(batch.len());
+                for &idx in batch {
+                    let pc = self.page_chars(&hash, &path, idx)?;
+                    all[idx as usize] = Some(pc.clone());
+                    chunk.push(pc);
+                }
+                chunk.sort_by_key(|c| c.page);
+                let ix = SearchIndex::build(&chunk, Vec::new());
+                let r = run(&[(pref.clone(), &ix)], &pref)?;
+                merge(&mut partial, r, u32::try_from(batch.len()).unwrap_or(0), i);
+                partial.elapsed_us =
+                    u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX);
+                self.publish_partial(cx, i, &partial);
+            }
+            let pages: Vec<PageChars> = all.into_iter().flatten().collect();
+            let ix = Arc::new(SearchIndex::build(&pages, Vec::new()));
+            self.keep_index(hash, ix.clone());
+            indexes.push((pref, ix));
+        }
+        let refs: Vec<(PaperRef, &SearchIndex)> = indexes
+            .iter()
+            .map(|(p, ix)| (p.clone(), ix.as_ref()))
+            .collect();
+        let mut out = ep_document_core::search::search(&refs, i)
+            .map_err(|e| CommandError::failed("search", format!("{e:?}")))?;
+        out.pages_searched = total_pages;
+        out.pages_total = total_pages;
+        out.elapsed_us = u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX);
+        if let Some(s) = &i.stream {
+            let mut running = self.searches.lock();
+            if running
+                .get(&s.group)
+                .is_some_and(|t| Arc::ptr_eq(t, &token))
+            {
+                running.remove(&s.group);
+            }
+        }
+        Ok(out)
+    }
+
+    fn cached_index(&self, hash: Hash) -> Option<Arc<SearchIndex>> {
+        self.indexes
+            .lock()
+            .iter()
+            .find(|(h, _)| *h == hash)
+            .map(|(_, ix)| ix.clone())
+    }
+
+    fn keep_index(&self, hash: Hash, ix: Arc<SearchIndex>) {
+        let mut cache = self.indexes.lock();
+        cache.retain(|(h, _)| *h != hash);
+        if cache.len() >= INDEXES {
+            cache.pop_back();
+        }
+        cache.push_front((hash, ix));
+    }
+
+    /// One page's characters for the search index, from the shared page text.
+    fn page_chars(&self, hash: &Hash, path: &Path, idx: u32) -> Result<PageChars, CommandError> {
+        let geom = self.geom_of(*hash, path, idx)?;
+        let t = self.page_text_of(hash, path, &geom, idx)?;
+        let chars = t
+            .text
+            .chars()
+            .zip(t.boxes)
+            .map(|(c, b)| {
+                (
+                    c,
+                    b.map(|r| ep_types::PageRect {
+                        page: idx + 1,
+                        x0: r[0],
+                        y0: r[1],
+                        x1: r[2],
+                        y1: r[3],
+                    }),
+                )
+            })
+            .collect();
+        Ok(PageChars {
+            page: idx + 1,
+            chars,
         })
-        .await
+    }
+}
+
+/// Add a batch's search result to the running partial result: hits merged in order (paper,
+/// page, position) and cut to the limits, counts added.
+fn merge(acc: &mut SearchResult, r: SearchResult, pages: u32, req: &SearchRequest) {
+    acc.pages_searched += pages;
+    acc.truncated |= r.truncated;
+    for c in r.counts {
+        match acc.counts.iter_mut().find(|a| a.term == c.term) {
+            Some(a) => {
+                a.total += c.total;
+                a.per_page.extend(c.per_page);
+                a.per_page.sort_by_key(|(p, _)| *p);
+                for (k, n) in c.per_kind {
+                    match a.per_kind.iter_mut().find(|(kk, _)| *kk == k) {
+                        Some(x) => x.1 += n,
+                        None => a.per_kind.push((k, n)),
+                    }
+                }
+            }
+            None => acc.counts.push(c),
+        }
+    }
+    acc.counts.sort_by_key(|c| c.term);
+    acc.hits.extend(r.hits);
+    let order: Vec<&PaperRef> = req.papers.iter().collect();
+    acc.hits.sort_by(|a, b| {
+        let pa = order.iter().position(|p| **p == a.paper);
+        let pb = order.iter().position(|p| **p == b.paper);
+        (pa, a.page, a.char_range.0).cmp(&(pb, b.page, b.char_range.0))
+    });
+    if acc.hits.len() > req.limits.max_hits {
+        acc.hits.truncate(req.limits.max_hits);
+        acc.truncated = true;
     }
 }

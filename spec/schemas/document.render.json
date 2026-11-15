@@ -58,6 +58,11 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "description": "Input of `document.render`.",
     "properties": {
+      "background": {
+        "default": false,
+        "description": "Background work (previews of pages ahead): waits behind what the user is looking at.",
+        "type": "boolean"
+      },
       "colors": {
         "anyOf": [
           {

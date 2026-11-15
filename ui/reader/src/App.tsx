@@ -29,8 +29,8 @@ import {
 import { For, type JSX, Show, createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
 import { createStore } from "solid-js/store";
 
-import { ToolRail } from "./annotations/ToolRail";
-import { annotationsOf, marksHidden, onAnnotationError, picked, redo, remove, saveIntoPdf, savedAt, setMarksHidden, setPicked, setTool, typing, undo } from "./annotations/state";
+import { ToolRail, toolHint } from "./annotations/ToolRail";
+import { annotationsOf, marksHidden, onAnnotationError, picked, redo, remove, saveIntoPdf, savedAt, setMarksHidden, setPicked, setTool, tool, typing, undo } from "./annotations/state";
 import { bus, downloadPdf, onBusEvent, onDropFiles, onOpenFiles, openPaperExternally, pickPdfs, printPaper, takePendingFiles } from "./host";
 import { addTextLayer, canAddTextLayer, download, fetchModel, installChoice, layoutModel, prepare, refreshModels, running, setSettingsOpen as setSettings, settingsOpen as settings } from "./intel/state";
 import { importPdf, openDefaultLibrary, refresh } from "./library";
@@ -59,6 +59,8 @@ import { activate, activeTab, closeTab, moveTab, openPapers, openTab, restore, s
 import { Settings } from "./shell/Settings";
 import { SidePanel } from "./shell/SidePanel";
 import type { Marks, ViewerApi, ViewerStatus } from "./viewer/Viewer";
+import { bindFind, hideFindMarks } from "./viewer/find";
+import { FindBar } from "./viewer/FindBar";
 import { Viewer } from "./viewer/Viewer";
 
 const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
@@ -99,6 +101,42 @@ export function App(): JSX.Element {
   const [peek, setPeek] = createSignal(false);
   const [modelDialog, setModelDialog] = createSignal(false);
   const [addingText, setAddingText] = createSignal(false);
+  // The find bar over the focused pane (design language §17.4).
+  const [findBar, setFindBar] = createSignal(0);
+  // Share of the first pane in split view (design language §17.6), remembered.
+  const readSplit = (): number => {
+    try {
+      const v = Number(globalThis.localStorage?.getItem("ep.pane-split"));
+      return v >= 0.15 && v <= 0.85 ? v : 0.5;
+    } catch {
+      return 0.5;
+    }
+  };
+  const [split, setSplit] = createSignal(readSplit());
+  const saveSplit = (v: number): void => {
+    setSplit(v);
+    try {
+      globalThis.localStorage?.setItem("ep.pane-split", String(v));
+    } catch {
+      // A convenience.
+    }
+  };
+  let panesBox: HTMLDivElement | undefined;
+  const dragSplit = (e: PointerEvent): void => {
+    const box = panesBox?.getBoundingClientRect();
+    if (!box) return;
+    const handle = e.currentTarget as HTMLElement;
+    handle.classList.add("dragging");
+    const min = Math.min(0.45, 280 / box.width);
+    const move = (m: PointerEvent): void => saveSplit(Math.min(1 - min, Math.max(min, (m.clientX - box.left) / box.width)));
+    const up = (): void => {
+      handle.classList.remove("dragging");
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
   const [note, setNote] = createSignal<string | null>(null);
   const [status, setStatus] = createStore<Record<string, ViewerStatus>>({});
   const [marks, setMarks] = createStore<Record<string, Marks>>({});
@@ -151,6 +189,23 @@ export function App(): JSX.Element {
     } finally {
       setAddingText(false);
     }
+  };
+
+  // The one search (design language §17.4): the find bar and the Find list share it.
+  bindFind({
+    paper: () => current().paper,
+    openPapers: () => openPapers(),
+    page: () => current().status?.page ?? 1,
+    onHits: (hits, active) => showHits(hits, active),
+  });
+  const openFindBar = (): void => {
+    if (!current().paper) return openFind();
+    setFindBar((n) => n + 1);
+  };
+  const closeFindBar = (): void => {
+    setFindBar(0);
+    if (leftPanel() !== "find") hideFindMarks();
+    current().api?.focus();
   };
 
   async function importAndOpen(paths: string[]): Promise<void> {
@@ -240,7 +295,8 @@ export function App(): JSX.Element {
     { id: "palette", title: () => t("palette.title"), keys: "Ctrl+K", run: () => setPalette(true) },
     { id: "keymap", title: () => t("keymap.title"), run: () => setKeymap(true) },
     { id: "settings", title: () => t("settings.title"), keys: "Ctrl+,", run: () => setSettings(true) },
-    { id: "find", title: () => t("panel.find"), keys: "Ctrl+F", run: openFind },
+    { id: "find", title: () => t("panel.find"), keys: "Ctrl+F", run: () => openFindBar() },
+    { id: "find.list", title: () => `${t("panel.find")}: ${t("panel.title_list")}`, keys: "Ctrl+Shift+F", run: openFind },
     { id: "panel.left", title: () => t("frame.left_panel"), keys: "Ctrl+B", enabled: () => !typing(), run: () => setLeftPanel(leftPanel() ? null : "outline") },
     ...LEFT_TABS.filter((x) => x.id !== "find").map((x) => ({ id: `panel.${x.id}`, title: x.label, run: () => toggleLeft(x.id) })),
     { id: "panel.notes", title: () => t("panel.notes"), keys: "Ctrl+Shift+N", run: () => setRightPanel(rightPanel() ? null : "notes") },
@@ -483,7 +539,7 @@ export function App(): JSX.Element {
         <span class="ep-spacer" />
         <div class="bar-group">
           <Show when={!session.showLibrary}>
-            <IconButton icon="search" label={t("panel.find")} shortcut="Ctrl+F" pressed={leftPanel() === "find"} onClick={() => (leftPanel() === "find" ? setLeftPanel(null) : openFind())} />
+            <IconButton icon="search" label={t("panel.find")} shortcut="Ctrl+F" pressed={findBar() > 0} onClick={() => (findBar() > 0 ? closeFindBar() : openFindBar())} />
             <IconButton icon="columns-2" label={session.panes.length > 1 ? t("tabs.unsplit") : t("tabs.split")} shortcut="Ctrl+\" pressed={session.panes.length > 1} onClick={toggleSplit} />
             <IconButton icon="notebook-pen" label={t("panel.notes")} shortcut="Ctrl+Shift+N" pressed={rightPanel() === "notes"} disabled={!current().paper} onClick={() => setRightPanel(rightPanel() ? null : "notes")} />
             <span class="bar-sep" />
@@ -533,12 +589,25 @@ export function App(): JSX.Element {
               </>
             )}
           </Show>
-          <div class="panes">
+          <div class="panes" ref={panesBox}>
             <For each={session.panes}>
               {(pane, pi) => (
+                <>
+                <Show when={pi() > 0}>
+                  <div
+                    class="pane-resizer"
+                    role="separator"
+                    aria-orientation="vertical"
+                    aria-label={t("frame.resize")}
+                    data-tip={t("frame.resize")}
+                    onPointerDown={dragSplit}
+                    onDblClick={() => saveSplit(0.5)}
+                  />
+                </Show>
                 <section
                   class="pane"
                   classList={{ focused: session.focused === pi() }}
+                  style={session.panes.length > 1 ? { flex: `0 0 calc(${(pi() === 0 ? split() : 1 - split()) * 100}% - 3px)` } : {}}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => {
                     const data = e.dataTransfer?.getData("application/x-ep-tab");
@@ -589,8 +658,14 @@ export function App(): JSX.Element {
                         />
                       )}
                     </Show>
+                    <Show when={findBar() > 0 && session.focused === pi() && pane.tabs.find((tb) => tb.id === pane.active)}>
+                      <Show when={findBar()} keyed>
+                        {(_) => <FindBar onList={openFind} onClose={closeFindBar} />}
+                      </Show>
+                    </Show>
                   </div>
                 </section>
+                </>
               )}
             </For>
           </div>
@@ -659,6 +734,11 @@ export function App(): JSX.Element {
             <Show when={reading() && !download() && layoutModel() && !layoutModel()?.present}>
               <StatusItem icon="cpu" label={t("intel.get_model")} onClick={() => setModelDialog(true)}>
                 {t("intel.get_model")}
+              </StatusItem>
+            </Show>
+            <Show when={reading() && tool() !== "select"}>
+              <StatusItem icon="mouse-pointer-2">
+                {toolHint(tool())} · {t("annot.stop_hint")}
               </StatusItem>
             </Show>
             <Show when={reading() && marksHidden()}>

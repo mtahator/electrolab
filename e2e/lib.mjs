@@ -68,5 +68,5 @@ export async function launch({ exe, args, data, webview, port, out, consoleLog }
   const scrollerKey = (k, mods) => keyOn(`document.querySelector(".pane.focused .scroller")`, k, mods);
   /** A bus call from the page, as the UI makes it. */
   const call = (command, input) => js(`window.__TAURI_INTERNALS__.invoke("bus_call", { command: ${JSON.stringify(command)}, input: ${JSON.stringify(input)}, deadlineMs: null, approved: [] })`);
-  return { app, ws, js, until, shot, key, scrollerKey, call };
+  return { app, ws, js, until, shot, key, scrollerKey, call, send };
 }

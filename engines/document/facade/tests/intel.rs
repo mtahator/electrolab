@@ -797,3 +797,117 @@ async fn equations_are_whole() {
         );
     }
 }
+
+/// Debugging aid for a large document given by path (`EP_DOC`): timings of opening, search and
+/// preparation, and what Contents gets. Not run by default.
+#[tokio::test]
+#[ignore = "debugging aid"]
+async fn probe_document() {
+    let Some(path) = std::env::var_os("EP_DOC").map(PathBuf::from) else {
+        return;
+    };
+    let tmp = tempfile::tempdir().unwrap();
+    let t = Instant::now();
+    let Some((bus, file, model)) = setup_file(path, true, tmp.path()) else {
+        return;
+    };
+    let info: ep_document_contract::DocInfo = call(&bus, "document.info", json!({ "file": file }))
+        .await
+        .unwrap();
+    eprintln!(
+        "PROBE info: {} pages in {:.2}s (model: {model})",
+        info.pages,
+        t.elapsed().as_secs_f32()
+    );
+    for w in [800u32, 1600, 2400, 3600] {
+        let t = Instant::now();
+        let r: Value = call(
+            &bus,
+            "document.render",
+            json!({ "file": file, "page": 46, "width_px": w }),
+        )
+        .await
+        .unwrap();
+        eprintln!(
+            "PROBE render p46 {w}px: {:.0} ms ({}x{})",
+            t.elapsed().as_secs_f64() * 1000.0,
+            r["width_px"],
+            r["height_px"]
+        );
+    }
+    if let Ok(range) = std::env::var("EP_PAGES") {
+        let (a, b) = range.split_once('-').unwrap();
+        for page in a.parse::<u32>().unwrap()..=b.parse::<u32>().unwrap() {
+            let t = Instant::now();
+            let po: PageObjects = call(
+                &bus,
+                "document.objects",
+                json!({ "file": file, "page": page }),
+            )
+            .await
+            .unwrap();
+            for o in po.objects.iter().filter(|o| {
+                matches!(
+                    o.kind,
+                    ObjectKind::Table | ObjectKind::Figure | ObjectKind::Caption
+                )
+            }) {
+                eprintln!(
+                    "  OBJ p{page} {:?} {:?} h={:.0} {:?} ({:.1}s)",
+                    o.kind,
+                    o.label,
+                    o.rect.y1 - o.rect.y0,
+                    o.text
+                        .as_deref()
+                        .map(|t| t.chars().take(50).collect::<String>()),
+                    t.elapsed().as_secs_f32()
+                );
+            }
+        }
+    }
+    let t = Instant::now();
+    let r: Value = call(
+        &bus,
+        "document.search",
+        json!({ "papers": [file.hash], "terms": [{ "text": "hydrogen" }] }),
+    )
+    .await
+    .unwrap();
+    eprintln!(
+        "PROBE search (cold): {:.1}s, hits {}",
+        t.elapsed().as_secs_f32(),
+        r["hits"].as_array().map_or(0, Vec::len)
+    );
+    let t = Instant::now();
+    let _: Value = call(
+        &bus,
+        "document.search",
+        json!({ "papers": [file.hash], "terms": [{ "text": "PDE" }] }),
+    )
+    .await
+    .unwrap();
+    eprintln!("PROBE search (warm): {:.3}s", t.elapsed().as_secs_f32());
+    let t = Instant::now();
+    let c: Contents = call(&bus, "document.contents", json!({ "file": file }))
+        .await
+        .unwrap();
+    eprintln!(
+        "PROBE contents: {:.1}s, {} figures, {} tables, {} equations",
+        t.elapsed().as_secs_f32(),
+        c.figures.len(),
+        c.tables.len(),
+        c.equations.len()
+    );
+    for o in c.figures.iter().take(12).chain(c.tables.iter().take(12)) {
+        eprintln!(
+            "  {:?} p{} {:?} h={:.0} {:?}",
+            o.kind,
+            o.rect.page,
+            o.label,
+            o.rect.y1 - o.rect.y0,
+            o.text
+                .as_deref()
+                .map(|t| t.chars().take(70).collect::<String>())
+        );
+    }
+}

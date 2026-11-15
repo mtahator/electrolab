@@ -139,3 +139,38 @@ fn hundred_mixed_requests_from_threads() {
         h.join().expect("thread");
     }
 }
+
+/// Review 2026-11-15, rule R2: a request for what the user sees is answered quickly while
+/// hundreds of background requests wait.
+#[test]
+fn interactive_requests_go_before_background_work() {
+    let Some(b) = backend() else { return };
+    let paper = papers()
+        .into_iter()
+        .find(|p| p.to_string_lossy().contains("2106.03711"))
+        .unwrap_or_else(|| papers()[0].clone());
+    let b = std::sync::Arc::new(b);
+    let (n, _) = b.sizes(&paper).unwrap();
+    // Background: draw every page several times over, from four threads.
+    let mut workers = Vec::new();
+    for t in 0..4u32 {
+        let (b, paper) = (b.clone(), paper.clone());
+        let pages = u32::try_from(n.len()).unwrap();
+        workers.push(std::thread::spawn(move || {
+            ep_document_core::pdf::background(|| {
+                for k in 0..60u32 {
+                    let _ = b.render(&paper, (k + t) % pages, 900);
+                }
+            });
+        }));
+    }
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    let t = Instant::now();
+    b.render(&paper, 0, 800).expect("interactive render");
+    let waited = t.elapsed();
+    eprintln!("interactive render while 240 background renders queue: {waited:?}");
+    for w in workers {
+        w.join().unwrap();
+    }
+    assert!(waited.as_millis() < 1500, "waited {waited:?}");
+}

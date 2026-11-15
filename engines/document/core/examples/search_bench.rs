@@ -57,6 +57,8 @@ fn load(path: &Path) -> Vec<PageChars> {
 
 fn request(papers: &[PaperRef], terms: &[&str], matching: MatchOptions) -> SearchRequest {
     SearchRequest {
+        near_page: None,
+        stream: None,
         papers: papers.to_vec(),
         terms: terms
             .iter()

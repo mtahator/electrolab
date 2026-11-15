@@ -1,9 +1,15 @@
-// Render queue (P1.M2.VW.2): at most two renders at a time, the most important first (visible
-// pages before neighbours); a job whose page left the view is cancelled before or during work.
+// Render queue (P1.M2.VW.2): the most important first (visible pages before neighbours); a job
+// whose page left the view is cancelled before or during work.
+//
+// Two lanes (design language §17.2, review 2026-11-15): background jobs (previews of pages
+// ahead) have slots of their own, so they can never take the slots the page in view needs —
+// the engine serves them only when it has nothing more important to do, and they may wait.
 
 export interface Job {
   /** Lower runs first (0 = visible). */
   priority: () => number;
+  /** Background work (previews ahead): its own slots, never blocking visible pages. */
+  background?: boolean;
   /** Do the work; `signal` is aborted when the job is cancelled. */
   run: (signal: AbortSignal) => Promise<void>;
 }
@@ -13,21 +19,34 @@ interface Entry {
   ctrl: AbortController;
 }
 
-const MAX_RUNNING = 2;
+const SLOTS = { interactive: 2, background: 2 };
 const waiting: Entry[] = [];
-let running = 0;
+const running = { interactive: 0, background: 0 };
+
+function lane(e: Entry): "interactive" | "background" {
+  return e.job.background ? "background" : "interactive";
+}
 
 function pump(): void {
-  while (running < MAX_RUNNING && waiting.length > 0) {
-    waiting.sort((a, b) => a.job.priority() - b.job.priority());
-    const e = waiting.shift();
-    if (!e || e.ctrl.signal.aborted) continue;
-    running += 1;
+  waiting.sort((a, b) => a.job.priority() - b.job.priority());
+  for (let i = 0; i < waiting.length; ) {
+    const e = waiting[i] as Entry;
+    const l = lane(e);
+    if (e.ctrl.signal.aborted) {
+      waiting.splice(i, 1);
+      continue;
+    }
+    if (running[l] >= SLOTS[l]) {
+      i += 1;
+      continue;
+    }
+    waiting.splice(i, 1);
+    running[l] += 1;
     void e.job
       .run(e.ctrl.signal)
       .catch(() => {})
       .finally(() => {
-        running -= 1;
+        running[l] -= 1;
         pump();
       });
   }

@@ -7,7 +7,7 @@ import { t } from "@electropaper/kit";
 import { For, type JSX, Show, createSignal, onCleanup, onMount } from "solid-js";
 
 import { bus } from "../host";
-import { linksOf, setPeek } from "./state";
+import { hoverLeave, hoverStay, linksOf, peek, setPeek } from "./state";
 
 const HOVER_MS = 450;
 
@@ -34,12 +34,17 @@ export function PageLinks(props: { file: BlobRef; page: number; scale: number })
   });
   onCleanup(() => window.clearTimeout(timer));
 
-  const openMention = async (m: Mention, at: DOMRect): Promise<void> => {
+  const openMention = async (m: Mention, at: DOMRect, hover = false): Promise<void> => {
     const target = m.target;
     if (!target) return;
+    // Answer at once: the popover opens now and fills in when the object is known.
+    const waiting = { kind: "loading" as const, at, file: props.file, title: m.text, hover };
+    setPeek(waiting);
     const objs = await bus("document.objects", { file: props.file, page: target.page }).catch(() => null);
     const object = objs?.objects.find((o) => o.id === target.id);
-    if (object) setPeek({ kind: "object", at, file: props.file, object, mention: m });
+    if (peek() !== waiting) return;
+    if (object) setPeek({ kind: "object", at, file: props.file, object, mention: m, hover });
+    else setPeek(null);
   };
   const hover = (f: () => void): void => {
     window.clearTimeout(timer);
@@ -59,10 +64,14 @@ export function PageLinks(props: { file: BlobRef; page: number; scale: number })
                 aria-label={`${m.text}: ${t("intel.show")}`}
                 onClick={(e) => void openMention(m, e.currentTarget.getBoundingClientRect())}
                 onMouseEnter={(e) => {
+                  hoverStay();
                   const at = e.currentTarget.getBoundingClientRect();
-                  hover(() => void openMention(m, at));
+                  hover(() => void openMention(m, at, true));
                 }}
-                onMouseLeave={() => window.clearTimeout(timer)}
+                onMouseLeave={() => {
+                  window.clearTimeout(timer);
+                  hoverLeave();
+                }}
               />
             )}
           </For>
@@ -79,10 +88,14 @@ export function PageLinks(props: { file: BlobRef; page: number; scale: number })
                 aria-label={`${c.text}: ${t("intel.show_reference")}`}
                 onClick={(e) => setPeek({ kind: "citation", at: e.currentTarget.getBoundingClientRect(), file: props.file, marker: c })}
                 onMouseEnter={(e) => {
+                  hoverStay();
                   const at = e.currentTarget.getBoundingClientRect();
-                  hover(() => setPeek({ kind: "citation", at, file: props.file, marker: c }));
+                  hover(() => setPeek({ kind: "citation", at, file: props.file, marker: c, hover: true }));
                 }}
-                onMouseLeave={() => window.clearTimeout(timer)}
+                onMouseLeave={() => {
+                  window.clearTimeout(timer);
+                  hoverLeave();
+                }}
               />
             )}
           </For>

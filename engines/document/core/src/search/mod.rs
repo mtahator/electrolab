@@ -593,6 +593,8 @@ mod tests {
 
     fn req(terms: &[&str], m: MatchOptions) -> SearchRequest {
         SearchRequest {
+            near_page: None,
+            stream: None,
             papers: vec![PaperRef("p".into())],
             terms: terms
                 .iter()

@@ -173,6 +173,26 @@ impl std::fmt::Display for BackendError {
     }
 }
 
+thread_local! {
+    static BACKGROUND: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Run `f` as **background** work: backend calls made inside it wait behind requests for what
+/// the user is looking at (review 2026-11-15, rule R2). Preparation, previews ahead, the search
+/// index and whole-document passes run this way.
+pub fn background<T>(f: impl FnOnce() -> T) -> T {
+    let before = BACKGROUND.with(|b| b.replace(true));
+    let out = f();
+    BACKGROUND.with(|b| b.set(before));
+    out
+}
+
+/// Whether the current thread is doing background work (see [`background`]).
+#[must_use]
+pub fn is_background() -> bool {
+    BACKGROUND.with(std::cell::Cell::get)
+}
+
 /// The PDF backend port (`PDFium` in production). Pages are 0-based here, 1-based in the contract.
 pub trait PdfBackend: Send + Sync {
     /// Geometry of every page, and whether the file declares encryption.

@@ -170,10 +170,15 @@ fn main() -> anyhow::Result<()> {
     let protocol_ws = workspace.clone();
     let protocol_doc = document.clone();
     let events_bus = bus.clone();
-    tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+    let mut builder = tauri::Builder::default();
+    // One window per user; a run with its own data folder (tests, EP_DATA_DIR) is separate, so
+    // it can run next to the user's own Reader.
+    if std::env::var_os("EP_DATA_DIR").is_none() {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             shell::on_second_instance(app, &args);
-        }))
+        }));
+    }
+    builder
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState {
             bus,

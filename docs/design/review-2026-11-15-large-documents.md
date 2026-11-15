@@ -88,3 +88,24 @@ The founder opened a 759-page book (18 MB, two-level numbering "Figure 2.3", man
 | Engine priority: an interactive request is answered quickly while 700 background requests are queued | adapter test |
 
 The founder's own book stays outside the repository (copyright). `e2e/large.mjs` runs on it as well when it is given with `EP_LARGE_PDF`.
+
+## 5. Results after the fixes (same laptop, release build, while preparation runs)
+
+`e2e/large.mjs` on the generated 800-page book and on the founder's 759-page book: **every check passes on both**.
+
+| Budget (§17.3) | Before | 800-page book | Founder's book |
+|---|---|---|---|
+| First picture < 1 s | 6.1 s | 0.72 s | 0.96 s |
+| Text selectable < 1.5 s | not after 16 s | 0.91 s | 0.10 s (after a jump to a text page) |
+| First search hit < 1 s | 28 s (all at once) | 0.13–0.5 s, growing | 0.22 s; all 3,654 hits in 1.7 s |
+| Sharp page after a far jump < 0.8 s | > 10 s | 0.6–0.7 s | 0.73 s |
+| Highlight by dragging | did not work | works | works |
+| Ctrl + wheel zoom at the pointer | sluggish | point stays (drift 0) | point stays |
+
+Causes found while measuring, beyond the first table:
+- **The link layer covered every page** and took the pointer, so text could not be selected or highlighted and mentions could not be hovered. Old tests clicked elements from script, which bypasses what lies on top; the new check `text_not_covered` uses the element under the pointer.
+- **The app's own request queue** let previews fill both of its slots. It now has separate slots for background work.
+- **Several commands each started the same whole-paper analysis at once.** It now runs once per file, in the background lane.
+- **A saved place could be applied before the layout existed.** It is now applied when the layout is ready, and kept when a panel or split changes the scale.
+
+**One search:** Ctrl+F, the search button and the Find list are one search (one query, one result, one current match). The bar is one compact row.

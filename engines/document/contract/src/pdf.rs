@@ -86,6 +86,9 @@ pub struct RenderRequest {
     /// colour figures keep their colours. `None`: the page as printed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub colors: Option<PageColors>,
+    /// Background work (previews of pages ahead): waits behind what the user is looking at.
+    #[serde(default)]
+    pub background: bool,
 }
 
 /// Page colours (`#rrggbb`) for drawing a page on a dark paper.

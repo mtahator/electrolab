@@ -115,12 +115,31 @@ void onBusEvent("document.prepar", (e) => {
 
 // ---- the popover --------------------------------------------------------------------------------
 
-export type Peek =
+export type Peek = (
   | { kind: "object"; at: DOMRect; file: BlobRef; object: DocObject; mention?: Mention }
   | { kind: "citation"; at: DOMRect; file: BlobRef; marker: CitationMarker }
-  | { kind: "region"; at: DOMRect; file: BlobRef; page: number; rect: { x0: number; y0: number; x1: number; y1: number } };
+  | { kind: "region"; at: DOMRect; file: BlobRef; page: number; rect: { x0: number; y0: number; x1: number; y1: number } }
+  /** Opened at once while what it shows is still being found (design language §17.1). */
+  | { kind: "loading"; at: DOMRect; file: BlobRef; title: string }
+) & {
+  /** Opened by hovering: it closes by itself (design language §17.7). */
+  hover?: boolean;
+};
 
 export const [peek, setPeek] = createSignal<Peek | null>(null);
+
+// A hover popover closes 300 ms after the pointer leaves both its trigger and the popover,
+// and at once when the view scrolls or zooms.
+let leaveTimer: number | undefined;
+export function hoverLeave(): void {
+  window.clearTimeout(leaveTimer);
+  leaveTimer = window.setTimeout(() => {
+    if (peek()?.hover) setPeek(null);
+  }, 300);
+}
+export function hoverStay(): void {
+  window.clearTimeout(leaveTimer);
+}
 
 /** Mentions and citation markers of a page, fetched once per file and page. */
 const pageLinks = new Map<string, Promise<{ mentions: Mention[]; citations: CitationMarker[] }>>();

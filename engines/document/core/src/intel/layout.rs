@@ -67,9 +67,11 @@ fn kind_of(class: usize) -> Option<ObjectKind> {
     })
 }
 
+/// A caption's label with its full printed number: "Figure 2.3", "Table A.1", "Figure S2",
+/// "Fig. 4-2", "Table IV" (review R7), then the rest of the line.
 static CAPTION: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
-        r"^(Fig\.?|Figure|FIGURE|Table|TABLE|Tab\.|شکل|جدول)\s*([0-9\u{6f0}-\u{6f9}]+|[IVX]+)\b",
+        r"^(Fig\.?|Figure|FIGURE|Table|TABLE|Tab\.|شکل|جدول)\s*((?:[A-Z]|S)?[0-9\u{6f0}-\u{6f9}]+(?:[.\-][0-9\u{6f0}-\u{6f9}]+)*|[A-Z]\.[0-9]+|[IVX]+)\b(.*)$",
     )
     .unwrap_or_else(|_| unreachable!())
 });
@@ -80,6 +82,22 @@ static EQ_NUMBER: LazyLock<Regex> = LazyLock::new(|| {
 /// A caption label in text: (is a table, "Table 2", "2").
 fn caption_label(text: &str) -> Option<(bool, String, String)> {
     let c = CAPTION.captures(text.trim())?;
+    // A caption is a label followed by caption text ("Table 1.1 Comparison of …", "Figure 2:
+    // …"), not a sentence that starts with a label ("Table 1.1 provides …", "… see" / "Table
+    // 1.4."), and not a continuation ("Table 1.7 (Continued)").
+    let rest = c[3].trim_start();
+    let after_mark = rest
+        .strip_prefix([':', '.', '|', '—', '–', '-'])
+        .map(str::trim_start);
+    let caption = match after_mark {
+        Some(t) => t.chars().next().is_some_and(char::is_alphanumeric),
+        None => rest.chars().next().is_some_and(|ch| {
+            ch.is_uppercase() || ch == '(' && !rest.to_lowercase().starts_with("(cont")
+        }),
+    };
+    if !caption || rest.to_lowercase().starts_with("(cont") {
+        return None;
+    }
     let word = &c[1];
     let table = word.starts_with('T') || word.starts_with('t') || word == "جدول";
     let num = super::ascii_digits(&c[2]);
@@ -175,6 +193,75 @@ fn xy_cut(rects: &[PageRect], idx: Vec<usize>, depth: u32) -> Vec<usize> {
     let mut out = xy_cut(rects, first, depth + 1);
     out.extend(xy_cut(rects, second, depth + 1));
     out
+}
+
+/// Without the layout model: the area of the figure or table a caption belongs to. A figure is
+/// the space above its caption up to the nearest line of running text (or the top of the text
+/// area); a table is the rows below its caption up to a clear gap. The width is the column's.
+/// `None` when there is no such space (the caption stands alone).
+#[must_use]
+pub fn caption_area(lines: &[Line], cap: &PageRect, table: bool) -> Option<PageRect> {
+    let body: Vec<&Line> = lines
+        .iter()
+        .filter(|l| {
+            l.text.chars().count() > 50 && overlap(l.rect.x0, l.rect.x1, cap.x0, cap.x1) > 0.0
+        })
+        .collect();
+    let (left, right) = if body.is_empty() {
+        (cap.x0, cap.x1)
+    } else {
+        (
+            body.iter().map(|l| l.rect.x0).fold(cap.x0, f32::min),
+            body.iter().map(|l| l.rect.x1).fold(cap.x1, f32::max),
+        )
+    };
+    let text_top = lines.iter().map(|l| l.rect.y0).fold(f32::MAX, f32::min);
+    let h = cap.height().max(6.0);
+    // Running text: a long line spanning most of the column.
+    let running = |l: &Line| l.text.chars().count() > 50 && l.rect.width() > 0.8 * (right - left);
+    let area = if table {
+        // Rows below the caption until a gap of more than two lines or running text.
+        let mut bottom = cap.y1;
+        let mut below: Vec<&Line> = lines
+            .iter()
+            .filter(|l| {
+                l.rect.y0 >= cap.y1 - 1.0 && overlap(l.rect.x0, l.rect.x1, left, right) > 0.0
+            })
+            .collect();
+        below.sort_by(|a, b| a.rect.y0.total_cmp(&b.rect.y0));
+        for l in below {
+            if l.rect.y0 - bottom > 2.5 * h || (running(l) && l.rect.y0 - bottom > 0.8 * h) {
+                break;
+            }
+            bottom = bottom.max(l.rect.y1);
+        }
+        PageRect {
+            page: cap.page,
+            x0: left,
+            y0: cap.y1 + 1.0,
+            x1: right,
+            y1: bottom,
+        }
+    } else {
+        // Up to the nearest running text above, or the top of the text area.
+        let top = lines
+            .iter()
+            .filter(|l| {
+                l.rect.y1 <= cap.y0 - 1.0
+                    && overlap(l.rect.x0, l.rect.x1, left, right) > 0.0
+                    && running(l)
+            })
+            .map(|l| l.rect.y1)
+            .fold(text_top, f32::max);
+        PageRect {
+            page: cap.page,
+            x0: left,
+            y0: top + 2.0,
+            x1: right,
+            y1: cap.y0 - 1.0,
+        }
+    };
+    (area.height() > 2.0 * h).then_some(area)
 }
 
 /// Math-font text made safe to show or search: private-use glyphs (big brackets) and control
@@ -364,7 +451,7 @@ pub fn objects(
     // Without a model: captions, headings and numbered equations from the text alone.
     if !detected {
         for l in lines {
-            if caption_label(&l.text).is_some() {
+            if let Some((table, _, _)) = caption_label(&l.text) {
                 objs.push(DocObject {
                     id: String::new(),
                     kind: ObjectKind::Caption,
@@ -376,6 +463,24 @@ pub fn objects(
                     score: 1.0,
                     order: 0,
                 });
+                // The figure or table itself, from the space around its caption.
+                if let Some(area) = caption_area(lines, &l.rect, table) {
+                    objs.push(DocObject {
+                        id: String::new(),
+                        kind: if table {
+                            ObjectKind::Table
+                        } else {
+                            ObjectKind::Figure
+                        },
+                        rect: area,
+                        label: None,
+                        number: None,
+                        text: None,
+                        caption_rect: None,
+                        score: 0.5,
+                        order: 0,
+                    });
+                }
             }
         }
         for rect in equation_blocks(lines) {
@@ -579,6 +684,80 @@ mod tests {
                 y1,
             },
         }
+    }
+
+    #[test]
+    fn without_the_model_a_caption_brings_its_figure_or_table() {
+        let p = page(
+            3,
+            &[
+                (
+                    "This is running text across the whole column, long enough to count as such.",
+                    72.0,
+                    100.0,
+                    10.0,
+                ),
+                ("x axis label", 150.0, 250.0, 8.0),
+                (
+                    "Figure 2.3 Urbanisation levels compared.",
+                    72.0,
+                    300.0,
+                    10.0,
+                ),
+                ("Table 1.4 Comparison between schemes.", 72.0, 400.0, 10.0),
+                ("Bus  12  40", 72.0, 414.0, 9.0),
+                ("Train  3  10", 72.0, 426.0, 9.0),
+                (
+                    "This is running text again after the table, long enough to count as such.",
+                    72.0,
+                    520.0,
+                    10.0,
+                ),
+            ],
+        );
+        let o = objects(3, vec![], &p, &page_lines(&p), &[]);
+        let fig = o
+            .iter()
+            .find(|x| x.kind == ObjectKind::Figure)
+            .expect("figure");
+        assert_eq!(fig.label.as_deref(), Some("Figure 2.3"));
+        assert!(
+            fig.rect.y0 > 105.0 && fig.rect.y1 < 300.0 && fig.rect.height() > 150.0,
+            "{:?}",
+            fig.rect
+        );
+        let tab = o
+            .iter()
+            .find(|x| x.kind == ObjectKind::Table)
+            .expect("table");
+        assert_eq!(tab.label.as_deref(), Some("Table 1.4"));
+        assert!(
+            tab.rect.y0 > 405.0 && tab.rect.y1 >= 435.0 && tab.rect.y1 < 520.0,
+            "{:?}",
+            tab.rect
+        );
+    }
+
+    #[test]
+    fn labels_keep_the_printed_number_and_sentences_are_not_captions() {
+        let label = |t: &str| caption_label(t).map(|(_, l, _)| l);
+        assert_eq!(
+            label("Figure 2.3 Urbanisation levels compared"),
+            Some("Figure 2.3".into())
+        );
+        assert_eq!(
+            label("Table 1.1 Comparison of electric vehicles"),
+            Some("Table 1.1".into())
+        );
+        assert_eq!(label("Fig. 4: The setup."), Some("Figure 4".into()));
+        assert_eq!(label("Table A.1 Hyperparameters"), Some("Table A.1".into()));
+        assert_eq!(label("Figure S2. Extra results"), Some("Figure S2".into()));
+        assert_eq!(label("TABLE IV Results"), Some("Table IV".into()));
+        // Sentences and continuations are not captions.
+        assert_eq!(label("Table 1.1 provides a detailed comparison"), None);
+        assert_eq!(label("Table 1.6 was created to compare urban"), None);
+        assert_eq!(label("Table 1.4."), None);
+        assert_eq!(label("Table 1.7 (Continued)"), None);
     }
 
     #[test]

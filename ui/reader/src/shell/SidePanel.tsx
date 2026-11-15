@@ -7,18 +7,12 @@ import { For, type JSX, Match, Show, Switch, createEffect, createResource, creat
 
 import { AnnotationsPanel } from "../annotations/AnnotationsPanel";
 import { bus, onBusEvent, renderUrl } from "../host";
+import { type FindOptions, find, pickHit, setFind, showFindMarks, stepFind } from "../viewer/find";
 import { previewWidth } from "../viewer/previews";
 import { pageColors } from "../viewer/Viewer";
 
 export type PanelKind = "outline" | "thumbnails" | "find" | "bookmarks" | "annotations";
 
-export interface FindOptions {
-  query: string;
-  mode: "word_forms" | "exact" | "fuzzy";
-  caseSensitive: boolean;
-  wholeWord: boolean;
-  allTabs: boolean;
-}
 
 export interface SidePanelProps {
   kind: PanelKind;
@@ -46,7 +40,7 @@ export function SidePanel(props: SidePanelProps): JSX.Element {
           <Thumbnails paper={props.paper as Paper} pages={props.pages} current={props.current} onGoTo={props.onGoTo} />
         </Match>
         <Match when={props.kind === "find"}>
-          <Find paper={props.paper} openPapers={props.openPapers} onHits={props.onHits} focus={props.findFocus} />
+          <Find openPapers={props.openPapers} focus={props.findFocus} />
         </Match>
         <Match when={props.kind === "annotations"}>
           <AnnotationsPanel paper={props.paper as Paper} current={props.current} onGoTo={props.onGoTo} />
@@ -198,61 +192,14 @@ function Thumbnails(props: { paper: Paper; pages: number; current: number; onGoT
   );
 }
 
-function Find(props: { paper: Paper | null; openPapers: Paper[]; onHits: (hits: Hit[], active: number | null) => void; focus: number }): JSX.Element {
+function Find(props: { openPapers: Paper[]; focus: number }): JSX.Element {
   let input!: HTMLInputElement;
-  const [opts, setOpts] = createSignal<FindOptions>({ query: "", mode: "word_forms", caseSensitive: false, wholeWord: true, allTabs: false });
-  const [hits, setHits] = createSignal<Hit[]>([]);
-  const [total, setTotal] = createSignal<number | null>(null);
-  const [active, setActive] = createSignal<number | null>(null);
-  const [error, setError] = createSignal<string | null>(null);
-
   createEffect(on(() => props.focus, () => queueMicrotask(() => input?.select())));
-
-  const run = async (): Promise<void> => {
-    const o = opts();
-    const papers = o.allTabs ? props.openPapers : props.paper ? [props.paper] : [];
-    if (!o.query.trim() || papers.length === 0) {
-      setHits([]);
-      setTotal(null);
-      props.onHits([], null);
-      return;
-    }
-    try {
-      setError(null);
-      const r = await bus("document.search", {
-        papers: papers.map((p) => p.file.hash),
-        terms: [{ text: o.query.trim() }],
-        match: { mode: o.mode, case_sensitive: o.caseSensitive, whole_word: o.wholeWord },
-        context: { unit: "words", before: 8, after: 8 },
-        limits: { max_hits: 500 },
-      });
-      setHits(r.hits);
-      setTotal(r.counts.reduce((a, c) => a + c.total, 0));
-      setActive(r.hits.length > 0 ? 0 : null);
-      props.onHits(r.hits, r.hits.length > 0 ? 0 : null);
-    } catch (e) {
-      setError(e instanceof BusError ? e.message : String(e));
-    }
-  };
-
-  let timer: number | undefined;
-  const update = (patch: Partial<FindOptions>): void => {
-    setOpts({ ...opts(), ...patch });
-    window.clearTimeout(timer);
-    timer = window.setTimeout(() => void run(), 200);
-  };
-  const step = (d: number): void => {
-    const n = hits().length;
-    if (n === 0) return;
-    const next = ((active() ?? -1) + d + n) % n;
-    setActive(next);
-    props.onHits(hits(), next);
-  };
+  onMount(showFindMarks);
   const paperName = (hash: string): string => {
     const p = props.openPapers.find((x) => x.file.hash === hash);
     return p?.title ?? p?.original_name ?? "";
   };
-
   return (
     <div class="find">
       <input
@@ -260,58 +207,55 @@ function Find(props: { paper: Paper | null; openPapers: Paper[]; onHits: (hits: 
         class="ep-input"
         type="search"
         placeholder={t("find.placeholder")}
-        value={opts().query}
-        onInput={(e) => update({ query: e.currentTarget.value })}
+        value={find.query}
+        onInput={(e) => setFind({ query: e.currentTarget.value })}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();
-            step(e.shiftKey ? -1 : 1);
+            stepFind(e.shiftKey ? -1 : 1);
           }
         }}
       />
       <div class="find-options">
         <label class="field">
           {t("find.mode")}
-          <select class="ep-select" value={opts().mode} onChange={(e) => update({ mode: e.currentTarget.value as FindOptions["mode"] })}>
+          <select class="ep-select" value={find.mode} onChange={(e) => setFind({ mode: e.currentTarget.value as FindOptions["mode"] })}>
             <option value="word_forms">{t("find.mode_word_forms")}</option>
             <option value="exact">{t("find.mode_exact")}</option>
             <option value="fuzzy">{t("find.mode_fuzzy")}</option>
           </select>
         </label>
         <label class="check">
-          <input type="checkbox" checked={opts().caseSensitive} onChange={(e) => update({ caseSensitive: e.currentTarget.checked })} />
+          <input type="checkbox" checked={find.caseSensitive} onChange={(e) => setFind({ caseSensitive: e.currentTarget.checked })} />
           {t("find.case")}
         </label>
         <label class="check">
-          <input type="checkbox" checked={opts().wholeWord} onChange={(e) => update({ wholeWord: e.currentTarget.checked })} />
+          <input type="checkbox" checked={find.wholeWord} onChange={(e) => setFind({ wholeWord: e.currentTarget.checked })} />
           {t("find.whole")}
         </label>
         <label class="check">
-          <input type="checkbox" checked={opts().allTabs} onChange={(e) => update({ allTabs: e.currentTarget.checked })} />
+          <input type="checkbox" checked={find.allTabs} onChange={(e) => setFind({ allTabs: e.currentTarget.checked })} />
           {t("find.all_tabs")}
         </label>
       </div>
-      <Show when={error()}>
-        <p class="error">{error()}</p>
+      <Show when={find.error}>
+        <p class="error">{find.error}</p>
       </Show>
-      <Show when={total() !== null}>
-        <p class="muted">{total() === 0 ? t("find.none") : t("find.results", { n: total() ?? 0 })}</p>
+      <Show when={find.total !== null}>
+        <p class="muted find-summary">
+          <Show when={find.progress}>
+            {(pr) => <span class="spinner" role="img" aria-label={t("find.searching", { done: pr().done, total: pr().total })} />}
+          </Show>
+          {find.total === 0 && !find.progress ? t("find.none") : t("find.results", { n: find.total ?? 0 })}
+        </p>
       </Show>
       <ol class="find-results">
-        <For each={hits()}>
+        <For each={find.hits}>
           {(h, i) => (
             <li>
-              <button
-                type="button"
-                class="find-hit"
-                classList={{ active: active() === i() }}
-                onClick={() => {
-                  setActive(i());
-                  props.onHits(hits(), i());
-                }}
-              >
+              <button type="button" class="find-hit" classList={{ active: find.active === i() }} onClick={() => pickHit(i())}>
                 <span class="muted">
-                  <Show when={opts().allTabs}>{paperName(h.paper)} · </Show>p. {h.page}
+                  <Show when={find.allTabs}>{paperName(h.paper)} · </Show>p. {h.page}
                 </span>
                 <span>
                   {h.before} <mark>{h.matched}</mark> {h.after}

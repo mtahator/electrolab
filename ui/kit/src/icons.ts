@@ -7,6 +7,7 @@ import Bookmark from "lucide-solid/icons/bookmark";
 import BookmarkPlus from "lucide-solid/icons/bookmark-plus";
 import Check from "lucide-solid/icons/check";
 import ChevronDown from "lucide-solid/icons/chevron-down";
+import ChevronUp from "lucide-solid/icons/chevron-up";
 import ChevronRight from "lucide-solid/icons/chevron-right";
 import Circle from "lucide-solid/icons/circle";
 import CircleCheck from "lucide-solid/icons/circle-check";
@@ -77,6 +78,7 @@ export const ICONS = {
   "bookmark-plus": BookmarkPlus,
   check: Check,
   "chevron-down": ChevronDown,
+  "chevron-up": ChevronUp,
   "chevron-right": ChevronRight,
   circle: Circle,
   "circle-check": CircleCheck,

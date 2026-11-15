@@ -46,6 +46,12 @@ pub struct SearchRequest {
     /// Order of hits.
     #[serde(default)]
     pub sort: Sort,
+    /// Pages near this one are searched first (the page in view).
+    #[serde(default)]
+    pub near_page: Option<u32>,
+    /// Stream partial results as hub events while searching.
+    #[serde(default)]
+    pub stream: Option<SearchStream>,
 }
 
 /// One thing to look for: a word, a symbol (`C_p`) or a phrase (`heat capacity`).
@@ -305,7 +311,25 @@ pub struct SearchResult {
     pub truncated: bool,
     /// Time spent, in microseconds (filled in by the facade, not the pure core).
     pub elapsed_us: u64,
+    /// Pages searched so far (partial results while streaming; all pages in the final result).
+    #[serde(default)]
+    pub pages_searched: u32,
+    /// Pages to search in all.
+    #[serde(default)]
+    pub pages_total: u32,
 }
+
+/// How a search streams its partial results (review 2026-11-15, rule R1).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct SearchStream {
+    /// Sent back with every partial result (`document.searching` event).
+    pub id: String,
+    /// A newer search in the same group cancels this one (the find bar of one tab).
+    pub group: String,
+}
+
+/// Event: partial results of a streaming search.
+pub const SEARCHING: &str = "document.searching";
 
 /// Errors of `document.search`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]

@@ -59,6 +59,9 @@ export const TOOL_GROUPS: ToolDef[][] = [
   [{ tool: "eraser", icon: "eraser", key: "E" }],
 ];
 
+/** What to do with a tool (tooltip and status line, design language §9.2). */
+export const toolHint = (tl: Tool): string => t(`annot.hint.${tl}` as Parameters<typeof t>[0]);
+
 export const toolLabel = (tl: Tool): string => t(tl === "select" ? "annot.tool.select" : tl === "eraser" ? "annot.tool.eraser" : (`annot.kind.${tl}` as Parameters<typeof t>[0]));
 
 const usesMarkColors = (tl: Tool): boolean => isMarkup(tl) || tl === "note";
@@ -108,7 +111,7 @@ export function ToolRail(props: { paper: string; onSave: () => void; saving: boo
                 {(d) => (
                   <IconButton
                     icon={d.icon}
-                    label={toolLabel(d.tool)}
+                    label={`${toolLabel(d.tool)}: ${toolHint(d.tool)}`}
                     shortcut={d.key}
                     pressed={tool() === d.tool}
                     swatch={tool() === d.tool ? colorOf(d.tool) : undefined}

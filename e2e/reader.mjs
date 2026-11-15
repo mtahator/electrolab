@@ -82,12 +82,15 @@ try {
   const backTo = await s.until(`document.querySelector(".page-box").value === "1" ? "1" : null`);
   check("back_returns", canBack && backTo === "1", { canBack, backTo });
 
-  // Find: notation-aware search with highlights.
+  // Find: one search — Ctrl+F opens the find bar; its list shows the same matches.
   await s.key("f", { ctrl: true });
-  await s.until(`document.querySelector(".find input[type=search]")`);
-  await s.js(`(() => { const i = document.querySelector(".find input[type=search]"); i.value = "thermal"; i.dispatchEvent(new InputEvent("input", { bubbles: true })); })()`);
-  const found = await s.until(`(() => { const m = document.querySelector(".find .muted")?.textContent.match(/(\\d+) matches/); return m ? Number(m[1]) : null })()`);
-  check("find_results", (found ?? 0) > 3, found);
+  await s.until(`document.querySelector(".find-bar input")`);
+  await s.js(`(() => { const i = document.querySelector(".find-bar input"); i.value = "thermal"; i.dispatchEvent(new InputEvent("input", { bubbles: true })); })()`);
+  const barCount = await s.until(`(() => { if (document.querySelector(".find-bar .spinner")) return null; const m = document.querySelector(".find-bar-count")?.textContent.match(/\\/\\s*(\\d+)/); return m ? Number(m[1]) : null })()`);
+  await s.js(`document.querySelector('.find-bar [aria-label="Show all matches"]').click()`);
+  const found = await s.until(`(() => { const m = document.querySelector(".find .find-summary")?.textContent.match(/(\\d+) matches/); return m ? Number(m[1]) : null })()`);
+  const listQuery = await s.js(`document.querySelector(".find input[type=search]")?.value`);
+  check("find_results", (found ?? 0) > 3 && found === barCount && listQuery === "thermal", { bar: barCount, list: found, listQuery });
   const marked = await s.until(`document.querySelectorAll(".pane.focused .hit").length || null`);
   check("find_highlights", (marked ?? 0) > 0, marked);
 

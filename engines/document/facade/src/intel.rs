@@ -30,7 +30,7 @@ use crate::models::{self, LAYOUT};
 use crate::{Document, backend_err, blocking, png};
 
 /// Version of the rules that shape objects; bump to recompute cached objects.
-const INTEL_IMPL: &str = "intel-3";
+const INTEL_IMPL: &str = "intel-4";
 /// Papers whose analysis stays in memory.
 const ANALYSES: usize = 4;
 /// Width the page is rendered at for the layout model.
@@ -273,14 +273,46 @@ impl Document {
         geom: &PageGeom,
         idx: u32,
     ) -> Result<PageText, CommandError> {
+        if let Some(t) = self
+            .texts
+            .lock()
+            .iter()
+            .find(|(h, _)| h == hash)
+            .and_then(|(_, v)| v.get(idx as usize).cloned().flatten())
+        {
+            return Ok((*t).clone());
+        }
         let raw = self.backend()?.chars(path, idx).map_err(backend_err)?;
-        let pt = ep_document_core::pdf::page_text(idx + 1, geom, &raw);
+        let mut pt = ep_document_core::pdf::page_text(idx + 1, geom, &raw);
         if pt.text.chars().filter(|c| !c.is_whitespace()).count() < MIN_CHARS
             && let Some(o) = self.cached_ocr(hash, idx + 1)
         {
-            return Ok(o);
+            pt = o;
         }
+        self.keep_text(*hash, idx, &pt);
         Ok(pt)
+    }
+
+    /// Remember a page's text for the other users of it (at most a few files).
+    fn keep_text(&self, hash: Hash, idx: u32, pt: &PageText) {
+        const FILES: usize = 4;
+        let mut cache = self.texts.lock();
+        let pos = cache.iter().position(|(h, _)| *h == hash);
+        let mut entry = match pos {
+            Some(i) => cache.remove(i).unwrap_or((hash, Vec::new())),
+            None => (hash, Vec::new()),
+        };
+        if entry.1.len() <= idx as usize {
+            entry.1.resize(idx as usize + 1, None);
+        }
+        entry.1[idx as usize] = Some(Arc::new(pt.clone()));
+        cache.push_front(entry);
+        cache.truncate(FILES);
+    }
+
+    /// Forget a file's page text (its text changed: OCR).
+    pub(crate) fn forget_text(&self, hash: &Hash) {
+        self.texts.lock().retain(|(h, _)| h != hash);
     }
 
     /// Recognise one scanned page and keep its text.
@@ -323,44 +355,74 @@ impl Document {
         self.models.read().layout.clone()
     }
 
-    /// The paper-wide analysis of a file (cached in memory).
+    /// The paper-wide analysis of a file (cached in memory). It reads every page, so it runs
+    /// once per file however many commands ask for it at the same time, as background work
+    /// (review 2026-11-15, R2): the page in view is drawn and its text shown first.
     fn analysis(&self, file: &BlobRef, path: &Path) -> Result<Arc<Analysis>, CommandError> {
         if let Some((_, a)) = self.analyses.lock().iter().find(|(h, _)| *h == file.hash) {
             return Ok(a.clone());
         }
-        let (g, _) = self.geoms(file.hash, path)?;
-        let backend = self.backend()?;
-        let mut pages = Vec::with_capacity(g.len());
-        // Scanned pages are judged by the PDF's own text layer; their recognised text (when
-        // there is some) stands in for it.
-        let mut image_only = Vec::new();
-        for (i, geom) in g.iter().enumerate() {
-            let idx = u32::try_from(i).unwrap_or(u32::MAX);
-            let raw = backend.chars(path, idx).map_err(backend_err)?;
-            let pt = ep_document_core::pdf::page_text(idx + 1, geom, &raw);
-            if pt.text.chars().filter(|c| !c.is_whitespace()).count() < MIN_CHARS {
-                image_only.push(idx + 1);
-                pages.push(self.cached_ocr(&file.hash, idx + 1).unwrap_or(pt));
-            } else {
-                pages.push(pt);
-            }
+        let gate = self
+            .analysing
+            .lock()
+            .entry(file.hash)
+            .or_insert_with(|| Arc::new(parking_lot::Mutex::new(())))
+            .clone();
+        let _one = gate.lock();
+        if let Some((_, a)) = self.analyses.lock().iter().find(|(h, _)| *h == file.hash) {
+            return Ok(a.clone());
         }
-        let lines: Vec<Vec<Line>> = pages.iter().map(core::lines).collect();
-        let heads = headings::headings(&lines);
-        let refs = references::references(&lines);
-        let a = Arc::new(Analysis {
-            pages,
-            lines,
-            heads,
-            refs,
-            image_only,
-        });
+        let a = ep_document_core::pdf::background(|| self.analyse(file, path))?;
         let mut cache = self.analyses.lock();
         if cache.len() >= ANALYSES {
             cache.pop_back();
         }
         cache.push_front((file.hash, a.clone()));
         Ok(a)
+    }
+
+    fn analyse(&self, file: &BlobRef, path: &Path) -> Result<Arc<Analysis>, CommandError> {
+        let (g, _) = self.geoms(file.hash, path)?;
+        let backend = self.backend()?;
+        let mut pages = Vec::with_capacity(g.len());
+        // Scanned pages are judged by the PDF's own text layer; their recognised text (when
+        // there is some) stands in for it. Page text already read for the text layer or search
+        // is used as it is (a page with text is not a scanned page).
+        let mut image_only = Vec::new();
+        for (i, geom) in g.iter().enumerate() {
+            let idx = u32::try_from(i).unwrap_or(u32::MAX);
+            let known = self
+                .texts
+                .lock()
+                .iter()
+                .find(|(h, _)| *h == file.hash)
+                .and_then(|(_, v)| v.get(i).cloned().flatten());
+            if let Some(t) = known
+                && t.text.chars().filter(|c| !c.is_whitespace()).count() >= MIN_CHARS
+            {
+                pages.push((*t).clone());
+                continue;
+            }
+            let raw = backend.chars(path, idx).map_err(backend_err)?;
+            let pt = ep_document_core::pdf::page_text(idx + 1, geom, &raw);
+            if pt.text.chars().filter(|c| !c.is_whitespace()).count() < MIN_CHARS {
+                image_only.push(idx + 1);
+                pages.push(self.cached_ocr(&file.hash, idx + 1).unwrap_or(pt));
+            } else {
+                self.keep_text(file.hash, idx, &pt);
+                pages.push(pt);
+            }
+        }
+        let lines: Vec<Vec<Line>> = pages.iter().map(core::lines).collect();
+        let heads = headings::headings(&lines);
+        let refs = references::references(&lines);
+        Ok(Arc::new(Analysis {
+            pages,
+            lines,
+            heads,
+            refs,
+            image_only,
+        }))
     }
 
     fn objects_key(file: &BlobRef, page: u32, model: &str) -> Hash {
@@ -581,7 +643,9 @@ impl Document {
                     .map(|(_, a)| a.clone());
                 return Ok(me.preparation_state(&i.file, a.as_deref(), pages));
             }
-            let result = me.run_preparation(&cx, &i, &path, pages);
+            // Preparation is background work: the page in view goes first (review R2).
+            let result =
+                ep_document_core::pdf::background(|| me.run_preparation(&cx, &i, &path, pages));
             me.preparing.lock().remove(&i.file.hash);
             result
         })
@@ -656,6 +720,7 @@ impl Document {
             // The paper's text changed: analyse again; the search index is rebuilt on next use.
             self.analyses.lock().retain(|(h, _)| *h != i.file.hash);
             self.indexes.lock().retain(|(h, _)| *h != i.file.hash);
+            self.forget_text(&i.file.hash);
             a = self.analysis(&i.file, path)?;
         }
         self.report(
@@ -812,6 +877,10 @@ impl Document {
                         .cloned()
                         .collect();
                 }
+                // One entry per printed label: the first is the object, later ones continue it
+                // (a table across pages) or repeat it (a list of figures).
+                let mut seen = std::collections::HashSet::new();
+                v.retain(|o| o.label.as_ref().is_none_or(|l| seen.insert(l.clone())));
                 v
             };
             Ok(Contents {

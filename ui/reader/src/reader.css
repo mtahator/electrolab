@@ -388,10 +388,113 @@
   animation: ep-fade var(--dur) var(--ease);
 }
 
-/* The preview is a small drawing stretched to the page: soften it slightly so it reads as
-   "loading", not as a blurry page. */
+/* The preview is a small drawing stretched to the page. While scrolling it blurs along the
+   scroll direction in proportion to the speed (motion blur); at rest it is shown as is. */
 .page-preview {
-  filter: blur(0.4px);
+  filter: var(--preview-filter, none);
+}
+
+.motion-filter {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+/* Where you are, while scrolling (design language §17.5). */
+.page-indicator {
+  position: absolute;
+  z-index: 5;
+  top: var(--space-3);
+  right: calc(var(--space-4) + 12px);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--bg);
+  box-shadow: var(--shadow-1);
+  color: var(--fg);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  animation: ep-fade var(--dur-fast) var(--ease);
+}
+
+/* The find bar over the page (design language §17.4): one compact row, like the page's own
+   tool bar — the field with its count inside, then the arrows, the list and close. */
+.find-bar {
+  position: absolute;
+  z-index: 6;
+  top: var(--space-2);
+  right: calc(var(--space-4) + 12px);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  height: 40px;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  box-shadow: var(--shadow-1);
+  animation: ep-in var(--dur-fast) var(--ease);
+}
+
+.find-bar-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 30px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+}
+
+.find-bar-field:focus-within {
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.find-bar-input {
+  width: 200px;
+  border: none;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  outline: none;
+}
+
+.find-bar-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.find-bar-sep {
+  width: 1px;
+  height: 20px;
+  margin: 0 4px;
+  background: var(--border);
+}
+
+.find-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* The handle between two panes (design language §17.6). */
+.pane-resizer {
+  flex: none;
+  width: 6px;
+  margin: 0 -3px;
+  z-index: 2;
+  cursor: col-resize;
+}
+
+.pane-resizer:hover,
+.pane-resizer.dragging {
+  background: var(--accent-soft, var(--bg-hover));
 }
 
 /* Nothing drawn yet (rare: the first moment after opening): a quiet shimmer, never a white hole. */
@@ -446,7 +549,15 @@
   color: transparent;
 }
 
+/* Layers over the text must let the pointer through (review 2026-11-15: the link layer covered
+   the page, so text could not be selected or highlighted and mentions could not be hovered).
+   Only the links themselves take the pointer. */
+.link-layer {
+  pointer-events: none;
+}
+
 .link-layer .link {
+  pointer-events: auto;
   position: absolute;
   border: none;
   background: transparent;
