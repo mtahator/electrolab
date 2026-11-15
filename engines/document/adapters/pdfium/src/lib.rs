@@ -270,6 +270,36 @@ impl PdfiumBackend {
     }
 }
 
+impl PdfiumBackend {
+    fn draw(
+        &self,
+        file: &Path,
+        index: u32,
+        width_px: u32,
+        annotations: bool,
+    ) -> Result<Bitmap, BackendError> {
+        let file = file.to_path_buf();
+        self.run(move |s| {
+            let doc = s.doc(&file)?;
+            let p = page(doc, index)?;
+            let w = i32::try_from(width_px.clamp(16, 8192)).unwrap_or(1024);
+            let config = PdfRenderConfig::new()
+                .set_target_width(w)
+                .set_maximum_height(16384)
+                // Annotations are drawn by the viewer from the annotation store (ADR-006), so
+                // the page image leaves them out unless asked (printing); form fields stay.
+                .render_annotations(annotations)
+                .render_form_data(true);
+            let bmp = p.render_with_config(&config).map_err(|e| internal(&e))?;
+            Ok(Bitmap {
+                width: u32::try_from(bmp.width()).unwrap_or(0),
+                height: u32::try_from(bmp.height()).unwrap_or(0),
+                rgba: bmp.as_rgba_bytes(),
+            })
+        })
+    }
+}
+
 impl PdfBackend for PdfiumBackend {
     fn info(&self, file: &Path) -> Result<(Vec<PageGeom>, bool), BackendError> {
         // Loading a page parses its content (about 20 ms on a heavy page), so the pages are read
@@ -352,25 +382,16 @@ impl PdfBackend for PdfiumBackend {
     }
 
     fn render(&self, file: &Path, index: u32, width_px: u32) -> Result<Bitmap, BackendError> {
-        let file = file.to_path_buf();
-        self.run(move |s| {
-            let doc = s.doc(&file)?;
-            let p = page(doc, index)?;
-            let w = i32::try_from(width_px.clamp(16, 8192)).unwrap_or(1024);
-            let config = PdfRenderConfig::new()
-                .set_target_width(w)
-                .set_maximum_height(16384)
-                // Annotations are drawn by the viewer from the annotation store (ADR-006), so
-                // the page image leaves them out; form fields stay.
-                .render_annotations(false)
-                .render_form_data(true);
-            let bmp = p.render_with_config(&config).map_err(|e| internal(&e))?;
-            Ok(Bitmap {
-                width: u32::try_from(bmp.width()).unwrap_or(0),
-                height: u32::try_from(bmp.height()).unwrap_or(0),
-                rgba: bmp.as_rgba_bytes(),
-            })
-        })
+        self.draw(file, index, width_px, false)
+    }
+
+    fn render_annotated(
+        &self,
+        file: &Path,
+        index: u32,
+        width_px: u32,
+    ) -> Result<Bitmap, BackendError> {
+        self.draw(file, index, width_px, true)
     }
 
     fn outline(&self, file: &Path) -> Result<Vec<RawBookmark>, BackendError> {

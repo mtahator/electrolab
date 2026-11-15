@@ -57,10 +57,12 @@ pub fn open_paper_externally(state: State<'_, AppState>, hash: String) -> Result
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
 pub fn print_paper(state: State<'_, AppState>, hash: String) -> Result<(), String> {
-    state
-        .shell
-        .print(&paper_path(&state, &hash)?)
-        .map_err(|e| e.to_string())
+    let path = paper_path(&state, &hash)?;
+    // End-to-end checks set this so no real print job is sent; the file is still resolved.
+    if std::env::var_os("EP_PRINT_DRY_RUN").is_some() {
+        return Ok(());
+    }
+    state.shell.print(&path).map_err(|e| e.to_string())
 }
 
 /// PDFs waiting to be opened (given at start-up); taking them empties the list.

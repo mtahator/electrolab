@@ -68,7 +68,8 @@ impl Workspace {
         i: ListPapers,
     ) -> Result<Vec<Paper>, CommandError> {
         let o = self.require()?;
-        let mut sql = format!("{PAPER_SELECT} WHERE 1 = 1");
+        // Papers removed from the library are not listed (they can still be restored).
+        let mut sql = format!("{PAPER_SELECT} WHERE p.removed_ms IS NULL");
         let mut args: Vec<String> = Vec::new();
         if let Some(c) = i.collection {
             sql.push_str(" AND p.id IN (SELECT paper FROM collection_paper WHERE collection = ?)");

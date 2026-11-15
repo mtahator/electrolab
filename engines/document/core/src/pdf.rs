@@ -229,6 +229,18 @@ pub trait PdfBackend: Send + Sync {
     /// # Errors
     /// See [`BackendError`].
     fn render(&self, file: &Path, index: u32, width_px: u32) -> Result<Bitmap, BackendError>;
+    /// Render one page with the annotations stored in the file (printing an annotated copy).
+    ///
+    /// # Errors
+    /// See [`BackendError`].
+    fn render_annotated(
+        &self,
+        file: &Path,
+        index: u32,
+        width_px: u32,
+    ) -> Result<Bitmap, BackendError> {
+        self.render(file, index, width_px)
+    }
     /// The bookmarks.
     ///
     /// # Errors

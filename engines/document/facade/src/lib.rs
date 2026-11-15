@@ -533,6 +533,7 @@ impl Document {
         page: u32,
         width_px: u32,
         colors: Option<&PageColors>,
+        annotations: bool,
     ) -> Result<Rendered, CommandError> {
         let (store, index) = self.renders.as_ref().ok_or_else(|| {
             CommandError::failed(errors::UNREADABLE, "no render cache configured")
@@ -558,10 +559,13 @@ impl Document {
         }
         let (sizes, _) = self.sizes(file.hash, path)?;
         let idx = Self::page_index_of(sizes.len(), page)?;
-        let mut bmp = self
-            .backend()?
-            .render(path, idx, width_px)
-            .map_err(backend_err)?;
+        let backend = self.backend()?;
+        let mut bmp = if annotations {
+            backend.render_annotated(path, idx, width_px)
+        } else {
+            backend.render(path, idx, width_px)
+        }
+        .map_err(backend_err)?;
         if let Some(c) = colors {
             let bad = || CommandError::failed("invalid_colors", "colors must be #rrggbb");
             let bg = ep_document_core::pdf::hex_color(&c.background).ok_or_else(bad)?;
@@ -586,7 +590,16 @@ impl Document {
         let path = self.path(&i.file)?;
         let me = self.clone();
         blocking(move || {
-            let work = || me.render_one(&i.file, &path, i.page, i.width_px, i.colors.as_ref());
+            let work = || {
+                me.render_one(
+                    &i.file,
+                    &path,
+                    i.page,
+                    i.width_px,
+                    i.colors.as_ref(),
+                    i.annotations,
+                )
+            };
             if i.background {
                 ep_document_core::pdf::background(work)
             } else {
@@ -615,7 +628,7 @@ impl Document {
                 if cx.is_cancelled() {
                     return Err(CommandError::Cancelled);
                 }
-                let r = me.render_one(&i.file, &path, p, i.width_px.min(512), None)?;
+                let r = me.render_one(&i.file, &path, p, i.width_px.min(512), None, false)?;
                 cx.progress(&r);
                 out.push(r);
             }

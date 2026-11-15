@@ -28,6 +28,24 @@ export async function openDefaultLibrary(): Promise<void> {
 }
 
 /** Reload papers (with the current filter), collections and tags. */
+/** Take a paper out of the library; returns a function that brings it back (Undo). */
+export async function removePaper(id: string): Promise<() => Promise<void>> {
+  await bus("workspace.remove_paper", { id });
+  await refresh();
+  return async () => {
+    await bus("workspace.restore_paper", { id });
+    await refresh();
+  };
+}
+
+/** Rename a paper (its title in the library and tabs; the file name stays). */
+export async function renamePaper(id: string, title: string): Promise<void> {
+  const v = title.trim();
+  if (!v) return;
+  await bus("workspace.set_paper_metadata", { id, title: v, source: "user" });
+  await refresh();
+}
+
 export async function refresh(): Promise<void> {
   const f = filter();
   const [p, c, t] = await Promise.all([

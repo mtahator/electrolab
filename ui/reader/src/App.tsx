@@ -22,6 +22,7 @@ import {
   setPaper,
   setTextSize,
   setTheme,
+  showToast,
   t,
   textSize,
   theme,
@@ -103,6 +104,19 @@ export function App(): JSX.Element {
   const [addingText, setAddingText] = createSignal(false);
   // The find bar over the focused pane (design language §17.4).
   const [findBar, setFindBar] = createSignal(0);
+  // Printing prints the paper with the system's own print (design language §17.9): the PDF
+  // goes to Windows' print with the usual PDF app; with annotations, an annotated copy (the
+  // paper itself is not changed).
+  const printPdf = async (p: Paper): Promise<void> => {
+    try {
+      const marks = annotationsOf(p.id)?.annotations.length ?? 0;
+      const file = marks > 0 ? (await bus("document.annotate", { paper: p.id, file: p.file })).file : p.file;
+      await printPaper(file.hash);
+      showToast(t("print.sent"));
+    } catch (e) {
+      report(e);
+    }
+  };
   // Share of the first pane in split view (design language §17.6), remembered.
   const readSplit = (): number => {
     try {
@@ -343,7 +357,7 @@ export function App(): JSX.Element {
     { id: "mode.single", title: () => t("viewer.mode_single"), enabled: () => !!current().api, run: () => current().api?.setMode("single") },
     { id: "mode.two_page", title: () => t("viewer.mode_two_page"), enabled: () => !!current().api, run: () => current().api?.setMode("two_page") },
     { id: "paper.external", title: () => t("viewer.open_external"), enabled: () => !!current().paper, run: withPaper((p) => void openPaperExternally(p.file.hash).catch(report)) },
-    { id: "paper.print", title: () => t("viewer.print"), keys: "Ctrl+P", enabled: () => !!current().paper, run: withPaper((p) => void printPaper(p.file.hash).catch(report)) },
+    { id: "paper.print", title: () => t("viewer.print"), keys: "Ctrl+P", enabled: () => !!current().paper, run: withPaper((p) => void printPdf(p)) },
     { id: "annot.undo", title: () => t("annot.undo"), keys: "Ctrl+Z", enabled: () => !!current().paper && !typing(), run: withPaper((p) => void undo(p.id)) },
     { id: "annot.redo", title: () => t("annot.redo"), keys: "Ctrl+Y", enabled: () => !!current().paper && !typing(), run: withPaper((p) => void redo(p.id)) },
     { id: "annot.redo2", title: () => t("annot.redo"), keys: "Ctrl+Shift+Z", enabled: () => !!current().paper && !typing(), run: withPaper((p) => void redo(p.id)) },
@@ -384,6 +398,19 @@ export function App(): JSX.Element {
   const prepareAll = (): void => {
     for (const pane of session.panes) for (const tab of pane.tabs) void prepare(tab.paper.file, [status[tab.id]?.page ?? 1]);
   };
+
+  // Ctrl+P is the Reader's print (the paper), never the browser's print of the interface.
+  onMount(() => {
+    const stopBrowserPrint = (e: KeyboardEvent): void => {
+      if (!((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "p")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const p = current().paper;
+      if (p) void printPdf(p);
+    };
+    window.addEventListener("keydown", stopBrowserPrint, true);
+    onCleanup(() => window.removeEventListener("keydown", stopBrowserPrint, true));
+  });
 
   onMount(async () => {
     void refreshModels().then(async () => {
@@ -462,7 +489,7 @@ export function App(): JSX.Element {
         ...(canAddTextLayer(p.file.hash) ? [{ label: t("intel.add_text_layer"), icon: "scan-text" as const, disabled: addingText(), run: () => void addText(p) }] : []),
         { separator: true },
         { label: t("viewer.open_external"), icon: "external-link", run: () => void openPaperExternally(p.file.hash).catch(report) },
-        { label: t("viewer.print"), icon: "printer", shortcut: "Ctrl+P", run: () => void printPaper(p.file.hash).catch(report) },
+        { label: t("viewer.print"), icon: "printer", shortcut: "Ctrl+P", run: () => void printPdf(p) },
         { separator: true },
       );
     }
@@ -556,7 +583,15 @@ export function App(): JSX.Element {
       </Show>
       <Show
         when={!session.showLibrary}
-        fallback={<LibraryView onOpen={openTab} onAdd={() => void addPdfs()} onError={report} confirm={(name) => ask(t("confirm.delete_collection", { name }))} />}
+        fallback={<LibraryView
+            onOpen={openTab}
+            onAdd={() => void addPdfs()}
+            onError={report}
+            confirm={(name) => ask(t("confirm.delete_collection", { name }))}
+            onRemoved={(p) =>
+              session.panes.forEach((pane, pi) => pane.tabs.filter((tb) => tb.paper.id === p.id).forEach((tb) => closeTab(pi, tb.id)))
+            }
+          />}
       >
         <div class="frame">
           <Show when={current().paper}>{(p) => <ToolRail paper={p().id} saving={savingPdf()} onSave={() => void savePdf(p())} />}</Show>

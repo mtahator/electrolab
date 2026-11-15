@@ -42,6 +42,10 @@ pub mod commands {
     pub const SET_PAPER_METADATA: &str = "workspace.set_paper_metadata";
     /// Point a paper at a new version of its managed copy (the previous one is kept).
     pub const SET_PAPER_FILE: &str = "workspace.set_paper_file";
+    /// Command: take a paper out of the library (undoable until the library is next opened).
+    pub const REMOVE_PAPER: &str = "workspace.remove_paper";
+    /// Command: bring a removed paper back.
+    pub const RESTORE_PAPER: &str = "workspace.restore_paper";
     /// Make a collection.
     pub const CREATE_COLLECTION: &str = "workspace.create_collection";
     /// Rename a collection.
@@ -300,4 +304,6 @@ pub mod events {
     pub const PAPER_ADDED: &str = "workspace.paper_added";
     /// A paper's metadata changed. Data: `Paper`.
     pub const PAPER_CHANGED: &str = "workspace.paper_changed";
+    /// A paper was taken out of the library (`{ paper }`).
+    pub const PAPER_REMOVED: &str = "workspace.paper_removed";
 }

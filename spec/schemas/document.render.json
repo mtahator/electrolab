@@ -58,6 +58,11 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "description": "Input of `document.render`.",
     "properties": {
+      "annotations": {
+        "default": false,
+        "description": "Draw the annotations stored in the file too (printing an annotated copy). The viewer\ndraws annotations itself, so pages are drawn without them by default.",
+        "type": "boolean"
+      },
       "background": {
         "default": false,
         "description": "Background work (previews of pages ahead): waits behind what the user is looking at.",

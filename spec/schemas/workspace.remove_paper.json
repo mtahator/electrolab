@@ -1,0 +1,38 @@
+{
+  "command": "workspace.remove_paper",
+  "input": {
+    "$defs": {
+      "PaperId": {
+        "description": "A paper (a PDF in the library or a project).\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `workspace.get_paper`.",
+    "properties": {
+      "id": {
+        "$ref": "#/$defs/PaperId",
+        "description": "Which paper."
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "title": "GetPaper",
+    "type": "object"
+  },
+  "output": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "null",
+    "type": "null"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "create"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Take a paper out of the library (undo with restore_paper until the library is next opened)"
+}

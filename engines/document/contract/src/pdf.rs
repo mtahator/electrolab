@@ -89,6 +89,10 @@ pub struct RenderRequest {
     /// Background work (previews of pages ahead): waits behind what the user is looking at.
     #[serde(default)]
     pub background: bool,
+    /// Draw the annotations stored in the file too (printing an annotated copy). The viewer
+    /// draws annotations itself, so pages are drawn without them by default.
+    #[serde(default)]
+    pub annotations: bool,
 }
 
 /// Page colours (`#rrggbb`) for drawing a page on a dark paper.

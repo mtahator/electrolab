@@ -1746,3 +1746,98 @@ body,
   font-size: var(--text-sm);
   white-space: nowrap;
 }
+
+/* Library: covers view (design language §17.10) — first pages as a shelf. */
+/* On the 4 px grid (design language §5.1): 16 px from the edges, the same line as the tool
+   row above; 24 px between covers (between groups). */
+.paper-covers {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  align-content: start;
+  gap: var(--space-6);
+  margin: 0;
+  padding: var(--space-4);
+  overflow: auto;
+  list-style: none;
+}
+
+.paper-cover {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.cover-open {
+  padding: 0;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  cursor: pointer;
+}
+
+.cover-page {
+  display: block;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--page-bg);
+  box-shadow: var(--page-shadow);
+  transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+
+.cover-open:hover .cover-page,
+.cover-open:focus-visible .cover-page {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-1);
+}
+
+.cover-page img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+  animation: ep-fade var(--dur) var(--ease);
+}
+
+.cover-wait {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-hover);
+}
+
+.cover-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-right: 28px;
+}
+
+.cover-title {
+  display: -webkit-box;
+  overflow: hidden;
+  font-weight: 600;
+  line-height: 1.3;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.cover-authors {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cover-menu {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+}
+
+.rename-field {
+  width: 100%;
+}

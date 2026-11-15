@@ -42,6 +42,47 @@ pub struct Opened {
     pub events: Arc<EventLog>,
 }
 
+impl Opened {
+    /// Delete papers that were removed, their rows (the other tables follow by cascade) and the
+    /// files of their managed copies (every version) that no remaining paper uses.
+    fn purge_removed(&self) -> Result<usize, CommandError> {
+        let (gone, keep): (Vec<String>, std::collections::HashSet<String>) = self
+            .db
+            .write(|t| {
+                let mut gone = Vec::new();
+                {
+                    let mut s = t.prepare(
+                        "SELECT hash FROM paper WHERE removed_ms IS NOT NULL
+                         UNION SELECT v.hash FROM paper_version v JOIN paper p ON p.id = v.paper WHERE p.removed_ms IS NOT NULL",
+                    )?;
+                    for h in s.query_map([], |r| r.get::<_, String>(0))? {
+                        gone.push(h?);
+                    }
+                }
+                t.execute("DELETE FROM paper WHERE removed_ms IS NOT NULL", [])?;
+                let mut keep = std::collections::HashSet::new();
+                {
+                    let mut s = t.prepare("SELECT hash FROM paper UNION SELECT hash FROM paper_version")?;
+                    for h in s.query_map([], |r| r.get::<_, String>(0))? {
+                        keep.insert(h?);
+                    }
+                }
+                Ok((gone, keep))
+            })
+            .map_err(sql_err)?;
+        let mut n = 0;
+        for h in gone.iter().filter(|h| !keep.contains(*h)) {
+            if let Ok(hash) = h.parse() {
+                let path = self.blobs.path_of(&hash);
+                if std::fs::remove_file(&path).is_ok() {
+                    n += 1;
+                }
+            }
+        }
+        Ok(n)
+    }
+}
+
 /// The Workspace engine.
 pub struct Workspace {
     dirs: Arc<dyn AppDirs>,
@@ -283,6 +324,11 @@ impl Workspace {
     }
 
     fn activate(&self, cx: &Cx, opened: Opened) -> Result<ProjectInfo, CommandError> {
+        // Papers removed in an earlier session are deleted for good now, with their managed
+        // copies (design language 17.10: undo lasts until the library is next opened).
+        if let Err(e) = opened.purge_removed() {
+            tracing::warn!(error = %e, "removed papers could not be deleted");
+        }
         let opened = Arc::new(opened);
         let info = opened.info()?;
         opened.record(
@@ -376,6 +422,18 @@ impl Workspace {
             "Papers: filter by collection, tag or words; sort by added, opened or title",
             Permission::read(),
             list_papers
+        );
+        reg!(
+            cmd::REMOVE_PAPER,
+            "Take a paper out of the library (undo with restore_paper until the library is next opened)",
+            Permission::create(),
+            remove_paper
+        );
+        reg!(
+            cmd::RESTORE_PAPER,
+            "Bring back a paper taken out of the library",
+            Permission::create(),
+            restore_paper
         );
         reg!(
             cmd::SET_PAPER_METADATA,
@@ -597,6 +655,50 @@ impl Workspace {
         self.require()?
             .paper(i.id)?
             .ok_or_else(|| CommandError::failed(errors::NOT_FOUND, format!("paper {}", i.id)))
+    }
+
+    async fn remove_paper(self: Arc<Self>, cx: Cx, i: GetPaper) -> Result<(), CommandError> {
+        let o = self.require()?;
+        let now = cx.clock.now_ms();
+        let changed =
+            o.db.write(|t| {
+                t.execute(
+                    "UPDATE paper SET removed_ms = ?2 WHERE id = ?1 AND removed_ms IS NULL",
+                    params![i.id.to_string(), now],
+                )
+            })
+            .map_err(sql_err)?;
+        if changed == 0 {
+            return Err(CommandError::failed(
+                errors::NOT_FOUND,
+                format!("paper {}", i.id),
+            ));
+        }
+        o.record(&cx, events::PAPER_REMOVED, json!({ "paper": i.id }));
+        if let Some(bus) = self.bus.read().upgrade() {
+            bus.events()
+                .publish(events::PAPER_REMOVED, json!({ "paper": i.id }), now);
+        }
+        Ok(())
+    }
+
+    async fn restore_paper(self: Arc<Self>, cx: Cx, i: GetPaper) -> Result<Paper, CommandError> {
+        let o = self.require()?;
+        let missing = || CommandError::failed(errors::NOT_FOUND, format!("paper {}", i.id));
+        let changed =
+            o.db.write(|t| {
+                t.execute(
+                    "UPDATE paper SET removed_ms = NULL WHERE id = ?1",
+                    params![i.id.to_string()],
+                )
+            })
+            .map_err(sql_err)?;
+        if changed == 0 {
+            return Err(missing());
+        }
+        let paper = o.paper(i.id)?.ok_or_else(missing)?;
+        self.publish(&cx, events::PAPER_ADDED, &paper);
+        Ok(paper)
     }
 
     async fn set_paper_metadata(

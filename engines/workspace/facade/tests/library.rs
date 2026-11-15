@@ -496,3 +496,78 @@ async fn paper_notes_save_history_restore_and_restart() {
     .await;
     assert!(matches!(missing, Err(CommandError::Failed { ref kind, .. }) if kind == "not_found"));
 }
+
+/// Design language 17.10: a removed paper leaves the lists at once, comes back with restore,
+/// and is deleted for good (with its managed copy) when the library is next opened.
+#[tokio::test]
+async fn remove_restore_and_purge_on_next_open() {
+    let d = tempfile::tempdir().unwrap();
+    let e = env(d.path());
+    let _: ProjectInfo = call(&e.bus, "workspace.open_default_library", json!(null))
+        .await
+        .unwrap();
+    let a = add(&e, d.path(), "a.pdf", "Keep me", &[]).await;
+    let b = add(&e, d.path(), "b.pdf", "Remove me", &[]).await;
+    let list = |e: &Env| {
+        let bus = e.bus.clone();
+        async move {
+            let p: Vec<Paper> = call(&bus, "workspace.list_papers", json!({}))
+                .await
+                .unwrap();
+            p.into_iter()
+                .map(|x| x.title.unwrap_or_default())
+                .collect::<Vec<_>>()
+        }
+    };
+    let _: Value = call(&e.bus, "workspace.remove_paper", json!({ "id": b.id }))
+        .await
+        .unwrap();
+    assert_eq!(list(&e).await, vec!["Keep me".to_string()]);
+    let back: Paper = call(&e.bus, "workspace.restore_paper", json!({ "id": b.id }))
+        .await
+        .unwrap();
+    assert_eq!(back.title.as_deref(), Some("Remove me"));
+    assert_eq!(list(&e).await.len(), 2);
+    // Removed again, then the library is opened again: gone for good, file deleted.
+    let _: Value = call(&e.bus, "workspace.remove_paper", json!({ "id": b.id }))
+        .await
+        .unwrap();
+    let blob = d.path().to_path_buf();
+    let files_before = walk(&blob);
+    let _: ProjectInfo = call(&e.bus, "workspace.open_default_library", json!(null))
+        .await
+        .unwrap();
+    assert!(
+        call::<Paper>(&e.bus, "workspace.restore_paper", json!({ "id": b.id }))
+            .await
+            .is_err()
+    );
+    assert_eq!(list(&e).await, vec!["Keep me".to_string()]);
+    assert_eq!(
+        walk(&blob),
+        files_before - 1,
+        "the removed paper's copy is deleted"
+    );
+    let kept: Paper = call(&e.bus, "workspace.get_paper", json!({ "id": a.id }))
+        .await
+        .unwrap();
+    assert_eq!(kept.title.as_deref(), Some("Keep me"));
+}
+
+fn walk(dir: &Path) -> usize {
+    std::fs::read_dir(dir).map_or(0, |rd| {
+        rd.flatten()
+            .map(|e| {
+                let p = e.path();
+                let stored = p.file_name().and_then(|n| n.to_str()).is_some_and(|n| {
+                    n.len() >= 60 && n.chars().all(|c| c.is_ascii_hexdigit() || c == '.')
+                });
+                if p.is_dir() {
+                    walk(&p)
+                } else {
+                    usize::from(stored)
+                }
+            })
+            .sum()
+    })
+}

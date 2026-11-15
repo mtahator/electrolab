@@ -95,10 +95,14 @@ export interface Commands {
   "workspace.remove_bookmark": { input: T.BookmarkRef; output: null };
   /** Take papers out of a collection (they stay in the library) */
   "workspace.remove_from_collection": { input: T.CollectionPapers; output: T.Collection };
+  /** Take a paper out of the library (undo with restore_paper until the library is next opened) */
+  "workspace.remove_paper": { input: T.GetPaper; output: null };
   /** Rename a collection */
   "workspace.rename_collection": { input: T.RenameCollection; output: T.Collection };
   /** Bring back an earlier version of a paper's notebook */
   "workspace.restore_notes": { input: T.RestoreNotes; output: T.PaperNotes };
+  /** Bring back a paper taken out of the library */
+  "workspace.restore_paper": { input: T.GetPaper; output: T.Paper };
   /** Save the notebook of a paper (a new version; earlier ones stay in the history) */
   "workspace.save_notes": { input: T.SaveNotes; output: T.PaperNotes };
   /** Remember where the reader is in a paper */

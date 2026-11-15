@@ -1036,6 +1036,11 @@ export interface RenameCollection {
 
 /** Input of `document.render`. */
 export type RenderRequest = {
+  /**
+   * Draw the annotations stored in the file too (printing an annotated copy). The viewer
+   * draws annotations itself, so pages are drawn without them by default.
+   */
+  annotations?: boolean;
   /** Background work (previews of pages ahead): waits behind what the user is looking at. */
   background?: boolean;
   /**

@@ -471,16 +471,14 @@ Every app works fully on touch laptops and with precision touchpads, not only wi
 - **Tests:** end-to-end checks use real gestures (DevTools `Input.synthesizePinchGesture` for touchpad and touch, `Input.dispatchTouchEvent` for taps and drags) as well as the mouse.
 
 ### 17.9 Printing (added 2026-11-15)
-**Printing prints the paper, never the window.** Ctrl+P and Print open the Reader's print sheet:
-- **pages:** all, the current page, or a range ("1-5, 8, 11-13");
-- **annotations:** included or not (on by default when the paper has some).
-
-The chosen pages are drawn sharp (about 200 dpi) with progress in the sheet, and the system print dialog then shows exactly those pages. The browser's own print of the interface is never reachable.
+**Printing prints the paper, never the window.** Ctrl+P and Print hand the PDF to the system's own print, through the user's usual PDF app and the standard print dialog (founder decision: use the operating system's printing, do not build our own):
+- **annotations:** when the paper has some, an annotated copy is printed; the paper itself is not changed;
+- **the browser's own print of the interface** is never reachable: Ctrl+P is taken by the Reader.
 
 ### 17.10 The library (added 2026-11-15)
 - **Two views, remembered:**
   - **List:** text, dense — title, authors, year, pages, added;
-  - **Covers:** a grid of first-page thumbnails with title and authors, like a shelf.
+  - **Covers:** a grid of first-page thumbnails with title and authors, like a shelf. Laid out on the 4 px grid (§5.1): 16 px from the edges (aligned with the tool row above), 24 px between covers, the cover at the page's own proportions with its page shadow.
 - **Rename** (F2 or the row menu): the title shown in the library and tabs. The file name stays as the original name.
 - **Remove from library** (Delete or the row menu) takes a paper out at once, with **Undo** for 10 s in a toast; no confirmation dialog (§9.8: undo instead of confirm). Its notes and annotations go with it and come back with Undo. The managed copy is deleted when the library is next opened, unless Undo was used.
 

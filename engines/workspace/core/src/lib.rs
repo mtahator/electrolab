@@ -191,6 +191,11 @@ pub const MIGRATIONS: &[(u32, &str, &str)] = &[
             version INTEGER NOT NULL, text TEXT NOT NULL, saved_ms INTEGER NOT NULL,
             PRIMARY KEY (paper, version));",
     ),
+    (
+        6,
+        "removing papers with undo (design language 17.10)",
+        "ALTER TABLE paper ADD COLUMN removed_ms INTEGER;",
+    ),
 ];
 
 /// Seconds counted from one `record_reading` report at most (the UI reports every few seconds;
