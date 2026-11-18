@@ -99,6 +99,8 @@ The founder's own book stays outside the repository (copyright). `e2e/large.mjs`
 
 **Library:** no way to remove a paper or rename it, and no cover view. Now §17.10.
 
+**Printing failed again (2026-11-18)** with the system's "print this file" command: the installer makes the Reader the default PDF app, and the Reader registers no print command, so Windows answers with an error. The test had used a dry run that skipped the real system call, so it could not see this. Now: the Reader prints its own drawings through the standard dialog (§17.9), and the test checks what is really printed, by printing to PDF through the same path. **Rule for tests:** a dry run may skip the last step only when that step is checked elsewhere on the real path.
+
 ## 5. Results after the fixes (same laptop, release build, while preparation runs)
 
 `e2e/large.mjs` on the generated 800-page book and on the founder's 759-page book: **every check passes on both**.

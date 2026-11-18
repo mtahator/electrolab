@@ -470,10 +470,24 @@ Every app works fully on touch laptops and with precision touchpads, not only wi
 - **Pens and touch:** drawing tools, highlighting, selection and the region tool use pointer events, so mouse, pen and touch behave the same; palm and second fingers do not draw.
 - **Tests:** end-to-end checks use real gestures (DevTools `Input.synthesizePinchGesture` for touchpad and touch, `Input.dispatchTouchEvent` for taps and drags) as well as the mouse.
 
-### 17.9 Printing (added 2026-11-15)
-**Printing prints the paper, never the window.** Ctrl+P and Print hand the PDF to the system's own print, through the user's usual PDF app and the standard print dialog (founder decision: use the operating system's printing, do not build our own):
-- **annotations:** when the paper has some, an annotated copy is printed; the paper itself is not changed;
-- **the browser's own print of the interface** is never reachable: Ctrl+P is taken by the Reader.
+### 17.9 Printing (revised 2026-11-18)
+**Printing prints the paper, never the window, and works on every machine.** Ctrl+P and Print open the Reader's **print sheet**, then the **standard Windows print dialog** (printer, copies, paper, both sides):
+- **Pages:** all, the current page, or a range ("1-5, 8, 11-13").
+- **Annotations:** included or not (on by default when the paper has some).
+- **Drawing:** the chosen pages are drawn sharp (about 200 dpi), at the page's own size and orientation, with progress and Cancel in the sheet. The print dialog then shows exactly those pages.
+- **Ctrl+P is the Reader's:** the browser's own print of the interface is never reachable.
+
+**Why not the system's "print this file" command** (tried 2026-11-15, failed for the founder): that command asks the default PDF app to print. After installing, the default PDF app is the Reader itself, which registers no print command, so Windows reports an error. On a machine without a PDF app it fails too. The Reader therefore prints its own drawings through the standard dialog and depends on no other app.
+
+**Checked by:** an end-to-end test prints to PDF through the same path (DevTools `Page.printToPDF`). The result must have exactly the chosen pages, in order, each at its page's size, with the annotations when asked.
+
+**Later (documented, not built — waiting for the founder's go):**
+- **Print a selection or an object:** a figure, table or equation (from its popover), or the selected region only.
+- **Notes and comments:** print the paper with a comments list at the end (each comment with its page and quote), or the paper notebook on its own.
+- **Layout:** pages per sheet (2, 4), booklet, fit to paper or actual size, margins for binding.
+- **Reading aids:** grayscale or "ink saver" (paper colour kept white, dark themes not printed), a header or footer with the citation and page number, line numbers.
+- **Export instead of printing:** save the chosen pages, with or without annotations, as a new PDF (shares the drawing path).
+- **Remembered choices:** the last pages, annotations and layout per paper.
 
 ### 17.10 The library (added 2026-11-15)
 - **Two views, remembered:**
@@ -517,6 +531,6 @@ Copy into the review of any UI change.
 - [ ] AI (if any): on request, marked with `sparkles`, evidence chips, Stop, short by default.
 - [ ] Answers within 100 ms; results stream; budgets of §17.3 met on the large book while preparation runs.
 - [ ] Transient UI closes on scroll, pointer leave and Esc; splits resizable.
-- [ ] Print prints the paper (§17.9); library actions undoable (§17.10).
+- [ ] Print prints the paper through the print sheet and the standard dialog, checked by printing to PDF (§17.9); library actions undoable (§17.10).
 - [ ] Works with touch and touchpad (§17.8): pinch zooms the page, taps replace hover, targets large enough on coarse pointers.
 - [ ] End-to-end check added or updated, with **real input** (mouse, wheel, keys, pinch, touch) where the user would use them.

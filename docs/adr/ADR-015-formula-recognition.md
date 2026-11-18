@@ -48,6 +48,14 @@ Equations in the Contents panel and popovers showed the PDF's math-font text, wh
 | Nougat | Weights CC-BY-NC (see ADR-013) |
 | Use the PDF's math-font text | Unreadable for many papers (the reported ","); kept only as cleaned search text |
 
+## Later: a refinement loop with a small vision model (not built; founder direction 2026-11-18)
+To make equations fully right without a large model (ADR-016 rejected a 24–48 GB page parser), the LaTeX is improved in a loop:
+1. LaTeX-OCR reads the formula line (as now).
+2. **Check:** the LaTeX is rendered (KaTeX or a TeX engine) and compared with the crop of the page (image similarity after normalising size and stroke).
+3. **Correct:** if they differ, a **small vision-language model** (on-device class: a few GB at most, quantised, CPU or the 4 GB GPU) is given the crop, the rendering and the LaTeX, and returns a corrected LaTeX. Missing parts (a lost subscript, a wrong bracket, a dropped line) are completed.
+4. **Stop:** when the rendering matches the crop, after a fixed number of rounds, or after a time limit. The best-matching version is kept.
+5. **Measure first:** the loop is built only if it raises the golden equation set's score clearly over LaTeX-OCR alone, within the time budget (background stage, page in view first).
+
 ## Consequences
 - Equations show as images at once, and as LaTeX once the model is installed: about 1 s per line, cached.
 - Accuracy is that of pix2tex. A golden equation set (`fixtures/golden/equations/`) will measure it, and stronger models will be compared on it.

@@ -1,6 +1,6 @@
-# ADR-016: OXR-1.0 (SoMark) — not a replacement for the Reader's OCR; an optional GPU/server page parser later
+# ADR-016: OXR-1.0 (SoMark) — rejected; the Reader keeps its small on-device page models
 
-Status: **accepted** (evaluation) · OXR adapter **deferred** (Phase 2 server edition, gated on the conditions below)
+Status: **rejected** (founder decision, 2026-11-18) — no OXR adapter is planned, also not for a server edition
 Date: 2026-11-18
 Relates to: ADR-007 (page models), ADR-013 (OCR: PP-OCRv5 everywhere, shipped with the app), ADR-015 (formulas: LaTeX-OCR)
 Plan reference: Draft 2.2 §14.2 (`LayoutModel`, `Ocr`, `FormulaModel` ports)
@@ -28,34 +28,38 @@ The licence's additional terms:
 - **Termination:** rights end automatically when a term is broken.
 
 ## Decision
-1. **OXR does not replace PP-OCRv5 in the Reader.** It breaks the binding rules of ADR-013:
-   - **Same on every device, offline:** it needs a 24–48 GB NVIDIA GPU, Linux and vLLM. The minimum laptop has a 4 GB GPU and Windows, and many users have no NVIDIA GPU at all.
-   - **Embeddable:** there is no ONNX or CPU build, so it cannot run inside our Rust engines through ONNX Runtime like the other page models.
-   - **Licence fit:** the funding and revenue limit would require a commercial licence once the company passes USD 2 M in funding or revenue. That is a business dependency we do not take on for a core feature.
-2. **Where OXR fits: an optional page-parser adapter**, behind the ports we already have, for machines that can run it — the **server edition** (Phase 2) or a workstation with a large GPU:
-   - **One pass, three ports:** one OXR call per page answers the `LayoutModel` (objects with boxes), the `Ocr` (text of scanned pages) and the `FormulaModel` (LaTeX of formulas) at once. It also gives tables as HTML/Markdown for `document.table`.
-   - **A sidecar adapter:** OXR runs as its own process (vLLM server, as ADR-005 does for the language model) and the Document engine talks to it through an adapter crate (`ep-document-adapter-oxr`, HTTP to a local or LAN service). Nothing in the core changes; results are cached per file and model version, like every page model.
-   - **Never required, always optional:** the Reader keeps working the same without it (PP-OCRv5, Egret layout, LaTeX-OCR). Settings → Page models lists it as "Page parser (server)", with an address to connect to.
-3. **Before an OXR adapter is built**, all of these must hold:
-   - a measured spike on our golden sets (layout, equations, tables, scanned pages) shows a clear gain over the current page models;
-   - the licence question is settled in writing with SoMark for our case (desktop app, server edition, company size), or the company stays under both limits and the attribution and no-competing-API terms are met;
-   - the server edition (Phase 2) is being built.
-4. **What we take from OXR now:**
-   - **Its element list** (13 kinds, including chemistry and code) is a good target for our `ObjectKind`. Chemical equations and structures are added to the object-kind backlog.
-   - **Its benchmarks** (olmOCR-Bench, OmniDocBench) become external references next to our golden sets when page models are compared.
+1. **OXR is not used**, neither in the Reader nor as a server add-on. The founder's reason: a reading tool must not depend on a 24–48 GB GPU model to read papers. In addition:
+   - **Same on every device, offline (ADR-013):** OXR needs a 24–48 GB NVIDIA GPU, Linux and vLLM; the minimum laptop has a 4 GB GPU and Windows.
+   - **Embeddable:** there is no ONNX or CPU build, so it cannot run inside the engines through ONNX Runtime like the other page models.
+   - **Licence:** free commercial use only under USD 2 M funding and USD 2 M revenue; above that, a licence from SoMark would be needed for a core feature.
+2. **The Reader keeps its small on-device page models:**
+   - PP-OCRv5 for scanned pages (ADR-013);
+   - Egret-medium for layout (ADR-007);
+   - LaTeX-OCR for formulas (ADR-015).
+   All run on the minimum laptop's CPU, offline, the same everywhere.
+3. **The better path later is a refinement loop** around small models, not one large model. A small vision model checks and completes what the small page models produce, starting with equations:
+   - LaTeX-OCR reads a formula;
+   - the LaTeX is rendered and compared with the crop of the page;
+   - a small vision-language model (on-device class, a few GB at most) is shown the crop and the rendered result and corrects the LaTeX;
+   - the loop stops when the rendering matches the crop, or after a few rounds.
+   It is described as a future option in ADR-015 and is to be measured on the golden equation set before it is built.
+4. **What we keep from the evaluation:**
+   - **Element list:** OXR's 13 element kinds (including chemical equations, chemical structures and code blocks) remain a useful target for `ObjectKind`; the three missing kinds are on the backlog.
+   - **Benchmarks:** olmOCR-Bench and OmniDocBench are external references next to our golden sets when page models are compared.
 
 ## Alternatives considered
 | Option | Why not now |
 |---|---|
-| Replace PP-OCRv5 with OXR everywhere | Needs a 24–48 GB NVIDIA GPU, Linux and vLLM; no CPU/ONNX path; breaks offline-on-every-device (ADR-013); licence limit |
+| Replace PP-OCRv5 with OXR everywhere, or run it as a server add-on | Needs a 24–48 GB NVIDIA GPU, Linux and vLLM; no CPU/ONNX path; breaks offline-on-every-device (ADR-013); licence limit |
 | Convert OXR to ONNX ourselves | A 1.3–2 B parameter autoregressive model on CPU would take many seconds per page on the minimum laptop (LaTeX-OCR, about 30 times smaller, already takes 1–3 s per formula); the licence still applies |
 | Use SoMark's hosted API | Sends users' papers to an outside service, against local-first (Draft 2.2 §6); needs network |
 | Other 2026 VLM parsers (PaddleOCR-VL-1.5, LightOnOCR-2-1B, GLM-OCR) | Same class of model: GPU-sized, to be compared in the same spike when the server edition starts |
 
 ## Consequences
-- No change to the Reader now; ADR-013 and ADR-015 stand.
-- The Phase 2 plan gains a task: a page-parser spike (OXR and peers on our golden sets, licence settled) and, if it passes, the `ep-document-adapter-oxr` sidecar adapter.
-- `ObjectKind` backlog: chemical equation, chemical structure, code block.
+- **No change to the Reader:** ADR-013 and ADR-015 stand.
+- **No OXR adapter**, no GPU-server page parser in the plans.
+- **Future work:** the formula refinement loop (ADR-015, "Later"), measured on the golden equation set first.
+- **Backlog:** `ObjectKind` gains chemical equation, chemical structure and code block.
 
 ## Sources
 - OXR-1.0 model card: https://huggingface.co/SoMarkAI/OXR-1.0
