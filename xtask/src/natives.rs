@@ -7,7 +7,7 @@
 //! An entry may list `files` (`"<path under .natives/<name>>" = "<path inside the archive>"`):
 //! then the archive is unpacked aside and only those files are copied into place. This keeps
 //! the paths the build uses when a library has to come from a different package (ONNX Runtime
-//! from NuGet since its GitHub releases went offline, 2026-11-18).
+//! from `NuGet` since its GitHub releases went offline, 2026-11-18).
 
 use std::fs;
 use std::path::Path;
