@@ -47,6 +47,7 @@ Consequence for the product: OCR runs as a **background preparation stage**. The
 | GOT-OCR 2.0 | Weights published as Apache-2.0. 580 M parameters with an autoregressive decoder: far too slow for CPU page OCR, and there is no official ONNX export. It may be worth a measured spike later as an optional high-accuracy mode for formulas and tables on a GPU. |
 | MinerU | A Python/PyTorch pipeline that cannot be embedded in the Rust engines. Its OCR is PaddleOCR anyway. The licence changed in 2026 to a custom "MinerU Open Source License" (Apache-2.0 plus attribution and scale terms); earlier versions were AGPL with CC-BY-NC-SA models. Not adopted as a dependency. |
 | PDF-Extract-Kit | **AGPL-3.0** (YOLO-based layout, PyMuPDF), which is incompatible with our licence |
+| OXR-1.0 (SoMark, 2026) | A whole-page vision-language parser (text, tables, LaTeX) that needs a 24–48 GB NVIDIA GPU on Linux, has no ONNX or CPU build, and has a USD 2 M funding/revenue limit for free commercial use. Not a replacement; a possible optional server adapter — see [ADR-016](ADR-016-oxr-page-parser.md) |
 | PP-OCRv5 server models | More accurate on hard scans but several times slower on CPU; may become an optional "accurate" setting |
 
 ## Consequences
