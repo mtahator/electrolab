@@ -1841,3 +1841,64 @@ body,
 .rename-field {
   width: 100%;
 }
+
+/* Printing (design language §17.9): the print sheet, and the print-only layer that holds the
+   drawn pages. When printing, only that layer is shown, one page per sheet, at its own size. */
+.print-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: min(380px, 80vw);
+}
+
+.print-range {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.print-range .ep-input {
+  width: 160px;
+}
+
+.print-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.print-root {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 0;
+  }
+
+  /* Everything but the print layer (which sits in a portal wrapper) is left out. */
+  body > *:not(.print-root):not(:has(.print-root)) {
+    display: none !important;
+  }
+
+  html,
+  body {
+    background: none !important;
+  }
+
+  .print-root {
+    display: block;
+  }
+
+  .print-page {
+    display: block;
+    width: 100%;
+    height: auto;
+    break-after: page;
+    break-inside: avoid;
+  }
+
+  .print-page:last-child {
+    break-after: auto;
+  }
+}

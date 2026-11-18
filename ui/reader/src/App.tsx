@@ -32,7 +32,7 @@ import { createStore } from "solid-js/store";
 
 import { ToolRail, toolHint } from "./annotations/ToolRail";
 import { annotationsOf, marksHidden, onAnnotationError, picked, redo, remove, saveIntoPdf, savedAt, setMarksHidden, setPicked, setTool, tool, typing, undo } from "./annotations/state";
-import { bus, downloadPdf, onBusEvent, onDropFiles, onOpenFiles, openPaperExternally, pickPdfs, printPaper, takePendingFiles } from "./host";
+import { bus, downloadPdf, onBusEvent, onDropFiles, onOpenFiles, openPaperExternally, pickPdfs, takePendingFiles } from "./host";
 import { addTextLayer, canAddTextLayer, download, fetchModel, installChoice, layoutModel, prepare, refreshModels, running, setSettingsOpen as setSettings, settingsOpen as settings } from "./intel/state";
 import { importPdf, openDefaultLibrary, refresh } from "./library";
 import { NotesPanel } from "./notes/NotesPanel";
@@ -57,6 +57,7 @@ import {
 import { LibraryView } from "./shell/LibraryView";
 import { KeymapSettings, Palette, Prompt } from "./shell/Overlays";
 import { activate, activeTab, closeTab, moveTab, openPapers, openTab, restore, session, setShowLibrary, toggleSplit, updatePaper } from "./shell/session";
+import { PrintSheet } from "./shell/Print";
 import { Settings } from "./shell/Settings";
 import { SidePanel } from "./shell/SidePanel";
 import type { Marks, ViewerApi, ViewerStatus } from "./viewer/Viewer";
@@ -104,18 +105,11 @@ export function App(): JSX.Element {
   const [addingText, setAddingText] = createSignal(false);
   // The find bar over the focused pane (design language §17.4).
   const [findBar, setFindBar] = createSignal(0);
-  // Printing prints the paper with the system's own print (design language §17.9): the PDF
-  // goes to Windows' print with the usual PDF app; with annotations, an annotated copy (the
-  // paper itself is not changed).
-  const printPdf = async (p: Paper): Promise<void> => {
-    try {
-      const marks = annotationsOf(p.id)?.annotations.length ?? 0;
-      const file = marks > 0 ? (await bus("document.annotate", { paper: p.id, file: p.file })).file : p.file;
-      await printPaper(file.hash);
-      showToast(t("print.sent"));
-    } catch (e) {
-      report(e);
-    }
+  // Printing prints the paper through the Reader's print sheet and the standard print dialog
+  // (design language §17.9): it needs no other PDF app.
+  const [printing, setPrinting] = createSignal<Paper | null>(null);
+  const printPdf = (p: Paper): void => {
+    setPrinting(p);
   };
   // Share of the first pane in split view (design language §17.6), remembered.
   const readSplit = (): number => {
@@ -357,7 +351,7 @@ export function App(): JSX.Element {
     { id: "mode.single", title: () => t("viewer.mode_single"), enabled: () => !!current().api, run: () => current().api?.setMode("single") },
     { id: "mode.two_page", title: () => t("viewer.mode_two_page"), enabled: () => !!current().api, run: () => current().api?.setMode("two_page") },
     { id: "paper.external", title: () => t("viewer.open_external"), enabled: () => !!current().paper, run: withPaper((p) => void openPaperExternally(p.file.hash).catch(report)) },
-    { id: "paper.print", title: () => t("viewer.print"), keys: "Ctrl+P", enabled: () => !!current().paper, run: withPaper((p) => void printPdf(p)) },
+    { id: "paper.print", title: () => t("viewer.print"), keys: "Ctrl+P", enabled: () => !!current().paper, run: withPaper((p) => printPdf(p)) },
     { id: "annot.undo", title: () => t("annot.undo"), keys: "Ctrl+Z", enabled: () => !!current().paper && !typing(), run: withPaper((p) => void undo(p.id)) },
     { id: "annot.redo", title: () => t("annot.redo"), keys: "Ctrl+Y", enabled: () => !!current().paper && !typing(), run: withPaper((p) => void redo(p.id)) },
     { id: "annot.redo2", title: () => t("annot.redo"), keys: "Ctrl+Shift+Z", enabled: () => !!current().paper && !typing(), run: withPaper((p) => void redo(p.id)) },
@@ -406,7 +400,7 @@ export function App(): JSX.Element {
       e.preventDefault();
       e.stopPropagation();
       const p = current().paper;
-      if (p) void printPdf(p);
+      if (p) printPdf(p);
     };
     window.addEventListener("keydown", stopBrowserPrint, true);
     onCleanup(() => window.removeEventListener("keydown", stopBrowserPrint, true));
@@ -489,7 +483,7 @@ export function App(): JSX.Element {
         ...(canAddTextLayer(p.file.hash) ? [{ label: t("intel.add_text_layer"), icon: "scan-text" as const, disabled: addingText(), run: () => void addText(p) }] : []),
         { separator: true },
         { label: t("viewer.open_external"), icon: "external-link", run: () => void openPaperExternally(p.file.hash).catch(report) },
-        { label: t("viewer.print"), icon: "printer", shortcut: "Ctrl+P", run: () => void printPdf(p) },
+        { label: t("viewer.print"), icon: "printer", shortcut: "Ctrl+P", run: () => printPdf(p) },
         { separator: true },
       );
     }
@@ -806,6 +800,9 @@ export function App(): JSX.Element {
       </Show>
       <Show when={palette()}>
         <Palette onClose={() => setPalette(false)} />
+      </Show>
+      <Show when={printing()}>
+        {(p) => <PrintSheet paper={p()} pages={st()?.pages ?? p().pages ?? 1} current={st()?.page ?? 1} onClose={() => setPrinting(null)} />}
       </Show>
       <Show when={settings()}>
         <Settings onClose={() => setSettings(false)} onModelReady={prepareAll} />

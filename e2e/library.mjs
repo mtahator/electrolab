@@ -5,7 +5,7 @@
 // Library: list and cover views, rename in place, remove with Undo. Printing: Ctrl+P hands the
 // paper to the system print (dry run here: no real print job) and never prints the window.
 
-import { mkdirSync, rmSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 import { launch as launchApp, sleep } from "./lib.mjs";
@@ -24,7 +24,6 @@ const data = join(scratch, "library");
 const webview = join(scratch, "library-webview");
 rmSync(data, { recursive: true, force: true });
 rmSync(webview, { recursive: true, force: true });
-process.env.EP_PRINT_DRY_RUN = "1";
 const s = await launchApp({ exe, args: papers, data, webview, port: 9340, out, consoleLog: [] });
 const key = (k, code, vk, modifiers = 0) =>
   s.send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: k, code, windowsVirtualKeyCode: vk, modifiers }).then(() => s.send("Input.dispatchKeyEvent", { type: "keyUp", key: k, code, windowsVirtualKeyCode: vk, modifiers }));
@@ -33,13 +32,24 @@ try {
   await s.until(`document.querySelectorAll(".tab").length === 2 ? true : null`, 20000);
   await s.until(`document.querySelector(".pane.focused img.page-canvas")`, 20000);
 
-  // Printing: Ctrl+P sends the paper to the system print; the window is never printed.
+  // Printing (design language §17.9): Ctrl+P opens the print sheet; pages 2-4 are drawn and the
+  // print layer holds exactly them. What would be printed is checked by printing to PDF through
+  // the same path (the system dialog itself is not opened in a test).
   await s.js(`window.__printed = 0; window.print = () => { window.__printed += 1; }`);
   await s.js(`document.querySelector(".pane.focused .scroller").focus()`);
   await key("p", "KeyP", 80, 2);
-  const sent = await s.until(`[...document.querySelectorAll(".ep-toast, [role=status]")].map((x) => x.textContent).find((x) => x.includes("system print")) ?? null`, 10000).catch(() => null);
-  const windowPrinted = await s.js(`window.__printed`);
-  check("print_sends_the_paper", !!sent && windowPrinted === 0, { toast: sent, window_print_calls: windowPrinted });
+  const sheet = await s.until(`document.querySelector('.ep-dialog[aria-label="Print"]') ? true : null`, 5000).catch(() => null);
+  await s.js(`(() => { const i = document.querySelector(".print-range .ep-input"); i.focus(); i.value = "2-4"; i.dispatchEvent(new InputEvent("input", { bubbles: true })); })()`);
+  await s.js(`[...document.querySelectorAll(".ep-dialog button")].find((b) => b.textContent.trim() === "Print").click()`);
+  const asked = await s.until(`window.__printed > 0 ? true : null`, 30000).catch(() => null);
+  const layer = await s.js(`document.querySelectorAll(".print-root img.print-page").length`);
+  const pdf = await s.send("Page.printToPDF", { preferCSSPageSize: true, printBackground: true });
+  const bytes = Buffer.from(pdf.result?.data ?? "", "base64").toString("latin1");
+  writeFileSync(join(out, "printed.pdf"), Buffer.from(pdf.result?.data ?? "", "base64"));
+  const pages = (bytes.match(/\/Type\s*\/Page[^s]/g) ?? []).length;
+  check("print_prints_the_chosen_pages", !!sheet && !!asked && layer === 3 && pages === 3, { sheet: !!sheet, print_dialog_asked: !!asked, layer_pages: layer, printed_pdf_pages: pages });
+  await s.js(`window.dispatchEvent(new Event("afterprint"))`);
+  await s.until(`document.querySelector(".print-root") ? null : true`, 3000).catch(() => null);
 
   // Library: covers view with first pages.
   await s.js(`document.querySelector('.topbar [aria-label="Library"]').click()`);
