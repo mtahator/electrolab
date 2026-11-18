@@ -59,11 +59,19 @@ sha256  = "738f8c251ac22b70c3ae6f83a10cf222725df0395246a2cf58f32bdb85fbe668"
 extract = true
 
 # P1.M4 — ONNX Runtime for the Document engine's page models (ADR-007; `ort` 2.0.0-rc.15, API 31,
-# loaded at run time). Source: microsoft/onnxruntime GitHub releases, MIT. Hash = GitHub's digest.
+# loaded at run time), MIT.
+# Source: Microsoft's signed NuGet package Microsoft.ML.OnnxRuntime 1.31.1. The GitHub release
+# (microsoft/onnxruntime) went offline on 2026-11-17/18 with no notice; the DLL in this package is
+# byte-identical to the one from that release (SHA-256 cb2fa518…db0c, checked 2026-11-18). Only
+# the files below are taken from the package, at the paths the build already uses.
 [[native]]
 name    = "onnxruntime"
 version = "1.31.1"
 os      = "windows-x64"
-url     = "https://github.com/microsoft/onnxruntime/releases/download/v1.31.1/onnxruntime-win-x64-1.31.1.zip"
-sha256  = "5869e26bb25314375f2d5ef1877e3ea06b1543d6c710e6e4a1ec2f7177ab4b2c"
+url     = "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.31.1/microsoft.ml.onnxruntime.1.31.1.nupkg"
+sha256  = "6871ccbc97f3d5bdb4095a1dcec33aa78d56f6ed8de5980ef5fa1d9f2e7c679a"
 extract = true
+[native.files]
+"onnxruntime-win-x64-1.31.1/lib/onnxruntime.dll" = "runtimes/win-x64/native/onnxruntime.dll"
+"onnxruntime-win-x64-1.31.1/LICENSE" = "LICENSE"
+"onnxruntime-win-x64-1.31.1/ThirdPartyNotices.txt" = "ThirdPartyNotices.txt"

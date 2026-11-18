@@ -3,6 +3,11 @@
 //! Reads `natives.toml`. Each entry with `url` and `sha256` is downloaded to
 //! `.natives/downloads/`, verified, and (if `extract = true`) unpacked with the system
 //! `tar` into `.natives/<name>/`. Already verified downloads are not fetched again.
+//!
+//! An entry may list `files` (`"<path under .natives/<name>>" = "<path inside the archive>"`):
+//! then the archive is unpacked aside and only those files are copied into place. This keeps
+//! the paths the build uses when a library has to come from a different package (ONNX Runtime
+//! from NuGet since its GitHub releases went offline, 2026-11-18).
 
 use std::fs;
 use std::path::Path;
@@ -30,6 +35,8 @@ struct Native {
     sha256: String,
     #[serde(default)]
     extract: bool,
+    #[serde(default)]
+    files: std::collections::BTreeMap<String, String>,
 }
 
 /// Fetch every pinned native library, or only those whose name is in `only` (when not empty).
@@ -56,15 +63,30 @@ pub fn fetch(root: &Path, only: &[String]) -> anyhow::Result<()> {
             .with_context(|| format!("{} {} ({})", n.name, n.version, n.os))?;
         if n.extract {
             let dest = root.join(".natives").join(&n.name);
-            fs::create_dir_all(&dest)?;
+            // With a file list, unpack aside and copy only the listed files into place.
+            let unpack = if n.files.is_empty() {
+                dest.clone()
+            } else {
+                downloads.join(format!("{}-{}-unpacked", n.name, n.version))
+            };
+            fs::create_dir_all(&unpack)?;
             // Arguments as a vector, never a shell string (§6.4 rule 7).
             let status = Command::new("tar")
                 .arg("-xf")
                 .arg(&file)
                 .arg("-C")
-                .arg(&dest)
+                .arg(&unpack)
                 .status()?;
             anyhow::ensure!(status.success(), "{}: extraction failed", n.name);
+            for (to, from) in &n.files {
+                let src = unpack.join(from);
+                let target = dest.join(to);
+                if let Some(dir) = target.parent() {
+                    fs::create_dir_all(dir)?;
+                }
+                fs::copy(&src, &target)
+                    .with_context(|| format!("{}: {} is not in the package", n.name, from))?;
+            }
         }
         println!("ok  {} {} ({outcome:?})", n.name, n.version);
     }
