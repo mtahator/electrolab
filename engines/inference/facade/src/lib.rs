@@ -91,6 +91,16 @@ fn from_backend(e: BackendError) -> CommandError {
     }
 }
 
+/// The prefill and what the model wrote after it, with one space where both bring one.
+fn join(prefill: &str, text: &str) -> String {
+    let text = if prefill.ends_with(' ') {
+        text.trim_start_matches(' ')
+    } else {
+        text
+    };
+    format!("{prefill}{text}")
+}
+
 fn exe_name() -> &'static str {
     if cfg!(windows) {
         "llama-server.exe"
@@ -501,7 +511,7 @@ impl Inference {
                 .complete(&prepared, &on_token, &cancelled)
                 .await
                 .map_err(from_backend)?;
-            let content = format!("{prefill}{}", c.text);
+            let content = join(&prefill, &c.text);
             if let Some(s) = &req.schema
                 && let Err(e) = schema::parse_checked(&content, s)
             {

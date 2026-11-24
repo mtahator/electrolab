@@ -79,6 +79,16 @@ async fn streams_tokens_with_prefill_and_data_section() {
 }
 
 #[tokio::test]
+async fn one_space_between_prefill_and_answer() {
+    for said in [" is heat.", "is heat."] {
+        let bus = bus_with(Replay::new().on("t", said));
+        let input = json!({ "task": "t", "messages": [{ "role": "user", "content": "q" }], "prefill": "It " });
+        let r: LlmResponse = call(&bus, "inference.complete", input).await.unwrap();
+        assert_eq!(r.content, "It is heat.");
+    }
+}
+
+#[tokio::test]
 async fn schema_is_retried_once_then_fails() {
     let schema = json!({ "type": "object", "properties": { "ok": { "type": "boolean" } }, "required": ["ok"], "additionalProperties": false });
     let n = Arc::new(AtomicUsize::new(0));
