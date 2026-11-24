@@ -246,9 +246,11 @@ impl Inference {
                 format!("{} is not a folder", dir.display()),
             ));
         }
+        // Kept as a whole path: the app may be started from anywhere the next time.
+        let dir = std::path::absolute(dir).unwrap_or_else(|_| dir.to_path_buf());
         self.change(|c| {
-            if !c.folders.iter().any(|d| d == dir) {
-                c.folders.push(dir.to_path_buf());
+            if !c.folders.contains(&dir) {
+                c.folders.push(dir);
             }
         })?;
         *self.catalog.write() = None;

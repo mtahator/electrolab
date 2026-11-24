@@ -1439,7 +1439,7 @@ body,
   }
 }
 
-.llm-order {
+.llm .llm-order {
   margin-bottom: var(--space-2);
 }
 
