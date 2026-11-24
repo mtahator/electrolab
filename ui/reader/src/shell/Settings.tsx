@@ -5,8 +5,8 @@ import type { ModelInfo } from "@electropaper/bindings";
 import { Button, Dialog, Icon, type MessageKey, PAPERS, type PaperChoice, TEXT_SIZES, THEMES, type TextSize, type Theme, density, paperChoice, setDensity, setPaper, setTextSize, setTheme, t, textSize, theme } from "@electropaper/kit";
 import { For, type JSX, Show, createSignal } from "solid-js";
 
-import { chooseModelFolder, languageModels, refreshLanguageModels } from "../assistant/explain";
 import { download, fetchModel, models, removeModel } from "../intel/state";
+import { LanguageModels } from "./LanguageModels";
 
 /** The models a person thinks of: one row per model, its files together (size summed,
  *  present only when every file is). */
@@ -21,7 +21,6 @@ const shown = (ms: ModelInfo[]): ModelInfo[] =>
 export function Settings(props: { onClose: () => void; onModelReady: () => void }): JSX.Element {
   const [busy, setBusy] = createSignal<string | null>(null);
   const [error, setError] = createSignal<string | null>(null);
-  void refreshLanguageModels();
   const mb = (n: number): number => Math.max(1, Math.round(n / 1e6));
 
   const get = async (id: string): Promise<void> => {
@@ -42,7 +41,7 @@ export function Settings(props: { onClose: () => void; onModelReady: () => void 
   };
 
   return (
-    <Dialog title={t("settings.title")} onCancel={props.onClose} actions={<Button onClick={props.onClose}>{t("common.close")}</Button>}>
+    <Dialog size="lg" title={t("settings.title")} onCancel={props.onClose} actions={<Button onClick={props.onClose}>{t("common.close")}</Button>}>
       <div class="settings">
         <section>
           <h3>{t("settings.appearance")}</h3>
@@ -98,38 +97,14 @@ export function Settings(props: { onClose: () => void; onModelReady: () => void 
             <p class="error">{error()}</p>
           </Show>
         </section>
-        <section>
-          <h3>{t("settings.llm")}</h3>
-          <p class="muted">{t("settings.llm_note")}</p>
-          <ul class="model-list">
-            <For each={languageModels()?.models ?? []}>
-              {(m) => (
-                <li class="model-row">
-                  <Icon name={m.state === "missing" ? "circle" : "circle-check"} size={16} />
-                  <div class="model-text">
-                    <strong>{m.name}</strong>
-                    <span class="muted">
-                      {m.state === "missing" ? m.file : `${mb(m.size)} MB`} · {m.licence}
-                    </span>
-                  </div>
-                  <span class="muted model-state">{t(`settings.llm_${m.state}`)}</span>
-                </li>
-              )}
-            </For>
-          </ul>
-          <Show when={languageModels()?.runtime.backend === "none"}>
-            <p class="error">{t("settings.llm_no_runtime")}</p>
-          </Show>
-          <Button icon="folder" onClick={() => void chooseModelFolder(t("settings.llm_folder")).catch((e: unknown) => setError(String(e)))}>
-            {t("settings.llm_folder")}
-          </Button>
-        </section>
+        <LanguageModels />
       </div>
     </Dialog>
   );
 }
 
-function Choice(props: { label: string; value: string; options: readonly (readonly [string, string])[]; onChange: (v: string) => void }): JSX.Element {
+/** A labelled choice, one row of Settings. */
+export function Choice(props: { label: string; value: string; options: readonly (readonly [string, string])[]; onChange: (v: string) => void }): JSX.Element {
   return (
     <label class="settings-row">
       <span>{props.label}</span>

@@ -110,7 +110,8 @@ Events: `document.preparing { file, stage }` while a stage runs; `document.prepa
 ## Uses (contracts only)
 - none (Document is a base engine, Draft 2.2 §6.3).
 
-## Guarantees (document.search)
+## Guarantees
+- **Every page has its own size and direction, and only one:** `document.info` gives the size as shown (crop box, `/Rotate`, boxes inherited from the document, all applied), the same before and after preparation and the same as the drawing, the text boxes and the links use (founder report, 2026-11-24: landscape pages were squeezed when the box was inherited).
 1. Deterministic for the same request, paper and extractor version.
 2. `matched` is exactly the paper's characters at `char_range`; `rects` are those characters' boxes (no model involved).
 3. `counts` include every occurrence, even when `limits` cut the hits (`truncated = true`).

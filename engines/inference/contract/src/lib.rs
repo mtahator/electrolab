@@ -7,7 +7,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Contract version; experimental until a second host uses it (Draft 2.2 §8.3).
-pub const VERSION: &str = "0.1.0";
+pub const VERSION: &str = "0.2.0";
 
 /// Command names.
 pub mod commands {
@@ -15,6 +15,14 @@ pub mod commands {
     pub const COMPLETE: &str = "inference.complete";
     /// Models the engine knows and the runtime that will run them.
     pub const MODELS: &str = "inference.models";
+    /// Search the model folders again.
+    pub const SEARCH_MODELS: &str = "inference.search_models";
+    /// Add a folder with models.
+    pub const ADD_FOLDER: &str = "inference.add_folder";
+    /// Forget a folder.
+    pub const REMOVE_FOLDER: &str = "inference.remove_folder";
+    /// Choose the model of a task.
+    pub const ASSIGN: &str = "inference.assign";
     /// State of the runtime.
     pub const STATUS: &str = "inference.status";
     /// Start the runtime with a model.
@@ -31,12 +39,18 @@ pub mod events {
     pub const MODEL_LOADED: &str = "model.loaded";
     /// The runtime stopped: `{ model }`.
     pub const MODEL_UNLOADED: &str = "model.unloaded";
+    /// Folders, choices or models changed: `{}`.
+    pub const MODELS_CHANGED: &str = "inference.models_changed";
     /// Where a request went and why: `{ task, backend, model, reason }`.
     pub const ROUTE_DECIDED: &str = "route.decided";
 }
 
 /// Error kinds (`CommandError::Failed { kind }`).
 pub mod errors {
+    /// A folder was expected.
+    pub const NOT_A_FOLDER: &str = "not_a_folder";
+    /// A file could not be read or written.
+    pub const IO: &str = "io";
     /// No model file was found.
     pub const NO_MODEL: &str = "no_model";
     /// No llama.cpp build was found.
@@ -207,15 +221,28 @@ pub struct LlmResponse {
 #[serde(rename_all = "snake_case")]
 #[schemars(rename = "LlmModelState")]
 pub enum ModelState {
-    /// Not on this machine.
-    Missing,
     /// Its file is here.
     Ready,
     /// Running now.
     Loaded,
 }
 
-/// A local model.
+/// What a model file can be used for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+#[schemars(rename = "LlmModelKind")]
+pub enum ModelKind {
+    /// Writes answers.
+    Chat,
+    /// Makes vectors for search.
+    Embedding,
+    /// The picture part of another model.
+    VisionPart,
+    /// Something else.
+    Other,
+}
+
+/// A local model that was found.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[schemars(rename = "LlmModel")]
 pub struct ModelInfo {
@@ -223,18 +250,78 @@ pub struct ModelInfo {
     pub id: String,
     /// Name for people.
     pub name: String,
-    /// GGUF file name.
+    /// File name.
     pub file: String,
+    /// Full path.
+    pub path: String,
     /// Bytes.
     pub size: u64,
-    /// Licence of the weights.
+    /// Licence of the weights, when the file says so.
     pub licence: String,
-    /// Whether it is here or running.
+    /// What it can be used for.
+    pub kind: ModelKind,
+    /// Architecture named in the file.
+    pub architecture: String,
+    /// Quantisation (`Q4_K_M`), when known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quantisation: Option<String>,
+    /// Whether it is running.
     pub state: ModelState,
-    /// The model chosen for this machine.
+    /// The model suggested for this machine.
     pub recommended: bool,
     /// Context length used.
     pub context: u32,
+    /// Why it could not be started the last time.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub problem: Option<String>,
+}
+
+/// A folder that is searched for models.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[schemars(rename = "LlmFolder")]
+pub struct Folder {
+    /// Where.
+    pub path: String,
+    /// Models found in it (and not already in an earlier folder).
+    pub models: u32,
+    /// Model files in formats that cannot be used.
+    pub other_formats: u32,
+    /// It is not there.
+    pub missing: bool,
+    /// The search stopped at its limit.
+    pub partial: bool,
+    /// Added by the user (can be removed).
+    pub own: bool,
+}
+
+/// A kind of work and the model chosen for it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[schemars(rename = "LlmTask")]
+pub struct Task {
+    /// `default`, `explain`, `check`.
+    pub id: String,
+    /// The user's choice; the suggestion answers without one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+}
+
+/// Input of `inference.add_folder` and `inference.remove_folder`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[schemars(rename = "LlmFolderPath")]
+pub struct FolderPath {
+    /// Where.
+    pub path: String,
+}
+
+/// Input of `inference.assign`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[schemars(rename = "LlmAssign")]
+pub struct Assign {
+    /// `default`, `explain`, `check`.
+    pub task: String,
+    /// Model id; the default again when missing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
 }
 
 /// The llama.cpp build in use.
@@ -267,8 +354,12 @@ pub struct Runtime {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[schemars(rename = "LlmModels")]
 pub struct Models {
-    /// The models the engine knows.
+    /// The models that were found.
     pub models: Vec<ModelInfo>,
+    /// The folders searched.
+    pub folders: Vec<Folder>,
+    /// The kinds of work and their models.
+    pub tasks: Vec<Task>,
     /// The runtime.
     pub runtime: Runtime,
 }

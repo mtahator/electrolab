@@ -1,6 +1,6 @@
 # ElectroPaper design language and UX guideline
 
-Version 1.3 · 2026-11-15 · applies to **every ElectroPaper app**: the Reader, the Lab desktop app, later the web and server consoles, and any panel an engine contributes. Owner: `ui/kit`. Decision: [ADR-012](../adr/ADR-012-design-language-and-icons.md).
+Version 1.4 · 2026-11-24 · applies to **every ElectroPaper app**: the Reader, the Lab desktop app, later the web and server consoles, and any panel an engine contributes. Owner: `ui/kit`. Decision: [ADR-012](../adr/ADR-012-design-language-and-icons.md).
 
 > **In one sentence:** the paper is the hero; the app is a quiet, well-made desk around it that shows tools when you reach for them and puts them away when you don't.
 
@@ -78,7 +78,7 @@ Every app uses the same frame. Regions may be empty, never rearranged.
 
 **Density.** Two densities: *comfortable* (default) and *compact* (−4 px row height, for small screens). No other variation.
 
-**Window sizes.** The frame works from 1024 × 640 up. Below 1280 px wide, panels overlay the canvas instead of pushing it.
+**Window sizes.** The frame works from **800 × 500** up: the smallest window the app allows (`tauri.conf.json`), so there is one number, and it is tested. The paper always keeps at least **320 px**: side panels get narrower, and when both do not fit, opening one closes the other. (Until 2026-11-24 this said 1024 × 640 and "panels overlay the canvas below 1280 px"; neither was built or tested.)
 
 ---
 
@@ -167,6 +167,13 @@ A 4 px grid: tokens `--space-1` (4) `--space-2` (8) `--space-3` (12) `--space-4`
   - **1 raised** — cards next to a mark, the selection bar: `0 4px 16px rgb(0 0 0 / 14%)`;
   - **2 overlay** — menus, the command palette, dialogs: `0 8px 32px rgb(0 0 0 / 22%)`.
 - Prefer a hairline to a shadow, and space to a hairline.
+
+### 5.4 Boxes and their contents (binding, added 2026-11-24)
+1. **The container owns the width; its content never does.** Fixed and minimum widths belong to surfaces of the kit (dialog, sheet, menu, card, panel, palette). Content inside fills the width it is given (`flex`, `min-width: 0`) and wraps. No `min-width`, and no `vw`, on content.
+2. **Every surface has a limit in both directions** and says what happens at it: wrap, shorten with an ellipsis and a tooltip, or scroll. Nothing spills, nothing is cut off without one of the three.
+3. **A scroll bar takes its own room.** A strip too narrow for one (the tool rail) hides it and still scrolls.
+4. **Sizes to hold:** 800 × 500, 1024 × 640 and a large window, each at 90, 100 and 150 % text, with the longest text the app has.
+5. **Checked by machine, not by eye:** `e2e/layout.mjs` opens every part of the interface at all of these sizes; the style check refuses widths outside surfaces. A new part is added to `e2e/layout.mjs` in the same change.
 
 ---
 
@@ -267,7 +274,8 @@ All components live in `ui/kit` and are the only way to build UI. Each has: stat
 | **Tabs** | Documents (top bar), panel views | Document tabs: title truncated in the middle, close on hover. |
 | **List / ListRow** | Libraries, annotation lists, results | One- or two-line rows, colour bar for annotation colour, keyboard navigation. |
 | **Input, TextArea, Select, Checkbox, Search** | Forms and filters | Labels always visible (placeholders are hints, not labels). |
-| **Dialog** | Only when the app must stop and ask (irreversible actions, first run) | Title, one paragraph, max two buttons. |
+| **Dialog** | Only when the app must stop and ask (irreversible actions, first run) | Title, one paragraph, max two buttons; 440 px (§9.9). |
+| **Sheet** | Settings, shortcuts, print: things the user opened to change | `Dialog` with `size="lg"`, 640 px; sections of rows, body scrolls (§9.9). |
 | **Toast** | Confirmation of an action not visible on screen, with Undo | Bottom-centre, 5 s, max one at a time. Most actions need no toast. |
 | **Banner** | A problem that blocks work (library missing, model failed) | Top of the canvas, plain sentence + one action. |
 | **StatusLine item** | Saved, background work, model state | Icon + short text; click for details. |
@@ -318,6 +326,19 @@ Each panel's empty state says in one sentence what it is for and offers one acti
 ### 9.8 Destructive actions
 Prefer undo. Confirm only what cannot be undone (deleting a collection's contents from disk, clearing history), naming exactly what goes and what stays.
 
+### 9.9 Dialogs and sheets (founder report, 2026-11-24: Settings spilled out of its dialog)
+- **Dialog (440 px):** asks one thing; title, one paragraph, at most two buttons. **Sheet (640 px, `size="lg"`):** settings, lists, forms; sections of rows, one *Close*. Both are the kit's `Dialog`; nothing else opens over the app in the middle.
+- **Whole on the screen:** never taller or wider than the window less 32 px. Title and buttons stay in place; what is between them scrolls.
+- **Rows:** controls in neighbouring rows are at least 8 px apart, a button after a list too. In a narrow sheet a row's control wraps under its text.
+
+### 9.10 Selecting text (founder report, 2026-11-24)
+- **What is blue is what is copied.** The selection is drawn from the engine's character boxes, one even band per line with the spaces included, never from the browser's own selection of invisible text; copying, marking and Explain use the same characters.
+- **The pointer finds the printed letter.** Invisible words are fitted to the printed word's width and height, at every zoom, whatever the font.
+
+### 9.11 Pages of different sizes
+- **Every page keeps its own size and direction.** At one zoom all pages are drawn to the same scale, so a landscape table is wide and an A3 plan is large, as in the paper; they are centred in the column. Fit width fits the widest page and fit page the largest.
+- A page is never stretched: its box, drawing, thumbnail, text and marks always have the same shape.
+
 ---
 
 ## 10. Annotations, notes and sticky notes
@@ -354,12 +375,6 @@ One card for every kind (§8 Card): colour row, category, comment, replies, reso
 
 ### 10.4 Lists and filters
 The Annotations list (left panel) and Notes (right panel) share filters: colour, category, author, page, resolved; search across mark text, comments and notes.
-
----
-
-### 9.6 Selecting text (founder report, 2026-11-24)
-- **What is blue is what is copied.** The selection is drawn from the engine's character boxes, one even band per line with the spaces included, never from the browser's own selection of invisible text; copying, marking and Explain use the same characters.
-- **The pointer finds the printed letter.** Invisible words are fitted to the printed word's width and height, at every zoom, whatever the font.
 
 ---
 
@@ -404,7 +419,7 @@ Required for every screen, checked in review and in M8's accessibility pass:
 - Everything works with the keyboard; focus is always visible (2 px accent ring); focus order follows the visual order; `Esc` closes the innermost layer and returns focus to where it came from.
 - Every control has an accessible name; icon-only controls use their tooltip name; live regions announce *Saved*, search counts and AI completion.
 - Contrast targets of §3.1 in all five themes; nothing depends on colour alone; hover-only information is also reachable by focus.
-- Text scales with the system and the app's text size setting (90–150 %) without breaking the frame.
+- Text scales with the system and the app's text size setting (90–150 %) without breaking any part of the interface (§5.4, `e2e/layout.mjs`).
 - Hit targets ≥ 28 px; drag actions (move, resize) have keyboard equivalents (arrow keys move the selected mark by 1 pt, Shift by 10 pt).
 - `prefers-reduced-motion` and Windows high-contrast mode are honoured.
 - (Phase 3) Right-to-left layouts mirror the frame; icons with direction (arrows, undo) mirror, others do not.
@@ -527,7 +542,9 @@ Copy into the review of any UI change.
 
 - [ ] The page is still the calmest, highest-contrast thing on screen.
 - [ ] Nothing new appears without a user action; nothing moves while reading.
-- [ ] Reuses kit components and tokens; no raw colours, sizes or fonts.
+- [ ] Reuses kit components and tokens; no raw colours, sizes or fonts; no width on content (§5.4).
+- [ ] The recipes of `docs/best-practices.md` for what was made (page, pop-up, dialog, panel, setting) are followed.
+- [ ] Fits at 800 × 500 and at 150 % text with the longest text; the new part is in `e2e/layout.mjs`.
 - [ ] Icons from the set, right size, tooltip with name and shortcut, accessible name.
 - [ ] Top bar still fits on one row at 1280 px; default view within the clutter budget (§11).
 - [ ] Works in Light, Sepia, Dark, Night and High contrast.

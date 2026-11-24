@@ -37,7 +37,7 @@ export function quadsFor(pt: PageText, start: number, end: number): PageQuad[] {
 }
 
 /** Bands that show characters `start..end` as selected: one per line piece, as high as the line,
- *  from the first to the last selected character with the spaces between (design language §9.6). */
+ *  from the first to the last selected character with the spaces between (design language §9.10). */
 export function selectionRows(pt: PageText, start: number, end: number): PageRect[] {
   const out: PageRect[] = [];
   for (const q of quadsFor(pt, start, end)) {

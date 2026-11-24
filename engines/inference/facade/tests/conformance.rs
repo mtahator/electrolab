@@ -169,22 +169,14 @@ async fn cancel_stops_the_answer() {
 }
 
 #[tokio::test]
-async fn models_without_files_are_missing() {
+async fn without_a_model_it_says_so() {
     let bus = Arc::new(Bus::default());
-    Inference::new(
-        vec![],
-        vec![],
-        Arc::new(ep_os::fake::FakeSpawner::default()),
-        None,
-    )
-    .register(&bus)
-    .unwrap();
+    let spawner = Arc::new(ep_os::fake::FakeSpawner::default());
+    Inference::new(vec![], vec![], spawner, None, None)
+        .register(&bus)
+        .unwrap();
     let m: Models = call(&bus, "inference.models", Value::Null).await.unwrap();
-    assert!(
-        m.models
-            .iter()
-            .all(|m| m.state == ep_inference::contract::ModelState::Missing)
-    );
+    assert_eq!(m.models, []);
     let e = call::<Status>(&bus, "inference.load", Value::Null)
         .await
         .unwrap_err();
@@ -251,29 +243,8 @@ async fn models_and_status_answer_while_a_model_runs() {
     assert_eq!(s.model.as_deref(), Some("replay"));
 }
 
-#[tokio::test]
-async fn an_added_folder_makes_its_model_ready() {
-    let dir = tempfile::tempdir().unwrap();
-    std::fs::write(dir.path().join("Qwen3-4B-Instruct-2507-Q4_K_M.gguf"), b"x").unwrap();
-    let bus = Arc::new(Bus::default());
-    let engine = Inference::new(
-        vec![],
-        vec![],
-        Arc::new(ep_os::fake::FakeSpawner::default()),
-        None,
-    );
-    engine.register(&bus).unwrap();
-    engine.add_model_dir(dir.path().to_path_buf());
-    let m: Models = call(&bus, "inference.models", Value::Null).await.unwrap();
-    let ready: Vec<&str> = m
-        .models
-        .iter()
-        .filter(|m| m.state == ep_inference::contract::ModelState::Ready)
-        .map(|m| m.id.as_str())
-        .collect();
-    assert_eq!(ready, ["qwen3-4b-instruct-2507"]);
-    assert!(m.models[0].recommended);
-}
+/// The GPU holds one model at a time: the live checks take turns.
+static GPU: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 /// Starts a real process for the live check; it ends when the test drops it.
 struct StdSpawner;
@@ -314,7 +285,14 @@ async fn live_llamacpp_sidecar() {
         return;
     };
     let spawner: Arc<dyn ep_os::ProcessSpawner> = Arc::new(StdSpawner);
-    let engine = Inference::new(vec![dir], vec![root().join(".natives")], spawner, None);
+    let _gpu = GPU.lock().await;
+    let engine = Inference::new(
+        vec![dir],
+        vec![root().join(".natives")],
+        spawner,
+        None,
+        None,
+    );
     let bus = Arc::new(Bus::default());
     engine.register(&bus).unwrap();
     let m: Models = call(&bus, "inference.models", Value::Null).await.unwrap();
@@ -357,5 +335,47 @@ async fn live_llamacpp_sidecar() {
     .unwrap();
     let v: Value = serde_json::from_str(&r.content).unwrap();
     assert_eq!(v["answer"], 42, "{}", r.content);
+    let _: Status = call(&bus, "inference.unload", Value::Null).await.unwrap();
+}
+
+/// Two models, chosen for two tasks, take turns (needs two chat models under `EP_LLM_DIR`).
+#[tokio::test]
+async fn live_each_task_uses_its_model() {
+    let Some(dir) = std::env::var_os("EP_LLM_DIR").map(PathBuf::from) else {
+        eprintln!("skipped: EP_LLM_DIR not set");
+        return;
+    };
+    let _gpu = GPU.lock().await;
+    let engine = Inference::new(
+        vec![dir],
+        vec![root().join(".natives")],
+        Arc::new(StdSpawner),
+        None,
+        None,
+    );
+    let bus = Arc::new(Bus::default());
+    engine.register(&bus).unwrap();
+    let m: Models = call(&bus, "inference.models", Value::Null).await.unwrap();
+    let want = ["qwen3-4b-instruct-2507", "lfm2.5-1.2b-instruct"];
+    if !want.iter().all(|w| m.models.iter().any(|x| x.id == *w)) {
+        eprintln!("skipped: the two models are not there");
+        return;
+    }
+    let _: Models = call(
+        &bus,
+        "inference.assign",
+        json!({ "task": "check", "model": want[1] }),
+    )
+    .await
+    .unwrap();
+    for (task, model) in [
+        ("explain.draft", want[0]),
+        ("explain.check", want[1]),
+        ("explain.draft", want[0]),
+    ] {
+        let r: LlmResponse = call(&bus, "inference.complete", json!({ "task": task, "messages": [{ "role": "user", "content": "Say OK." }], "limits": { "max_tokens": 5 } })).await.unwrap();
+        eprintln!("{task}: {} | {}", r.model, r.route_reason);
+        assert_eq!(r.model, model);
+    }
     let _: Status = call(&bus, "inference.unload", Value::Null).await.unwrap();
 }

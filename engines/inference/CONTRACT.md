@@ -1,6 +1,6 @@
 # Inference engine — contract
 
-Version: 0.1.0      Stability: experimental      Tier: T1
+Version: 0.2.0      Stability: experimental      Tier: T1
 Crates: `ep-inference-contract` (types), `ep-inference-core` (ports, request building, Replay), `ep-inference-adapter-llamacpp` (sidecar), `ep-inference` (facade)
 
 ## Purpose
@@ -13,6 +13,10 @@ All experimental. Errors are `CommandError::Failed { kind }` with the kinds belo
 |---|---|---|
 | `inference.complete` | `LlmRequest` → `LlmResponse` (streamed when `stream` is set) | read |
 | `inference.models` | `null` → `Models { models: [ModelInfo], runtime: Runtime }` | read |
+| `inference.search_models` | `null` → `Models` (searches the folders again) | read |
+| `inference.add_folder` | `{ path }` → `Models` (the folder is searched at once, and from now on) | create |
+| `inference.remove_folder` | `{ path }` → `Models` (nothing on disk is touched) | create |
+| `inference.assign` | `{ task, model? }` → `Models` (the model for a task; none = the default again) | create |
 | `inference.status` | `null` → `Status` | read |
 | `inference.load` | `{ model? }` → `Status` (starts the runtime with that model, or the recommended one; returns when it answers) | read |
 | `inference.unload` | `null` → `Status` (stops the runtime, frees the GPU) | read |
@@ -25,7 +29,18 @@ All experimental. Errors are `CommandError::Failed { kind }` with the kinds belo
 
 `LlmResponse { content, model, route_reason, usage: { prompt_tokens, completion_tokens, first_token_ms, total_ms } }`
 
-`ModelInfo { id, name, file, size, licence, state: missing | ready | loaded, recommended, context }` — the local models the Reader knows (ADR-005: Qwen3-4B-Instruct-2507 Q4_K_M by default on GPUs with ≥ 4 GB; LFM2.5-1.2B-Instruct Q8_0 on smaller GPUs and CPU-only machines). A model is `ready` when its file is found in a model folder: the app's `models/llm`, folders the user added in Settings (kept by the host, `Inference::add_model_dir`), and `EP_LLM_DIR` (development).
+`Models { models: [ModelInfo], folders: [Folder], tasks: [Task], runtime }`
+`ModelInfo { id, name, file, path, size, licence, kind: chat | embedding | vision_part | other, architecture, quantisation?, state: ready | loaded, recommended, context, problem? }`
+`Folder { path, models, other_formats, missing, partial, own }` (`own`: added by the user, can be removed)
+`Task { id: default | explain | check, model? }` (the user's choice; without one the suggestion answers)
+
+### Automatic model search (founder request, 2026-11-24)
+- Every model folder is searched **with its sub-folders** (at most 8 deep, 60 000 entries, 8 s; hidden and system folders are skipped, folder links are not followed). The folders: the app's `models/llm`, the ones the user added, `EP_LLM_DIR` (development).
+- Every GGUF file is recognised **from its header, not its name**: what it is for (writes answers, search vectors, the picture part of another model, something else), name, size, quantisation, licence, context. Broken files are ignored; later parts of a split model are not models. Files in other formats are counted, so the app can say why they are not offered.
+- **Suggestion:** the model measured for this kind of machine (ADR-005: Qwen3-4B Q4_K_M with a GPU, LFM2.5-1.2B Q8 without); else the largest chat model that runs well here (3 GB with a GPU, 1.5 GB without); else the smallest.
+- **Tasks:** the user chooses a model for everything (`default`) and may choose another one per task: `explain` (writing the explanation) and `check` (checking it against the paper). One model is loaded at a time, so two models for one answer means waiting for both.
+- A chosen model that is no longer there falls back to the suggestion, and the route reason says so. A model that could not be started carries its `problem` until it starts.
+- Choices are kept in a small file of the app; nothing is written into the model folders.
 
 `Runtime { backend: cuda | vulkan | cpu | none, build }` — the llama.cpp build that will run (ADR-005: Vulkan by default, CUDA when present, CPU always; the Vulkan package also holds the CPU code, so it serves machines without a Vulkan driver, with no layers on the GPU).
 
@@ -37,6 +52,7 @@ Error kinds: `no_model` (no model file found), `no_runtime` (no llama.cpp build 
 - `inference.token` `{ id, text }` — the next piece of a streamed answer (`stream.id` of the request). The final `LlmResponse` is the exact text.
 - `model.loaded` `{ model, backend, ms }`, `model.unloaded` `{ model }`.
 - `route.decided` `{ task, backend, model, reason }`.
+- `inference.models_changed` `{}` — folders, choices or models changed.
 
 ## Ports
 - `InferenceBackend` (core): `caps()`, `complete(request, on_token, cancel) -> Completion`.
@@ -64,4 +80,5 @@ Error kinds: `no_model` (no model file found), `no_runtime` (no llama.cpp build 
 - A live test with the real sidecar runs when a llama.cpp build and a model are found (skipped otherwise).
 
 ## Changelog
+- 0.2.0 (2026-11-24): automatic model search, suggestion, a model per task; `search_models`, `add_folder`, `remove_folder`, `assign`.
 - 0.1.0 (2026-11-21): first slice (P1.M5.INF.1–4, INF.6 local routing).

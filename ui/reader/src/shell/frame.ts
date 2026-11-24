@@ -31,16 +31,35 @@ const [rightWidth, setRightW] = createSignal<number>(read("ep.right-width", 380)
 const [focusMode, setFocusMode] = createSignal(false);
 const [margins, setMargins] = createSignal<Record<string, boolean>>(read("ep.margin", {}));
 
+/** The paper keeps at least this much room (design language §2); the tool rail stands beside it. */
+const PAPER = 320;
+const RAIL = 44;
+const crowded = (): boolean =>
+  leftPanel() !== null && rightPanel() !== null && window.innerWidth - RAIL - leftWidth() - rightWidth() < PAPER;
+
+/** When both panels do not fit, the one not just opened gives way (it is not forgotten: what was
+ *  chosen stays stored for a larger window). */
+function makeRoom(opened: "left" | "right"): void {
+  if (!crowded()) return;
+  if (opened === "left") setRight(null);
+  else setLeft(null);
+}
+
+window.addEventListener("resize", () => makeRoom("left"));
+makeRoom("left");
+
 export { focusMode, leftPanel, leftWidth, rightPanel, rightWidth, setFocusMode };
 
 export function setLeftPanel(tab: LeftTab | null): void {
   setLeft(tab);
   keep("ep.left", tab);
+  makeRoom("left");
 }
 
 export function setRightPanel(tab: RightTab | null): void {
   setRight(tab);
   keep("ep.right", tab);
+  makeRoom("right");
 }
 
 export function setLeftWidth(w: number): void {

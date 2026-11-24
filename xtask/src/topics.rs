@@ -17,6 +17,8 @@ pub struct Topic {
     pub tags: String,
     pub connects: Vec<String>,
     pub checks: Vec<String>,
+    /// Recipes of docs/best-practices.md.
+    pub practice: Vec<String>,
     /// Best practices and the tests that prove them.
     pub best: Vec<(String, Vec<String>)>,
     /// Repository paths named in backticks.
@@ -61,6 +63,8 @@ pub fn parse(map: &str) -> Vec<Topic> {
                 .split_whitespace()
                 .map(|s| s.trim_start_matches('#').into())
                 .collect();
+        } else if let Some(v) = line.strip_prefix("practice: ") {
+            t.practice = v.split_whitespace().map(str::to_string).collect();
         } else if line.starts_with("check: ") {
             t.checks.extend(backticked(line).map(str::to_string));
         } else {
@@ -81,6 +85,52 @@ pub fn parse(map: &str) -> Vec<Topic> {
         }
     }
     out
+}
+
+fn gather(dir: &Path, wanted: &dyn Fn(&Path) -> bool, out: &mut String) {
+    for e in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+        let p = e.path();
+        let name = e.file_name().to_string_lossy().into_owned();
+        if p.is_dir() {
+            if !matches!(
+                name.as_str(),
+                "target" | "node_modules" | "dist" | ".git" | "gen"
+            ) {
+                gather(&p, wanted, out);
+            }
+        } else if wanted(&p) {
+            out.push_str(&std::fs::read_to_string(&p).unwrap_or_default());
+        }
+    }
+}
+
+/// All code in which a test can be defined.
+pub fn all_code(root: &Path) -> String {
+    let mut code = String::new();
+    for d in ["engines", "foundation", "hosts", "xtask", "e2e"] {
+        gather(
+            &root.join(d),
+            &|p| p.extension().is_some_and(|x| x == "rs" || x == "mjs"),
+            &mut code,
+        );
+    }
+    code
+}
+
+/// All contracts.
+pub fn all_contracts(root: &Path) -> String {
+    let mut text = String::new();
+    gather(
+        &root.join("engines"),
+        &|p| p.ends_with("CONTRACT.md"),
+        &mut text,
+    );
+    text
+}
+
+/// Whether a test of this name is defined (`fn name` in Rust, `check("name"` end to end).
+pub fn has_test(code: &str, name: &str) -> bool {
+    code.contains(&format!("fn {name}(")) || code.contains(&format!("check(\"{name}\""))
 }
 
 /// Topics one of whose paths holds a changed file.
@@ -125,7 +175,12 @@ pub fn run(root: &Path, args: &[String]) -> anyhow::Result<()> {
             checks.sort();
             checks.dedup();
             for t in &hit {
-                println!("#{} — read with: {}", t.tag, t.connects.join(" "));
+                println!(
+                    "#{} — read with: {} — recipes: {}",
+                    t.tag,
+                    t.connects.join(" "),
+                    t.practice.join(" ")
+                );
             }
             println!("checks:");
             for c in checks {
@@ -179,34 +234,13 @@ mod tests {
         assert_eq!(tags(&["ui/bc/x.ts", "README.md"]), [""; 0]);
     }
 
-    /// Every name defined as a test: `fn name` in Rust, `check("name"` end to end.
-    fn all_tests(dir: &Path, out: &mut String) {
-        for e in std::fs::read_dir(dir).unwrap().flatten() {
-            let p = e.path();
-            let name = e.file_name().to_string_lossy().into_owned();
-            if p.is_dir() {
-                if !matches!(
-                    name.as_str(),
-                    "target" | "node_modules" | "dist" | ".git" | "gen"
-                ) {
-                    all_tests(&p, out);
-                }
-            } else if p.extension().is_some_and(|x| x == "rs" || x == "mjs") {
-                out.push_str(&std::fs::read_to_string(&p).unwrap_or_default());
-            }
-        }
-    }
-
     /// The map is searched and trusted, so it must stay true: paths exist, connections exist, every
     /// topic says how to check it, every best practice names a test and that test exists.
     #[test]
     fn project_map_is_current() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
         let topics = parse(&std::fs::read_to_string(root.join("docs/project-map.md")).unwrap());
-        let mut code = String::new();
-        for d in ["engines", "foundation", "hosts", "xtask", "e2e"] {
-            all_tests(&root.join(d), &mut code);
-        }
+        let code = all_code(&root);
         let mut wrong = vec![];
         for t in &topics {
             if t.tags.is_empty()
@@ -230,9 +264,7 @@ mod tests {
                 if tests.is_empty() {
                     wrong.push(format!("#{}: no test for: {text}", t.tag));
                 }
-                for n in tests.iter().filter(|n| {
-                    !code.contains(&format!("fn {n}(")) && !code.contains(&format!("\"{n}\""))
-                }) {
+                for n in tests.iter().filter(|n| !has_test(&code, n)) {
                     wrong.push(format!("#{}: test {n} does not exist", t.tag));
                 }
             }

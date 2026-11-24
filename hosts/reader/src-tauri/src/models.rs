@@ -191,37 +191,16 @@ pub fn take_install_choice() -> bool {
     flag.exists() && std::fs::remove_file(&flag).is_ok()
 }
 
-fn llm_folders_file(models_dir: &Path) -> PathBuf {
-    models_dir.join("llm-folders.txt")
-}
-
-/// Folders with language models the user added in Settings (one path per line).
-pub fn llm_folders(models_dir: &Path) -> Vec<PathBuf> {
-    std::fs::read_to_string(llm_folders_file(models_dir))
-        .unwrap_or_default()
-        .lines()
+/// Folders added before the engine kept them itself (2026-11-24); handed over once.
+pub fn take_old_llm_folders(models_dir: &Path) -> Vec<PathBuf> {
+    let file = models_dir.join("llm-folders.txt");
+    let Ok(text) = std::fs::read_to_string(&file) else {
+        return vec![];
+    };
+    let _ = std::fs::remove_file(&file);
+    text.lines()
         .map(str::trim)
         .filter(|l| !l.is_empty())
         .map(PathBuf::from)
         .collect()
-}
-
-/// Also look for language models in this folder, from now on.
-#[tauri::command]
-#[allow(clippy::needless_pass_by_value)] // Tauri passes managed state by value
-pub fn add_llm_folder(state: State<'_, AppState>, path: String) -> Result<(), String> {
-    let dir = PathBuf::from(&path);
-    if !dir.is_dir() {
-        return Err(format!("{path} is not a folder"));
-    }
-    let mut all = llm_folders(&state.models_dir);
-    if !all.contains(&dir) {
-        all.push(dir.clone());
-        let text: Vec<String> = all.iter().map(|d| d.display().to_string()).collect();
-        std::fs::create_dir_all(&state.models_dir).map_err(|e| e.to_string())?;
-        std::fs::write(llm_folders_file(&state.models_dir), text.join("\n"))
-            .map_err(|e| e.to_string())?;
-    }
-    state.inference.add_model_dir(dir);
-    Ok(())
 }

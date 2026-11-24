@@ -13,13 +13,13 @@ ep-inference-adapter-llamacpp = { path = "../adapters/llamacpp" }
 ep-bus = { path = "../../../foundation/bus" }
 ep-os = { path = "../../../foundation/os" }
 parking_lot.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
 futures.workspace = true
-serde.workspace = true
 tempfile.workspace = true
 
 [lints]

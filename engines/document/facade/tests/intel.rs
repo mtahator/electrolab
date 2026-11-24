@@ -912,6 +912,45 @@ async fn probe_document() {
     }
 }
 
+#[tokio::test]
+async fn page_sizes_stay_the_same_after_preparation() {
+    let path = root().join("fixtures/documents/mixed-pages.pdf");
+    if pdfium().is_none() {
+        eprintln!("skipped: PDFium missing");
+        return;
+    }
+    let tmp = tempfile::tempdir().unwrap();
+    let doc = Document::new(Arc::new(OneFile(path.clone())), pdfium(), Some(tmp.path())).unwrap();
+    let bus = Arc::new(Bus::default());
+    doc.register(&bus).unwrap();
+    let bytes = std::fs::read(&path).unwrap();
+    let file = BlobRef {
+        hash: Hash::of(&bytes),
+        size: bytes.len() as u64,
+        media_type: MediaType::pdf(),
+    };
+    let sizes = async || {
+        let i: ep_document_contract::DocInfo = call(&bus, "document.info", json!({ "file": file }))
+            .await
+            .unwrap();
+        i.sizes
+            .iter()
+            .map(|s| (s.width.round(), s.height.round()))
+            .collect::<Vec<_>>()
+    };
+    let before = sizes().await;
+    let _: Preparation = call(&bus, "document.prepare", json!({ "file": file }))
+        .await
+        .unwrap();
+    assert_eq!(before, sizes().await);
+    assert_eq!(
+        before[1],
+        (842.0, 595.0),
+        "a turned page whose box is inherited"
+    );
+    assert_eq!(before[5], (400.0, 500.0), "a cropped page");
+}
+
 /// OCR comparison bench (ADR-013, spike S7): every `pdf:page` in `EP_OCR_BENCH` (`;`-separated)
 /// is turned into a scanned copy, read by the shipped OCR (PP-OCRv5 only, no other page models)
 /// and written as one JSON line to `EP_OCR_BENCH_OUT`: the page's real text, the OCR text and

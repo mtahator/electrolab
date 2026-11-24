@@ -370,7 +370,7 @@ export function Viewer(props: ViewerProps): JSX.Element {
       else if (k === "select") setSelBar(box);
     }, 0);
   };
-  // The selection as characters, drawn by the pages (design language §9.6), once per frame.
+  // The selection as characters, drawn by the pages (design language §9.10), once per frame.
   const [selected, setSelected] = createSignal<CharRange[]>([]);
   onMount(() => {
     let frame = 0;

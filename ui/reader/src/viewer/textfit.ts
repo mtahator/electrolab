@@ -1,5 +1,5 @@
 // Fit an invisible word to the printed one: the printed font is not available to the page, so a
-// plain font is stretched to the word's printed width (design language §9.6).
+// plain font is stretched to the word's printed width (design language §9.10).
 
 /** The font of the text layer; the same as `--font-fit` in tokens.css. */
 const FONT = "sans-serif";

@@ -81,6 +81,7 @@ impl App {
             ep_inference::runtime_dirs(),
             spawner()?,
             None,
+            None,
         )
         .register(&bus)?;
         ep_understanding::Understanding::new().register(&bus)?;

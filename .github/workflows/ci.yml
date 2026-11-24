@@ -55,6 +55,8 @@ jobs:
         run: cargo deny check
       - name: unused dependencies
         run: cargo machete
+      - name: best practices
+        run: cargo xtask practices
       - name: tests
         run: cargo nextest run --workspace --no-tests=warn
       - name: installer (NSIS, unsigned)

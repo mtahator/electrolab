@@ -66,6 +66,10 @@ The CLI works on the same engines: `cargo run -p ep-cli -- commands`, `cargo run
 
 `docs/project-map.md` is the searchable memory of the project: `cargo xtask topics`, `cargo xtask topics <tag>`, and `cargo xtask topics --changed` for the topics a change touches, what to read with them, and the checks to run.
 
+## Best practices and releases
+
+`docs/best-practices.md` has a recipe for every kind of work (page, pop-up, dialog, panel, setting, command, engine, fact from a document, long work, AI, file, data, test, bug, release). `cargo xtask practices` checks that they are complete, proven by tests and followed; CI refuses a push that breaks them. `cargo xtask release` runs every check and every end-to-end suite and builds the installer only when all pass (`target/release-report.md`).
+
 ## End-to-end checks on the built app
 
 After `pnpm --filter @electropaper/reader-host tauri build --no-bundle` and `cargo xtask fetch-fixtures`:
@@ -77,6 +81,9 @@ node e2e/perf.mjs        target/release/electropaper-reader.exe <scratch>       
 node e2e/screens.mjs     target/release/electropaper-reader.exe <scratch> <scratch>/out   # design review: every screen in all five themes, control names
 node e2e/intel.mjs       target/release/electropaper-reader.exe <scratch> <scratch>/out   # document intelligence (M4): preparation, contents (pictures), mentions, citations, region, tables, scanned pages
 node e2e/selection.mjs   target/release/electropaper-reader.exe <scratch> <scratch>/out   # selecting and copying text
+node e2e/layout.mjs      target/release/electropaper-reader.exe <scratch> <scratch>/out   # every part of the interface at small windows and large text
+node e2e/pages.mjs       target/release/electropaper-reader.exe <scratch> <scratch>/out   # pages of different sizes and directions
+node e2e/models.mjs      target/release/electropaper-reader.exe <scratch> <scratch>/out   # automatic model search; EP_LLM_PARENT=<folder with real models below it>
 node e2e/explain.mjs     target/release/electropaper-reader.exe <scratch> <scratch>/out   # Explain (M5); EP_LLM_DIR=<folder with a known GGUF> for the part with a model
 # intel.mjs options: EP_MODELS_DIR=<folder with egret-medium/ (and latex-ocr/)>, EP_FORMULA=1 (equation LaTeX check), EP_SCANNED_PDF=<image-only PDF>
 ```

@@ -251,7 +251,8 @@ export function StatusItem(props: { icon?: IconName; tone?: "muted" | "accent" |
 // ------------------------------------------------------------------------------ Dialog ------
 
 /** Stops the app to ask: title, one paragraph, at most two buttons. Esc cancels. */
-export function Dialog(props: { title: string; children: JSX.Element; actions: JSX.Element; onCancel: () => void }): JSX.Element {
+/** A dialog. `size="lg"` is for settings and lists; content never sets its own width (§5.4, §9.9). */
+export function Dialog(props: { title: string; children: JSX.Element; actions: JSX.Element; onCancel: () => void; size?: "lg" }): JSX.Element {
   let box!: HTMLDivElement;
   onMount(() => {
     const prev = document.activeElement as HTMLElement | null;
@@ -262,6 +263,7 @@ export function Dialog(props: { title: string; children: JSX.Element; actions: J
     <div class="ep-scrim" onPointerDown={(e) => e.target === e.currentTarget && props.onCancel()}>
       <div
         class="ep-dialog"
+        data-size={props.size}
         role="dialog"
         aria-modal="true"
         aria-label={props.title}

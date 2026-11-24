@@ -24,7 +24,6 @@ use uuid::Uuid;
 struct AppState {
     bus: Arc<Bus>,
     document: Arc<Document>,
-    inference: Arc<ep_inference::Inference>,
     /// Where downloaded page models are kept.
     models_dir: PathBuf,
     /// Every folder with page models (bundled first).
@@ -184,14 +183,19 @@ fn main() -> anyhow::Result<()> {
         .map(PathBuf::from)
         .into_iter()
         .chain([models_dir.join("llm")])
-        .chain(models::llm_folders(&models_dir))
         .collect();
     let inference = ep_inference::Inference::new(
         llm_dirs,
         ep_inference::runtime_dirs(),
         spawner()?,
         Some(dirs_for_models.logs().join("llama-server.log")),
+        Some(models_dir.join("llm.json")),
     );
+    for dir in models::take_old_llm_folders(&models_dir) {
+        if let Err(e) = inference.add_folder(&dir) {
+            tracing::warn!(%e, "a model folder could not be taken over");
+        }
+    }
     inference.register(&bus)?;
     ep_understanding::Understanding::new().register(&bus)?;
 
@@ -218,7 +222,6 @@ fn main() -> anyhow::Result<()> {
         .manage(AppState {
             bus,
             document: document.clone(),
-            inference,
             models_dir,
             model_dirs,
             allowed: allowed_commands()?,
@@ -241,7 +244,6 @@ fn main() -> anyhow::Result<()> {
             models::fetch_model,
             models::remove_model,
             models::take_install_choice,
-            models::add_llm_folder,
             shell::save_text_file
         ])
         .setup(move |app| {

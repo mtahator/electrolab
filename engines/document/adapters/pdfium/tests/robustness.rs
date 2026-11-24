@@ -127,6 +127,58 @@ fn edited(d: &Path, name: &str, edit: impl FnOnce(&mut lopdf::Dictionary)) -> Pa
     p
 }
 
+/// Two ways to a page's size, and the drawing: one answer, for every kind of page box.
+#[test]
+fn quick_sizes_and_full_geometry_agree() {
+    let Some(b) = backend() else { return };
+    let dir = root().join("fixtures/documents");
+    let mut pages = 0;
+    for e in std::fs::read_dir(dir).unwrap().flatten() {
+        let path = e.path();
+        if path.extension().is_none_or(|x| x != "pdf") || path.ends_with("book-800.pdf") {
+            continue;
+        }
+        let name = path.display().to_string();
+        let (quick, _) = b.sizes(&path).unwrap();
+        let (full, _) = b.info(&path).unwrap();
+        for (i, (q, g)) in quick.iter().zip(&full).enumerate() {
+            let f = g.size();
+            assert!(
+                (q.width - f.width).abs() < 0.1 && (q.height - f.height).abs() < 0.1,
+                "{name} page {}: quick {q:?}, full {f:?}",
+                i + 1
+            );
+            let index = u32::try_from(i).unwrap();
+            let img = b.render(&path, index, 400).unwrap();
+            let shape = f64::from(img.height) / f64::from(img.width);
+            let want = f64::from(f.height) / f64::from(f.width);
+            assert!(
+                (shape - want).abs() < 0.02,
+                "{name} page {}: drawing {shape}, page {want}",
+                i + 1
+            );
+            // Words inside the page (an older fixture really draws some outside its page).
+            if !path.ends_with("mixed-pages.pdf") {
+                pages += 1;
+                continue;
+            }
+            for w in page_text(index + 1, g, &b.chars(&path, index).unwrap()).words {
+                assert!(
+                    w.rect.x0 >= -1.0
+                        && w.rect.x1 <= f.width + 1.0
+                        && w.rect.y0 >= -1.0
+                        && w.rect.y1 <= f.height + 1.0,
+                    "{name} page {}: word {:?} outside {f:?}",
+                    i + 1,
+                    w.rect
+                );
+            }
+            pages += 1;
+        }
+    }
+    assert!(pages > 15, "only {pages} pages checked");
+}
+
 #[test]
 fn rotated_page_geometry_matches_the_rendering() {
     let Some(b) = backend() else { return };

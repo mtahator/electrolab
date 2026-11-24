@@ -53,12 +53,20 @@ export interface Commands {
   "document.text": { input: T.PageRequest; output: T.PageText };
   /** Small images of pages (cached) */
   "document.thumbnails": { input: T.ThumbnailsRequest; output: T.Rendered[] };
+  /** Search a folder for language models, from now on */
+  "inference.add_folder": { input: T.LlmFolderPath; output: T.LlmModels };
+  /** Choose the language model of a task */
+  "inference.assign": { input: T.LlmAssign; output: T.LlmModels };
   /** Generate an answer with a language model (streamed as inference.token) */
   "inference.complete": { input: T.LlmRequest; output: T.LlmResponse };
   /** Start the language model runtime with a model */
   "inference.load": { input: T.LlmLoad | null; output: T.LlmStatus };
   /** Language models and the runtime that runs them */
   "inference.models": { input: null; output: T.LlmModels };
+  /** Stop searching a folder for language models */
+  "inference.remove_folder": { input: T.LlmFolderPath; output: T.LlmModels };
+  /** Search the model folders again */
+  "inference.search_models": { input: null; output: T.LlmModels };
   /** State of the language model runtime */
   "inference.status": { input: null; output: T.LlmStatus };
   /** Stop the language model runtime */

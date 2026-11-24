@@ -3,7 +3,7 @@
 import type { Bookmark, DocObject, Hit, OutlineItem, Paper } from "@electropaper/bindings";
 import { BusError } from "@electropaper/bindings";
 import { Button, Icon, IconButton, t } from "@electropaper/kit";
-import { For, type JSX, Match, Show, Switch, createEffect, createResource, createSignal, on, onCleanup, onMount } from "solid-js";
+import { For, type JSX, Match, Show, Switch, createEffect, createMemo, createResource, createSignal, on, onCleanup, onMount } from "solid-js";
 
 import { AnnotationsPanel } from "../annotations/AnnotationsPanel";
 import { bus, onBusEvent, renderUrl } from "../host";
@@ -151,24 +151,29 @@ function Outline(props: { paper: Paper; onGoTo: (page: number, y: number | null)
 
 function Thumbnails(props: { paper: Paper; pages: number; current: number; onGoTo: (page: number, y: number | null) => void }): JSX.Element {
   let list!: HTMLDivElement;
-  const [urls, setUrls] = createSignal<Record<number, string>>({});
+  // Keyed by document: another paper starts anew, with its own pages and pictures.
+  const [urls, setUrls] = createSignal<Record<string, string>>({});
+  const items = createMemo(() => {
+    const { file } = props.paper;
+    return Array.from({ length: props.pages }, (_, i) => ({ file, page: i + 1, key: `${file.hash}:${i + 1}` }));
+  });
+  const shown = new WeakMap<Element, { file: Paper["file"]; page: number; key: string }>();
+  let io: IntersectionObserver | undefined;
   onMount(() => {
-    const io = new IntersectionObserver(
+    io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
-          if (!e.isIntersecting) continue;
-          const page = Number((e.target as HTMLElement).dataset.page);
-          io.unobserve(e.target);
-          void bus("document.render", { file: props.paper.file, page, width_px: previewWidth() })
-            .then((r) => setUrls((u) => ({ ...u, [page]: renderUrl(r.image.hash) })))
+          const it = shown.get(e.target);
+          if (!e.isIntersecting || !it) continue;
+          io?.unobserve(e.target);
+          void bus("document.render", { file: it.file, page: it.page, width_px: previewWidth() })
+            .then((r) => setUrls((u) => ({ ...u, [it.key]: renderUrl(r.image.hash) })))
             .catch(() => {});
         }
       },
       { root: list, rootMargin: "300px" },
     );
-    const watch = (): void => list.querySelectorAll<HTMLElement>("[data-page]").forEach((el) => io.observe(el));
-    queueMicrotask(watch);
-    onCleanup(() => io.disconnect());
+    onCleanup(() => io?.disconnect());
   });
   createEffect(
     on(
@@ -178,13 +183,23 @@ function Thumbnails(props: { paper: Paper; pages: number; current: number; onGoT
   );
   return (
     <div class="thumbs" ref={list}>
-      <For each={Array.from({ length: props.pages }, (_, i) => i + 1)}>
-        {(p) => (
-          <button type="button" class="thumb" classList={{ active: p === props.current }} data-page={p} onClick={() => props.onGoTo(p, null)}>
-            <Show when={urls()[p]} fallback={<div class="thumb-placeholder" />}>
+      <For each={items()}>
+        {(it) => (
+          <button
+            type="button"
+            class="thumb"
+            classList={{ active: it.page === props.current }}
+            data-page={it.page}
+            ref={(el) => {
+              shown.set(el, it);
+              queueMicrotask(() => io?.observe(el));
+            }}
+            onClick={() => props.onGoTo(it.page, null)}
+          >
+            <Show when={urls()[it.key]} fallback={<div class="thumb-placeholder" />}>
               {(src) => <img src={src()} alt="" draggable={false} />}
             </Show>
-            <span>{p}</span>
+            <span>{it.page}</span>
           </button>
         )}
       </For>

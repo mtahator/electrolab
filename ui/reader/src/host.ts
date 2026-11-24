@@ -60,11 +60,6 @@ export function cancelCall(id: string): Promise<boolean> {
   return invoke("bus_cancel", { id });
 }
 
-/** Also look for language models in this folder. */
-export function addLlmFolder(path: string): Promise<void> {
-  return invoke("add_llm_folder", { path });
-}
-
 /** Open a web or mail link in the user's browser or mail app (http, https, mailto only). */
 export function openExternal(url: string): Promise<void> {
   return invoke("open_external", { url });

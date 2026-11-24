@@ -11,6 +11,7 @@ Each covers layouts a research paper does not have:
 - brochure.pdf         landscape tri-fold, three panels per page
 - report-business.pdf  quarterly report: headings, KPI table, bullet lists, no references
 - rotated-pages.pdf    pages turned 0, 90, 180 and 270 degrees (/Rotate), for page geometry
+- mixed-pages.pdf      sizes and directions mixed: inherited boxes, /Rotate, landscape, A3, crop
 - book-800.pdf         an 800-page book (review 2026-11-15): chapters, two-level numbering
                        ("Figure 3.2", "Table 12.4"), sentences that start with a label, tables
                        continued on the next page, charts, references, dense text — the large
@@ -420,6 +421,36 @@ def rotated():
     c.save()
 
 
+# ---------------------------------------------------------------- mixed pages ----------------
+def mixed():
+    """Boxes inherited from the page tree, as LaTeX writes them; needs PyMuPDF."""
+    import re
+
+    import fitz
+    d = fitz.open()
+    A4 = (595.28, 841.89)
+    #       name                     size          turn  own box  crop
+    plan = [("Portrait", A4, 0, False, None), ("Turned 90, box inherited", A4, 90, False, None),
+            ("Turned 270, box inherited", A4, 270, False, None), ("Landscape, own box", (841.89, 595.28), 0, True, None),
+            ("A3 plan", (841.89, 1190.55), 0, True, None), ("Cropped", A4, 0, True, (100, 200, 500, 700)),
+            ("Turned 180, box inherited", A4, 180, False, None)]
+    for name, (w, h), turn, own, crop in plan:
+        p = d.new_page(width=w, height=h)
+        p.insert_text((120, 260), name, fontsize=24)
+        p.insert_textbox((120, 300, w - 110, h - 150), "Every page keeps its own size and direction. " * 12, fontsize=11)
+        if turn:
+            p.set_rotation(turn)
+        if crop:
+            p.set_cropbox(fitz.Rect(crop))
+        if not own:
+            # Taken out, not set to null: a null box is not inherited by every reader.
+            d.update_object(p.xref, re.sub(r"/MediaBox\s*\[[^\]]*\]", "", d.xref_object(p.xref)))
+    parent = int(d.xref_get_key(d[0].xref, "Parent")[1].split()[0])
+    d.xref_set_key(parent, "MediaBox", f"[0 0 {A4[0]} {A4[1]}]")
+    d.set_metadata({"title": "Pages of different sizes", **INFO})
+    d.save(str(OUT / "mixed-pages.pdf"), garbage=3, deflate=True, no_new_id=True)
+
+
 # ---------------------------------------------------------------- 800-page book ---------------
 WORDS = ("energy system hydrogen transport carbon policy demand storage grid wind solar battery "
          "emission building network model cost market supply heat efficiency capacity sector "
@@ -505,5 +536,6 @@ if __name__ == "__main__":
     brochure()
     report()
     rotated()
+    mixed()
     book()
     print("written to", OUT)

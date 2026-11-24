@@ -79,7 +79,7 @@ export function KeymapSettings(props: { onClose: () => void }): JSX.Element {
   };
   return (
     <div onKeyDown={capture}>
-      <Dialog title={t("keymap.title")} onCancel={() => (capturing() ? setCapturing(null) : props.onClose())} actions={<Button onClick={props.onClose}>{t("common.close")}</Button>}>
+      <Dialog size="lg" title={t("keymap.title")} onCancel={() => (capturing() ? setCapturing(null) : props.onClose())} actions={<Button onClick={props.onClose}>{t("common.close")}</Button>}>
         <div class="keymap-list">
           <table class="keymap">
             <tbody>

@@ -4,7 +4,7 @@
 import { type BlobRef, BusError, type Explanation, type LlmModels } from "@electropaper/bindings";
 import { createSignal } from "solid-js";
 
-import { addLlmFolder, bus, cancelCall, onBusEvent, pickFolder } from "../host";
+import { bus, cancelCall, onBusEvent } from "../host";
 
 export interface ExplainSelection {
   paper: string;
@@ -40,14 +40,25 @@ export async function refreshLanguageModels(): Promise<void> {
 /** Whether an answer is possible on this machine now (a model file and a runtime are here). */
 export const canExplain = (): boolean => {
   const m = models();
-  return !!m && m.runtime.backend !== "none" && m.models.some((x) => x.state !== "missing");
+  return !!m && m.runtime.backend !== "none" && m.models.some((x) => x.kind === "chat");
 };
 
-export async function chooseModelFolder(title: string): Promise<void> {
-  const dir = await pickFolder(title);
-  if (!dir) return;
-  await addLlmFolder(dir);
-  await refreshLanguageModels();
+/** Search the model folders again. */
+export async function searchModels(): Promise<void> {
+  setModels(await bus("inference.search_models", null));
+}
+
+export async function addModelFolder(path: string): Promise<void> {
+  setModels(await bus("inference.add_folder", { path }));
+}
+
+export async function removeModelFolder(path: string): Promise<void> {
+  setModels(await bus("inference.remove_folder", { path }));
+}
+
+/** The model of a task (null: the default again). */
+export async function assignModel(task: string, model: string | null): Promise<void> {
+  setModels(await bus("inference.assign", model ? { task, model } : { task }));
 }
 
 const isRunning = (p: Phase): boolean => p === "starting" || p === "draft" || p === "checking";

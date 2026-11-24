@@ -9,6 +9,7 @@ use ep_inference_contract::{LlmRequest, Message, Role};
 use futures::future::BoxFuture;
 use serde_json::Value;
 
+pub mod gguf;
 pub mod schema;
 
 /// Label around the data section. The model is told it is text from the document.

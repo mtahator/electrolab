@@ -34,8 +34,8 @@ pub struct Config {
     pub model_id: String,
     /// Context length.
     pub context: u32,
-    /// Layers on the GPU (0 for the CPU build).
-    pub gpu_layers: u32,
+    /// Layers on the GPU (0 for the CPU build); llama.cpp chooses when missing (large models).
+    pub gpu_layers: Option<u32>,
     /// Backend name for route reasons (`cuda`, `vulkan`, `cpu`).
     pub backend: String,
     /// The server's own log (otherwise discarded).
@@ -174,10 +174,14 @@ impl LlamaCppSidecar {
                 "-np".into(),
                 "1".into(),
                 "--no-webui".into(),
-                "-ngl".into(),
-                c.gpu_layers.to_string().into(),
             ]
-            .into(),
+            .into_iter()
+            .chain(
+                c.gpu_layers
+                    .into_iter()
+                    .flat_map(|n| ["-ngl".into(), n.to_string().into()]),
+            )
+            .collect(),
             cwd: c.exe.parent().map(Path::to_path_buf),
             env: vec![],
             log_file: c.log_file.clone(),
@@ -477,7 +481,7 @@ mod tests {
             model: file,
             model_id: "m".into(),
             context: 4096,
-            gpu_layers: 0,
+            gpu_layers: Some(0),
             backend: "cpu".into(),
             log_file: None,
         };

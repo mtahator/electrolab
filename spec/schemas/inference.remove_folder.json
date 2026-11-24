@@ -1,0 +1,295 @@
+{
+  "command": "inference.remove_folder",
+  "input": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `inference.add_folder` and `inference.remove_folder`.",
+    "properties": {
+      "path": {
+        "description": "Where.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "path"
+    ],
+    "title": "LlmFolderPath",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "LlmBackend": {
+        "description": "The llama.cpp build in use.",
+        "oneOf": [
+          {
+            "const": "cuda",
+            "description": "NVIDIA.",
+            "type": "string"
+          },
+          {
+            "const": "vulkan",
+            "description": "Any GPU with Vulkan.",
+            "type": "string"
+          },
+          {
+            "const": "cpu",
+            "description": "The processor.",
+            "type": "string"
+          },
+          {
+            "const": "none",
+            "description": "No build found.",
+            "type": "string"
+          }
+        ]
+      },
+      "LlmFolder": {
+        "description": "A folder that is searched for models.",
+        "properties": {
+          "missing": {
+            "description": "It is not there.",
+            "type": "boolean"
+          },
+          "models": {
+            "description": "Models found in it (and not already in an earlier folder).",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "other_formats": {
+            "description": "Model files in formats that cannot be used.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "own": {
+            "description": "Added by the user (can be removed).",
+            "type": "boolean"
+          },
+          "partial": {
+            "description": "The search stopped at its limit.",
+            "type": "boolean"
+          },
+          "path": {
+            "description": "Where.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "models",
+          "other_formats",
+          "missing",
+          "partial",
+          "own"
+        ],
+        "type": "object"
+      },
+      "LlmModel": {
+        "description": "A local model that was found.",
+        "properties": {
+          "architecture": {
+            "description": "Architecture named in the file.",
+            "type": "string"
+          },
+          "context": {
+            "description": "Context length used.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "file": {
+            "description": "File name.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Stable id.",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/$defs/LlmModelKind",
+            "description": "What it can be used for."
+          },
+          "licence": {
+            "description": "Licence of the weights, when the file says so.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Name for people.",
+            "type": "string"
+          },
+          "path": {
+            "description": "Full path.",
+            "type": "string"
+          },
+          "problem": {
+            "description": "Why it could not be started the last time.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quantisation": {
+            "description": "Quantisation (`Q4_K_M`), when known.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recommended": {
+            "description": "The model suggested for this machine.",
+            "type": "boolean"
+          },
+          "size": {
+            "description": "Bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "state": {
+            "$ref": "#/$defs/LlmModelState",
+            "description": "Whether it is running."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "file",
+          "path",
+          "size",
+          "licence",
+          "kind",
+          "architecture",
+          "state",
+          "recommended",
+          "context"
+        ],
+        "type": "object"
+      },
+      "LlmModelKind": {
+        "description": "What a model file can be used for.",
+        "oneOf": [
+          {
+            "const": "chat",
+            "description": "Writes answers.",
+            "type": "string"
+          },
+          {
+            "const": "embedding",
+            "description": "Makes vectors for search.",
+            "type": "string"
+          },
+          {
+            "const": "vision_part",
+            "description": "The picture part of another model.",
+            "type": "string"
+          },
+          {
+            "const": "other",
+            "description": "Something else.",
+            "type": "string"
+          }
+        ]
+      },
+      "LlmModelState": {
+        "description": "Whether a model can be used.",
+        "oneOf": [
+          {
+            "const": "ready",
+            "description": "Its file is here.",
+            "type": "string"
+          },
+          {
+            "const": "loaded",
+            "description": "Running now.",
+            "type": "string"
+          }
+        ]
+      },
+      "LlmRuntime": {
+        "description": "The runtime that will run the models.",
+        "properties": {
+          "backend": {
+            "$ref": "#/$defs/LlmBackend",
+            "description": "Which build."
+          },
+          "build": {
+            "description": "Its folder, when found.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "backend"
+        ],
+        "type": "object"
+      },
+      "LlmTask": {
+        "description": "A kind of work and the model chosen for it.",
+        "properties": {
+          "id": {
+            "description": "`default`, `explain`, `check`.",
+            "type": "string"
+          },
+          "model": {
+            "description": "The user's choice; the suggestion answers without one.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Models and runtime.",
+    "properties": {
+      "folders": {
+        "description": "The folders searched.",
+        "items": {
+          "$ref": "#/$defs/LlmFolder"
+        },
+        "type": "array"
+      },
+      "models": {
+        "description": "The models that were found.",
+        "items": {
+          "$ref": "#/$defs/LlmModel"
+        },
+        "type": "array"
+      },
+      "runtime": {
+        "$ref": "#/$defs/LlmRuntime",
+        "description": "The runtime."
+      },
+      "tasks": {
+        "description": "The kinds of work and their models.",
+        "items": {
+          "$ref": "#/$defs/LlmTask"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "models",
+      "folders",
+      "tasks",
+      "runtime"
+    ],
+    "title": "LlmModels",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "create"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Stop searching a folder for language models"
+}

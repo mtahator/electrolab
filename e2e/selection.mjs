@@ -1,4 +1,4 @@
-// End-to-end check of selecting text (design language §9.6), with real mouse input.
+// End-to-end check of selecting text (design language §9.10), with real mouse input.
 //
 //   node e2e/selection.mjs <reader.exe> <scratch-dir> <out-dir>
 

@@ -4,16 +4,21 @@
 //! sidecar on first use, streams answers as `inference.token` events, and checks answers
 //! against their schema with one retry. Tests replace the backend with `Replay`.
 
+mod catalog;
+
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Weak};
 use std::time::Instant;
 
+use catalog::{Catalog, Choices, Found};
 use ep_bus::{Bus, CommandError, Cx, Permission, RegisterError, Spec, Stability};
 use ep_inference_adapter_llamacpp::{Config, LlamaCppSidecar};
 pub use ep_inference_contract as contract;
 use ep_inference_contract::{
-    Backend, LlmRequest, LlmResponse, LoadRequest, ModelInfo, ModelState, Models, RunState,
-    Runtime, Sensitivity, Status, Usage, commands as cmd, errors, events,
+    Assign, Backend, Folder, FolderPath, LlmRequest, LlmResponse, LoadRequest, ModelInfo,
+    ModelKind, ModelState, Models, RunState, Runtime, Sensitivity, Status, Task, Usage,
+    commands as cmd, errors, events,
 };
 pub use ep_inference_core::Replay;
 pub use ep_inference_core::{
@@ -24,39 +29,30 @@ use ep_os::ProcessSpawner;
 use parking_lot::{Mutex, RwLock};
 use serde_json::json;
 
-/// A model the engine knows (ADR-005).
-struct Known {
-    id: &'static str,
-    name: &'static str,
-    file: &'static str,
-    licence: &'static str,
-    context: u32,
-    /// Fits a 4 GB GPU; the default there.
-    gpu: bool,
-}
+/// Every kind of work a model can be chosen for.
+const DEFAULT: &str = "default";
+const TASKS: [&str; 3] = [DEFAULT, "explain", "check"];
 
-const KNOWN: &[Known] = &[
-    Known {
-        id: "qwen3-4b-instruct-2507",
-        name: "Qwen3 4B Instruct (2507), Q4_K_M",
-        file: "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
-        licence: "Apache-2.0",
-        context: 8192,
-        gpu: true,
-    },
-    Known {
-        id: "lfm2.5-1.2b-instruct",
-        name: "LFM2.5 1.2B Instruct, Q8_0",
-        file: "LFM2.5-1.2B-Instruct-Q8_0.gguf",
-        licence: "LFM Open License 1.0",
-        context: 8192,
-        gpu: false,
-    },
-];
+/// The kind of work of a request's task.
+fn task_of(task: &str) -> &'static str {
+    match task {
+        "explain.draft" => "explain",
+        "explain.check" => "check",
+        _ => DEFAULT,
+    }
+}
 
 /// The engine.
 pub struct Inference {
-    model_dirs: RwLock<Vec<PathBuf>>,
+    /// Folders that are always searched; the user's own ones are in `choices`.
+    base_dirs: Vec<PathBuf>,
+    choices: RwLock<Choices>,
+    choices_file: Option<PathBuf>,
+    catalog: RwLock<Option<Arc<Catalog>>>,
+    headers: Mutex<catalog::Cache>,
+    problems: Mutex<HashMap<String, String>>,
+    /// One answer at a time: another model may have to be loaded for the next one.
+    turn: tokio::sync::Mutex<()>,
     runtime_dirs: Vec<PathBuf>,
     spawner: Option<Arc<dyn ProcessSpawner>>,
     log_file: Option<PathBuf>,
@@ -150,16 +146,24 @@ pub fn runtime_dirs() -> Vec<PathBuf> {
 impl Inference {
     /// An engine that looks for GGUF models in `model_dirs` and llama.cpp builds
     /// (`llama-cpp-cuda`, `llama-cpp-vulkan`, `llama-cpp-cpu`) in `runtime_dirs`; the server is
-    /// started by `spawner` (tied to the app's lifetime) and logs to `log_file`.
+    /// started by `spawner` (tied to the app's lifetime) and logs to `log_file`. The user's folders
+    /// and the model of each task are kept in `choices_file`.
     #[must_use]
     pub fn new(
         model_dirs: Vec<PathBuf>,
         runtime_dirs: Vec<PathBuf>,
         spawner: Arc<dyn ProcessSpawner>,
         log_file: Option<PathBuf>,
+        choices_file: Option<PathBuf>,
     ) -> Arc<Self> {
         Arc::new(Self {
-            model_dirs: RwLock::new(model_dirs),
+            base_dirs: model_dirs,
+            choices: RwLock::new(Choices::read(choices_file.as_deref())),
+            choices_file,
+            catalog: RwLock::new(None),
+            headers: Mutex::default(),
+            problems: Mutex::default(),
+            turn: tokio::sync::Mutex::new(()),
             runtime_dirs,
             spawner: Some(spawner),
             log_file,
@@ -181,7 +185,13 @@ impl Inference {
     #[must_use]
     pub fn with_backend(backend: Arc<dyn InferenceBackend>) -> Arc<Self> {
         Arc::new(Self {
-            model_dirs: RwLock::new(vec![]),
+            base_dirs: vec![],
+            choices: RwLock::default(),
+            choices_file: None,
+            catalog: RwLock::new(None),
+            headers: Mutex::default(),
+            problems: Mutex::default(),
+            turn: tokio::sync::Mutex::new(()),
             runtime_dirs: vec![],
             spawner: None,
             log_file: None,
@@ -199,12 +209,62 @@ impl Inference {
         })
     }
 
-    /// Also look for models in `dir`.
-    pub fn add_model_dir(&self, dir: PathBuf) {
-        let mut dirs = self.model_dirs.write();
-        if !dirs.contains(&dir) {
-            dirs.push(dir);
+    /// Also look for models in `dir`, from now on.
+    ///
+    /// # Errors
+    /// It is not a folder, or the choice could not be kept.
+    pub fn add_folder(&self, dir: &Path) -> Result<(), CommandError> {
+        if !dir.is_dir() {
+            return Err(failed(
+                errors::NOT_A_FOLDER,
+                format!("{} is not a folder", dir.display()),
+            ));
         }
+        self.change(|c| {
+            if !c.folders.iter().any(|d| d == dir) {
+                c.folders.push(dir.to_path_buf());
+            }
+        })?;
+        *self.catalog.write() = None;
+        Ok(())
+    }
+
+    /// Change what the user chose, and keep it.
+    fn change(&self, f: impl FnOnce(&mut Choices)) -> Result<(), CommandError> {
+        let mut c = self.choices.write();
+        let mut next = c.clone();
+        f(&mut next);
+        next.write(self.choices_file.as_deref())
+            .map_err(|e| failed(errors::IO, e.to_string()))?;
+        *c = next;
+        Ok(())
+    }
+
+    fn dirs(&self) -> Vec<PathBuf> {
+        let own = self.choices.read().folders.clone();
+        self.base_dirs.iter().cloned().chain(own).collect()
+    }
+
+    /// The models found; the folders are searched when that was not done yet (blocking).
+    fn catalog(&self) -> Arc<Catalog> {
+        let have = self.catalog.read().clone();
+        if let Some(c) = have {
+            return c;
+        }
+        let c = Arc::new(catalog::scan(&self.dirs(), &mut self.headers.lock()));
+        *self.catalog.write() = Some(c.clone());
+        c
+    }
+
+    /// As [`Self::catalog`], without holding up other work; `again` searches anew.
+    async fn searched(self: &Arc<Self>, again: bool) -> Arc<Catalog> {
+        if again {
+            *self.catalog.write() = None;
+        }
+        let me = self.clone();
+        tokio::task::spawn_blocking(move || me.catalog())
+            .await
+            .unwrap_or_default()
     }
 
     /// The build that will run: CUDA when an NVIDIA driver is present, else Vulkan, else CPU
@@ -235,61 +295,136 @@ impl Inference {
         }
     }
 
-    fn file_of(&self, k: &Known) -> Option<PathBuf> {
-        self.model_dirs
-            .read()
-            .iter()
-            .map(|d| d.join(k.file))
-            .find(|p| p.is_file())
+    /// The model for a request's task, and why (contract: tasks).
+    fn chosen(&self, c: &Catalog, backend: Backend, task: &str) -> Option<(Found, &'static str)> {
+        let choices = self.choices.read();
+        let kind = task_of(task);
+        let find = |id: &String| {
+            c.models
+                .iter()
+                .find(|m| m.id == *id && m.kind == ModelKind::Chat)
+                .cloned()
+        };
+        let wanted = choices
+            .tasks
+            .get(kind)
+            .map(|id| (id, "chosen for this task"));
+        let default = choices
+            .tasks
+            .get(DEFAULT)
+            .map(|id| (id, "chosen by the user"));
+        for (id, why) in [wanted, default].into_iter().flatten() {
+            if let Some(m) = find(id) {
+                return Some((m, why));
+            }
+        }
+        let gone = wanted.is_some() || default.is_some();
+        let m = catalog::suggested(&c.models, backend)?.clone();
+        Some((
+            m,
+            if gone {
+                "suggested; the chosen model is not there"
+            } else {
+                "suggested"
+            },
+        ))
     }
 
-    fn recommended(&self, backend: Backend) -> Option<&'static Known> {
-        let gpu = matches!(backend, Backend::Cuda | Backend::Vulkan);
-        KNOWN
-            .iter()
-            .filter(|k| self.file_of(k).is_some())
-            .find(|k| k.gpu == gpu)
-            .or_else(|| KNOWN.iter().find(|k| self.file_of(k).is_some()))
-    }
-
-    /// Models and runtime.
-    #[must_use]
-    pub fn models(&self) -> Models {
+    /// Models, folders, tasks and the runtime.
+    fn overview(&self, c: &Catalog) -> Models {
         let (backend, build) = self.runtime();
-        let rec = self.recommended(backend).map(|k| k.id);
+        let suggested = catalog::suggested(&c.models, backend).map(|m| m.id.clone());
         // Cloned first: a second lock in the same statement would wait for itself.
         let status = self.status.lock().clone();
         let loaded = status.model.filter(|_| status.state == RunState::Ready);
-        let models = KNOWN
-            .iter()
-            .map(|k| {
-                let file = self.file_of(k);
-                ModelInfo {
-                    id: k.id.into(),
-                    name: k.name.into(),
-                    file: k.file.into(),
-                    size: file
-                        .as_ref()
-                        .and_then(|f| f.metadata().ok())
-                        .map_or(0, |m| m.len()),
-                    licence: k.licence.into(),
-                    state: match (&file, loaded.as_deref() == Some(k.id)) {
-                        (_, true) => ModelState::Loaded,
-                        (Some(_), false) => ModelState::Ready,
-                        (None, false) => ModelState::Missing,
-                    },
-                    recommended: rec == Some(k.id),
-                    context: k.context,
-                }
-            })
-            .collect();
+        let problems = self.problems.lock().clone();
+        let choices = self.choices.read().clone();
+        let count = |n: usize| u32::try_from(n).unwrap_or(u32::MAX);
         Models {
-            models,
+            models: c
+                .models
+                .iter()
+                .map(|m| ModelInfo {
+                    id: m.id.clone(),
+                    name: m.name.clone(),
+                    file: m
+                        .path
+                        .file_name()
+                        .map(|f| f.to_string_lossy().into_owned())
+                        .unwrap_or_default(),
+                    path: m.path.display().to_string(),
+                    size: m.size,
+                    licence: m.licence.clone(),
+                    kind: m.kind,
+                    architecture: m.architecture.clone(),
+                    quantisation: m.quantisation.clone(),
+                    state: if loaded.as_ref() == Some(&m.id) {
+                        ModelState::Loaded
+                    } else {
+                        ModelState::Ready
+                    },
+                    recommended: suggested.as_ref() == Some(&m.id),
+                    context: m.context,
+                    problem: problems.get(&m.id).cloned(),
+                })
+                .collect(),
+            folders: self
+                .dirs()
+                .into_iter()
+                .filter_map(|d| {
+                    let own = choices.folders.contains(&d);
+                    let f = c.folders.get(&d).cloned().unwrap_or_default();
+                    // The app's own folder is only worth a line when it holds something.
+                    (own || f.models > 0).then(|| Folder {
+                        path: d.display().to_string(),
+                        models: count(f.models),
+                        other_formats: count(f.other_formats),
+                        missing: f.missing,
+                        partial: f.partial,
+                        own,
+                    })
+                })
+                .collect(),
+            tasks: TASKS
+                .iter()
+                .map(|t| Task {
+                    id: (*t).to_string(),
+                    model: choices.tasks.get(*t).cloned(),
+                })
+                .collect(),
             runtime: Runtime {
                 backend,
                 build: build.and_then(|b| b.parent().map(|p| p.display().to_string())),
             },
         }
+    }
+
+    /// Choose the model of a task (`None`: the default again).
+    async fn assign(self: &Arc<Self>, i: Assign) -> Result<Models, CommandError> {
+        if !TASKS.contains(&i.task.as_str()) {
+            return Err(CommandError::InvalidInput {
+                message: format!("unknown task {:?}", i.task),
+            });
+        }
+        let c = self.searched(false).await;
+        if let Some(id) = &i.model
+            && !c
+                .models
+                .iter()
+                .any(|m| m.id == *id && m.kind == ModelKind::Chat)
+        {
+            return Err(failed(
+                errors::NO_MODEL,
+                format!("{id} is not a model that writes answers"),
+            ));
+        }
+        self.change(|choices| {
+            match i.model {
+                Some(id) => choices.tasks.insert(i.task, id),
+                None => choices.tasks.remove(&i.task),
+            };
+        })?;
+        Ok(self.overview(&c))
     }
 
     fn publish(&self, kind: &str, data: serde_json::Value, cx: &Cx) {
@@ -303,32 +438,38 @@ impl Inference {
     /// # Errors
     /// No build, no model, or it did not start.
     #[allow(clippy::too_many_lines)] // one sequence: choose, stop the old, start, warm up
-    pub async fn load(&self, cx: &Cx, model: Option<&str>) -> Result<Status, CommandError> {
+    pub async fn load(
+        self: &Arc<Self>,
+        cx: &Cx,
+        model: Option<&str>,
+    ) -> Result<Status, CommandError> {
         if self.fixed.is_some() {
             return Ok(self.status.lock().clone());
         }
         let _one = self.starting.lock().await;
         let (backend, exe) = self.runtime();
         let exe = exe.ok_or_else(|| failed(errors::NO_RUNTIME, "no llama.cpp build found"))?;
-        let k = match model {
-            Some(id) => {
-                KNOWN
-                    .iter()
-                    .find(|k| k.id == id)
-                    .ok_or_else(|| CommandError::InvalidInput {
-                        message: format!("unknown model {id:?}"),
-                    })?
-            }
-            None => self.recommended(backend).ok_or_else(|| {
-                failed(
-                    errors::NO_MODEL,
-                    "no language model found; download one in Settings",
-                )
-            })?,
+        let c = self.searched(false).await;
+        let found = match model {
+            Some(id) => c
+                .models
+                .iter()
+                .find(|m| m.id == id && m.kind == ModelKind::Chat)
+                .cloned()
+                .ok_or_else(|| CommandError::InvalidInput {
+                    message: format!("unknown model {id:?}"),
+                })?,
+            None => self
+                .chosen(&c, backend, DEFAULT)
+                .map(|(m, _)| m)
+                .ok_or_else(|| {
+                    failed(
+                        errors::NO_MODEL,
+                        "no language model found; choose the folder that has one in Settings",
+                    )
+                })?,
         };
-        let file = self
-            .file_of(k)
-            .ok_or_else(|| failed(errors::NO_MODEL, format!("{} is not downloaded", k.name)))?;
+        let (id, file) = (found.id.clone(), found.path.clone());
         let current = self.sidecar.read().clone();
         if let Some(s) = current
             && s.config().model == file
@@ -347,7 +488,7 @@ impl Inference {
         }
         *self.status.lock() = Status {
             state: RunState::Starting,
-            model: Some(k.id.into()),
+            model: Some(id.clone()),
             backend: Some(backend),
             error: None,
             ready_ms: None,
@@ -360,9 +501,14 @@ impl Inference {
             Config {
                 exe,
                 model: file,
-                model_id: k.id.into(),
-                context: k.context,
-                gpu_layers: if backend == Backend::Cpu { 0 } else { 99 },
+                model_id: id.clone(),
+                context: found.context,
+                // Small models run whole on the GPU; for large ones llama.cpp decides what fits.
+                gpu_layers: match backend {
+                    Backend::Cpu => Some(0),
+                    _ if found.size <= catalog::FITS_GPU => Some(99),
+                    _ => None,
+                },
                 backend: format!("{backend:?}").to_lowercase(),
                 log_file: self.log_file.clone(),
             },
@@ -372,9 +518,10 @@ impl Inference {
             Ok(took) => {
                 let ms = u64::try_from(took.as_millis()).unwrap_or(u64::MAX);
                 *self.sidecar.write() = Some(sidecar.clone());
+                self.problems.lock().remove(&id);
                 let st = Status {
                     state: RunState::Ready,
-                    model: Some(k.id.into()),
+                    model: Some(id.clone()),
                     backend: Some(backend),
                     error: None,
                     ready_ms: Some(ms),
@@ -382,7 +529,7 @@ impl Inference {
                 *self.status.lock() = st.clone();
                 self.publish(
                     events::MODEL_LOADED,
-                    json!({ "model": k.id, "backend": backend, "ms": ms }),
+                    json!({ "model": id, "backend": backend, "ms": ms }),
                     cx,
                 );
                 // Warm-up in the background (Vulkan's one-time pause, ADR-005 decision 6).
@@ -399,9 +546,10 @@ impl Inference {
             }
             Err(e) => {
                 let err = from_backend(e);
+                self.problems.lock().insert(id.clone(), err.to_string());
                 *self.status.lock() = Status {
                     state: RunState::Failed,
-                    model: Some(k.id.into()),
+                    model: Some(id.clone()),
                     backend: Some(backend),
                     error: Some(err.to_string()),
                     ready_ms: None,
@@ -434,19 +582,26 @@ impl Inference {
         self.status.lock().clone()
     }
 
-    async fn backend(&self, cx: &Cx) -> Result<Arc<dyn InferenceBackend>, CommandError> {
+    /// The backend with the model for `task`, started when needed, and why that model.
+    async fn backend(
+        self: &Arc<Self>,
+        cx: &Cx,
+        task: &str,
+    ) -> Result<(Arc<dyn InferenceBackend>, &'static str), CommandError> {
         if let Some(b) = &self.fixed {
-            return Ok(b.clone());
+            return Ok((b.clone(), "fixed"));
         }
+        let c = self.searched(false).await;
+        let (found, why) = self.chosen(&c, self.runtime().0, task).ok_or_else(|| {
+            failed(
+                errors::NO_MODEL,
+                "no language model found; choose the folder that has one in Settings",
+            )
+        })?;
+        self.load(cx, Some(&found.id)).await?;
         let running = self.sidecar.read().clone();
-        if let Some(s) = running {
-            return Ok(s);
-        }
-        self.load(cx, None).await?;
-        self.sidecar
-            .read()
-            .clone()
-            .map(|s| s as Arc<dyn InferenceBackend>)
+        running
+            .map(|s| (s as Arc<dyn InferenceBackend>, why))
             .ok_or_else(|| failed(errors::START_FAILED, "the model runtime did not start"))
     }
 
@@ -454,13 +609,21 @@ impl Inference {
     ///
     /// # Errors
     /// See the contract's error kinds.
-    pub async fn complete(&self, cx: &Cx, req: LlmRequest) -> Result<LlmResponse, CommandError> {
+    pub async fn complete(
+        self: &Arc<Self>,
+        cx: &Cx,
+        req: LlmRequest,
+    ) -> Result<LlmResponse, CommandError> {
         if req.messages.is_empty() {
             return Err(CommandError::InvalidInput {
                 message: "no messages".into(),
             });
         }
-        let backend = self.backend(cx).await?;
+        let _turn = tokio::select! {
+            t = self.turn.lock() => t,
+            () = cx.cancel.cancelled() => return Err(CommandError::Cancelled),
+        };
+        let (backend, why) = self.backend(cx, &req.task).await?;
         // Guarantee 4: local-only data never leaves the machine.
         if req.sensitivity == Sensitivity::LocalOnly && !backend.is_local() {
             return Err(failed(
@@ -469,16 +632,12 @@ impl Inference {
             ));
         }
         let model = backend.model().unwrap_or_default();
-        let reason = format!(
-            "{}: {} ({})",
-            req.task,
-            backend.name(),
-            if req.sensitivity == Sensitivity::LocalOnly {
-                "local-only data"
-            } else {
-                "local model available"
-            }
-        );
+        let data = if req.sensitivity == Sensitivity::LocalOnly {
+            "local-only data"
+        } else {
+            "local model available"
+        };
+        let reason = format!("{}: {} ({why}; {data})", req.task, backend.name());
         self.publish(events::ROUTE_DECIDED, json!({ "task": req.task, "backend": backend.name(), "model": model, "reason": reason }), cx);
 
         let prepared = prepare(&req);
@@ -541,8 +700,15 @@ impl Inference {
     ///
     /// # Errors
     /// Duplicate names.
+    #[allow(clippy::too_many_lines)] // one entry per command
     pub fn register(self: &Arc<Self>, bus: &Arc<Bus>) -> Result<(), RegisterError> {
         *self.bus.write() = Arc::downgrade(bus);
+        let make = |name, summary| Spec {
+            name,
+            summary,
+            stability: Stability::Experimental,
+            permission: Permission::create(),
+        };
         let spec = |name, summary| Spec {
             name,
             summary,
@@ -568,7 +734,65 @@ impl Inference {
             ),
             move |_cx, (): ()| {
                 let me = me.clone();
-                async move { Ok(me.models()) }
+                async move {
+                    let c = me.searched(false).await;
+                    Ok(me.overview(&c))
+                }
+            },
+        )?;
+        let me = self.clone();
+        bus.register(
+            spec(cmd::SEARCH_MODELS, "Search the model folders again"),
+            move |_cx, (): ()| {
+                let me = me.clone();
+                async move {
+                    let c = me.searched(true).await;
+                    Ok(me.overview(&c))
+                }
+            },
+        )?;
+        let me = self.clone();
+        bus.register(
+            make(
+                cmd::ADD_FOLDER,
+                "Search a folder for language models, from now on",
+            ),
+            move |cx, i: FolderPath| {
+                let me = me.clone();
+                async move {
+                    me.add_folder(Path::new(&i.path))?;
+                    let c = me.searched(true).await;
+                    me.publish(events::MODELS_CHANGED, json!({}), &cx);
+                    Ok(me.overview(&c))
+                }
+            },
+        )?;
+        let me = self.clone();
+        bus.register(
+            make(
+                cmd::REMOVE_FOLDER,
+                "Stop searching a folder for language models",
+            ),
+            move |cx, i: FolderPath| {
+                let me = me.clone();
+                async move {
+                    me.change(|c| c.folders.retain(|d| d.as_path() != Path::new(&i.path)))?;
+                    let c = me.searched(true).await;
+                    me.publish(events::MODELS_CHANGED, json!({}), &cx);
+                    Ok(me.overview(&c))
+                }
+            },
+        )?;
+        let me = self.clone();
+        bus.register(
+            make(cmd::ASSIGN, "Choose the language model of a task"),
+            move |cx, i: Assign| {
+                let me = me.clone();
+                async move {
+                    let m = me.assign(i).await?;
+                    me.publish(events::MODELS_CHANGED, json!({}), &cx);
+                    Ok(m)
+                }
             },
         )?;
         let me = self.clone();
@@ -596,5 +820,60 @@ impl Inference {
             },
         )?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+
+    use super::*;
+
+    #[test]
+    fn a_chosen_model_that_is_gone_falls_back_and_says_so() {
+        let e = Inference::new(
+            vec![],
+            vec![],
+            Arc::new(ep_os::fake::FakeSpawner::default()),
+            None,
+            None,
+        );
+        let found = |id: &str| Found {
+            id: id.into(),
+            name: id.into(),
+            path: PathBuf::from(id),
+            size: 1,
+            licence: String::new(),
+            kind: ModelKind::Chat,
+            architecture: "llama".into(),
+            quantisation: None,
+            context: 4096,
+        };
+        let c = Catalog {
+            models: vec![found("a"), found("b")],
+            ..Catalog::default()
+        };
+        let pick = |task: &str| {
+            e.chosen(&c, Backend::Cpu, task)
+                .map(|(m, why)| (m.id, why))
+                .unwrap()
+        };
+        assert_eq!(pick("explain.draft").1, "suggested");
+        e.change(|x| {
+            x.tasks.insert("default".into(), "b".into());
+            x.tasks.insert("check".into(), "a".into());
+        })
+        .unwrap();
+        assert_eq!(pick("explain.draft"), ("b".into(), "chosen by the user"));
+        assert_eq!(pick("explain.check"), ("a".into(), "chosen for this task"));
+        e.change(|x| {
+            x.tasks.insert("default".into(), "gone".into());
+            x.tasks.remove("check");
+        })
+        .unwrap();
+        assert_eq!(
+            pick("explain.check").1,
+            "suggested; the chosen model is not there"
+        );
     }
 }

@@ -88,6 +88,16 @@ fn rect(r: &PdfRect) -> [f32; 4] {
     ]
 }
 
+/// The shown size, turned back to the page's own directions.
+fn unturned(p: &PdfPage<'_>, rotation: u16) -> [f32; 4] {
+    let (w, h) = (p.width().value, p.height().value);
+    if rotation % 180 == 90 {
+        [0.0, 0.0, h, w]
+    } else {
+        [0.0, 0.0, w, h]
+    }
+}
+
 fn geom(p: &PdfPage<'_>) -> PageGeom {
     let rotation = match p.rotation() {
         Ok(PdfPageRenderRotation::Degrees90) => 90,
@@ -95,12 +105,12 @@ fn geom(p: &PdfPage<'_>) -> PageGeom {
         Ok(PdfPageRenderRotation::Degrees270) => 270,
         _ => 0,
     };
-    let bounds = p
+    // PDFium's own page box: crop box and media box, inherited ones too, before turning. (Boxes
+    // read one by one miss the inherited ones, and the page's width and height are turned.)
+    let crop = p
         .boundaries()
-        .crop()
-        .or_else(|_| p.boundaries().media())
-        .map(|b| rect(&b.bounds));
-    let crop = bounds.unwrap_or([0.0, 0.0, p.width().value, p.height().value]);
+        .bounding()
+        .map_or_else(|_| unturned(p, rotation), |b| rect(&b.bounds));
     PageGeom { rotation, crop }
 }
 

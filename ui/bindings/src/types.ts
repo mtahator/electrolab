@@ -584,8 +584,38 @@ export type ListPapers = {
   tag?: string | null;
 };
 
+/** Input of `inference.assign`. */
+export type LlmAssign = {
+  /** Model id; the default again when missing. */
+  model?: string | null;
+  /** `default`, `explain`, `check`. */
+  task: string;
+};
+
 /** The llama.cpp build in use. */
 export type LlmBackend = "cuda" | "vulkan" | "cpu" | "none";
+
+/** A folder that is searched for models. */
+export interface LlmFolder {
+  /** It is not there. */
+  missing: boolean;
+  /** Models found in it (and not already in an earlier folder). */
+  models: number;
+  /** Model files in formats that cannot be used. */
+  other_formats: number;
+  /** Added by the user (can be removed). */
+  own: boolean;
+  /** The search stopped at its limit. */
+  partial: boolean;
+  /** Where. */
+  path: string;
+}
+
+/** Input of `inference.add_folder` and `inference.remove_folder`. */
+export interface LlmFolderPath {
+  /** Where. */
+  path: string;
+}
 
 /** Generation limits. */
 export interface LlmLimits {
@@ -609,35 +639,52 @@ export interface LlmMessage {
   role: LlmRole;
 }
 
-/** A local model. */
-export interface LlmModel {
+/** A local model that was found. */
+export type LlmModel = {
+  /** Architecture named in the file. */
+  architecture: string;
   /** Context length used. */
   context: number;
-  /** GGUF file name. */
+  /** File name. */
   file: string;
   /** Stable id. */
   id: string;
-  /** Licence of the weights. */
+  /** What it can be used for. */
+  kind: LlmModelKind;
+  /** Licence of the weights, when the file says so. */
   licence: string;
   /** Name for people. */
   name: string;
-  /** The model chosen for this machine. */
+  /** Full path. */
+  path: string;
+  /** Why it could not be started the last time. */
+  problem?: string | null;
+  /** Quantisation (`Q4_K_M`), when known. */
+  quantisation?: string | null;
+  /** The model suggested for this machine. */
   recommended: boolean;
   /** Bytes. */
   size: number;
-  /** Whether it is here or running. */
+  /** Whether it is running. */
   state: LlmModelState;
-}
+};
+
+/** What a model file can be used for. */
+export type LlmModelKind = "chat" | "embedding" | "vision_part" | "other";
 
 /** Whether a model can be used. */
-export type LlmModelState = "missing" | "ready" | "loaded";
+export type LlmModelState = "ready" | "loaded";
 
 /** Models and runtime. */
 export interface LlmModels {
-  /** The models the engine knows. */
+  /** The folders searched. */
+  folders: LlmFolder[];
+  /** The models that were found. */
   models: LlmModel[];
   /** The runtime. */
   runtime: LlmRuntime;
+  /** The kinds of work and their models. */
+  tasks: LlmTask[];
 }
 
 /** A request to a language model. */
@@ -708,6 +755,14 @@ export interface LlmStream {
   /** Id carried by every event of this answer. */
   id: string;
 }
+
+/** A kind of work and the model chosen for it. */
+export type LlmTask = {
+  /** `default`, `explain`, `check`. */
+  id: string;
+  /** The user's choice; the suggestion answers without one. */
+  model?: string | null;
+};
 
 /** Token counts and times of one answer. */
 export interface LlmUsage {

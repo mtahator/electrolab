@@ -83,7 +83,10 @@
   padding: var(--space-2) 0;
   border-inline-end: 1px solid var(--border);
   background: var(--bg-panel);
-  overflow-y: auto;
+
+  /* Scrolls in low windows; the strip has no room for a scroll bar (design language §5.4). */
+  overflow: hidden auto;
+  scrollbar-width: none;
 }
 
 .tool-group {
@@ -112,6 +115,9 @@
 .side {
   flex: none;
   min-width: 0;
+
+  /* The paper keeps 320 px (design language §2). */
+  max-width: calc(100vw - var(--rail-w) - 320px);
   background: var(--bg-panel);
 }
 
@@ -740,10 +746,18 @@ body,
   border-color: var(--accent);
 }
 
-.thumb img,
+.thumb img {
+  width: 120px;
+  height: auto;
+}
+
 .thumb-placeholder {
   width: 120px;
   min-height: 150px;
+}
+
+.thumb img,
+.thumb-placeholder {
   background: var(--page-bg);
   box-shadow: var(--page-shadow);
 }
@@ -1715,7 +1729,10 @@ body,
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
-  min-width: min(560px, 80vw);
+}
+
+.settings section > .ep-button {
+  margin-top: var(--space-2);
 }
 
 .settings h3 {
@@ -1733,6 +1750,15 @@ body,
   min-height: var(--control-h);
 }
 
+.settings-row + .settings-row {
+  margin-top: var(--space-2);
+}
+
+.settings-row .ep-input {
+  min-width: 0;
+  max-width: 60%;
+}
+
 .model-list {
   display: flex;
   flex-direction: column;
@@ -1744,7 +1770,9 @@ body,
 
 .model-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border);
@@ -1753,7 +1781,7 @@ body,
 
 .model-text {
   display: flex;
-  flex: 1;
+  flex: 1 1 12em;
   flex-direction: column;
   min-width: 0;
 }
@@ -1761,6 +1789,33 @@ body,
 .model-state {
   font-size: var(--text-sm);
   white-space: nowrap;
+}
+
+.llm h4 {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.llm-path {
+  overflow-wrap: anywhere;
+}
+
+.llm-actions {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.llm-searching {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.model-row.unusable {
+  opacity: 0.7;
 }
 
 /* Library: covers view (design language §17.10) — first pages as a shelf. */
@@ -1900,7 +1955,6 @@ body,
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  min-width: min(380px, 80vw);
 }
 
 .print-range {
