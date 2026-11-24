@@ -426,7 +426,7 @@ export type DigestLevel = "basic" | "full";
 
 /** Input of `knowledge.digest_library`. */
 export type DigestLibrary = {
-  /** Nobody asked: it does nothing after the person has stopped it, and waits on battery. */
+  /** Nobody asked: it does nothing after the person has stopped it, and waits when the battery is low. */
   auto?: boolean;
   /** Make those of `papers` anew. */
   force?: boolean;

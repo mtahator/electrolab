@@ -13,7 +13,7 @@
     "properties": {
       "auto": {
         "default": false,
-        "description": "Nobody asked: it does nothing after the person has stopped it, and waits on battery.",
+        "description": "Nobody asked: it does nothing after the person has stopped it, and waits when the battery is low.",
         "type": "boolean"
       },
       "force": {
@@ -48,7 +48,7 @@
         "oneOf": [
           {
             "const": "battery",
-            "description": "The computer runs on its battery.",
+            "description": "The computer runs on its battery, and less than half of it is left.",
             "type": "string"
           }
         ]

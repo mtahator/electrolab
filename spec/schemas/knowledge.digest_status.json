@@ -12,7 +12,7 @@
         "oneOf": [
           {
             "const": "battery",
-            "description": "The computer runs on its battery.",
+            "description": "The computer runs on its battery, and less than half of it is left.",
             "type": "string"
           }
         ]
