@@ -3,6 +3,7 @@
 
 import ArrowLeft from "lucide-solid/icons/arrow-left";
 import ArrowRight from "lucide-solid/icons/arrow-right";
+import Brain from "lucide-solid/icons/brain";
 import Bookmark from "lucide-solid/icons/bookmark";
 import BookmarkPlus from "lucide-solid/icons/bookmark-plus";
 import Check from "lucide-solid/icons/check";
@@ -76,6 +77,7 @@ export const ICONS = {
   "arrow-right": ArrowRight,
   bookmark: Bookmark,
   "bookmark-plus": BookmarkPlus,
+  brain: Brain,
   check: Check,
   "chevron-down": ChevronDown,
   "chevron-up": ChevronUp,

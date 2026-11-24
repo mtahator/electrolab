@@ -518,10 +518,17 @@ impl Document {
         let path = self.path(&i.file)?;
         let me = self.clone();
         blocking(move || {
-            let (sizes, _) = me.sizes(i.file.hash, &path)?;
-            let idx = Self::page_index_of(sizes.len(), i.page)?;
-            let geom = me.geom_of(i.file.hash, &path, idx)?;
-            me.page_text_of(&i.file.hash, &path, &geom, idx)
+            let read = || {
+                let (sizes, _) = me.sizes(i.file.hash, &path)?;
+                let idx = Self::page_index_of(sizes.len(), i.page)?;
+                let geom = me.geom_of(i.file.hash, &path, idx)?;
+                me.page_text_of(&i.file.hash, &path, &geom, idx)
+            };
+            if i.background {
+                ep_document_core::pdf::background(read)
+            } else {
+                read()
+            }
         })
         .await
     }

@@ -54,6 +54,26 @@
           }
         ]
       },
+      "LlmFallback": {
+        "description": "Why another model than the first choice is used.",
+        "oneOf": [
+          {
+            "const": "not_enough_memory",
+            "description": "It does not fit in the memory that is free.",
+            "type": "string"
+          },
+          {
+            "const": "start_failed",
+            "description": "It did not start.",
+            "type": "string"
+          },
+          {
+            "const": "too_slow",
+            "description": "It answered too slowly.",
+            "type": "string"
+          }
+        ]
+      },
       "LlmRunState": {
         "description": "Runtime state.",
         "oneOf": [
@@ -101,6 +121,17 @@
           "null"
         ]
       },
+      "fallback": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/LlmFallback"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Why the first choice is not used."
+      },
       "model": {
         "description": "Model loaded or loading.",
         "type": [
@@ -120,6 +151,13 @@
       "state": {
         "$ref": "#/$defs/LlmRunState",
         "description": "State."
+      },
+      "wanted": {
+        "description": "The first choice, when another model is used.",
+        "type": [
+          "string",
+          "null"
+        ]
       }
     },
     "required": [

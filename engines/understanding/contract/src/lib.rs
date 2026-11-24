@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 pub use ep_types::BlobRef;
 
 /// Contract version; experimental until a second host uses it (Draft 2.2 §8.3).
-pub const VERSION: &str = "0.3.0";
+pub const VERSION: &str = "0.3.1";
 
 /// Command names.
 pub mod commands {

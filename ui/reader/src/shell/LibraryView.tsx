@@ -9,10 +9,11 @@ import { For, type JSX, Show, createEffect, createMemo, createSignal, onCleanup,
 import { bus, renderUrl } from "../host";
 
 import { type FolderGroup, applyFolders, collections, filter, papers, pathOf, project, removePapers, renamePaper, setFilter, setPaperTags, tags, titleOf } from "../library";
-import { ask, askOpen, makeDigests, setAskOpen } from "../assistant/ask";
+import { ask, askOpen, makeDigests, refreshDigests, setAskOpen } from "../assistant/ask";
 import { canExplain, refreshLanguageModels } from "../assistant/explain";
 import { setSettingsOpen } from "../intel/state";
 import { AskView } from "./AskView";
+import { BrainMark } from "./BrainMark";
 import { FolderPath, FolderTiles, FolderTree, dropOn, folderMenu, setDropOn } from "./LibraryFolders";
 import { Prompt } from "./Overlays";
 import { SortSheet } from "./SortSheet";
@@ -151,6 +152,7 @@ export function LibraryView(props: LibraryViewProps): JSX.Element {
     press = { id: p.id, x: e.clientX, y: e.clientY };
   };
   onMount(() => {
+    void refreshDigests().catch(() => {});
     const onMove = (e: PointerEvent): void => {
       if (!press) return;
       if (!drag() && Math.hypot(e.clientX - press.x, e.clientY - press.y) < 8) return;
@@ -347,6 +349,7 @@ export function LibraryView(props: LibraryViewProps): JSX.Element {
                       >
                         <RenameField paper={p} onDone={() => setRenaming(null)} onError={props.onError} />
                       </Show>
+                      <BrainMark paper={p} onOpen={setSummaryOf} />
                       <div class="paper-meta">
                         <Show
                           when={editingTags() === p.id}
@@ -389,6 +392,7 @@ export function LibraryView(props: LibraryViewProps): JSX.Element {
                     <button type="button" class="cover-open" onClick={(e) => click(e, p)} aria-label={p.title ?? p.original_name}>
                       <Cover paper={p} />
                     </button>
+                    <BrainMark paper={p} onOpen={setSummaryOf} />
                     <div class="cover-text">
                       <Show
                         when={renaming() === p.id}

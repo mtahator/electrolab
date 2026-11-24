@@ -291,11 +291,21 @@ impl ep_os::ChildProcess for StdChild {
 }
 impl ep_os::ProcessSpawner for StdSpawner {
     fn spawn(&self, spec: &ep_os::ProcessSpec) -> ep_os::Result<Box<dyn ep_os::ChildProcess>> {
+        let out = |f: &Option<PathBuf>| -> std::process::Stdio {
+            f.as_ref().map_or_else(std::process::Stdio::null, |f| {
+                std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(f)
+                    .unwrap()
+                    .into()
+            })
+        };
         let child = std::process::Command::new(&spec.program)
             .args(&spec.args)
             .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
+            .stdout(out(&spec.log_file))
+            .stderr(out(&spec.log_file))
             .spawn()?;
         Ok(Box::new(StdChild(child)))
     }
@@ -362,44 +372,86 @@ async fn live_llamacpp_sidecar() {
     let _: Status = call(&bus, "inference.unload", Value::Null).await.unwrap();
 }
 
-/// Two models, chosen for two tasks, take turns (needs two chat models under `EP_LLM_DIR`).
+/// The card as NVIDIA's own tool sees it.
+struct Nvidia;
+impl ep_os::Machine for Nvidia {
+    fn graphics_used(&self) -> Option<u64> {
+        let out = std::process::Command::new("nvidia-smi")
+            .args(["--query-gpu=memory.used", "--format=csv,noheader,nounits"])
+            .output()
+            .ok()?;
+        let mib: u64 = String::from_utf8_lossy(&out.stdout).trim().parse().ok()?;
+        Some(mib << 20)
+    }
+    fn low_on_power(&self) -> Option<bool> {
+        None
+    }
+}
+
+/// The founder's case (2026-11-24): the app has a model loaded, and a second one wants one too. The
+/// first keeps its model for every task; the second sees that the memory is full and uses its second
+/// choice (needs the two measured models under `EP_LLM_DIR` and a 4 GB card).
 #[tokio::test]
-async fn live_each_task_uses_its_model() {
+async fn live_a_full_card_uses_the_second_choice() {
     let Some(dir) = std::env::var_os("EP_LLM_DIR").map(PathBuf::from) else {
         eprintln!("skipped: EP_LLM_DIR not set");
         return;
     };
     let _gpu = GPU.lock().await;
-    let engine = Inference::new(
-        vec![dir],
-        vec![root().join(".natives")],
-        Arc::new(StdSpawner),
-        None,
-        None,
-    );
-    let bus = Arc::new(Bus::default());
-    engine.register(&bus).unwrap();
-    let m: Models = call(&bus, "inference.models", Value::Null).await.unwrap();
+    let logs = tempfile::tempdir().unwrap();
+    let app = |n: u32| {
+        let engine = Inference::new(
+            vec![dir.clone()],
+            vec![root().join(".natives")],
+            Arc::new(StdSpawner),
+            Some(logs.path().join(format!("{n}/llama.log"))),
+            None,
+        );
+        std::fs::create_dir_all(logs.path().join(n.to_string())).unwrap();
+        engine.use_machine(Arc::new(Nvidia));
+        let bus = Arc::new(Bus::default());
+        engine.register(&bus).unwrap();
+        bus
+    };
+    let (one, two) = (app(1), app(2));
+    let m: Models = call(&one, "inference.models", Value::Null).await.unwrap();
     let want = ["qwen3-4b-instruct-2507", "lfm2.5-1.2b-instruct"];
     if !want.iter().all(|w| m.models.iter().any(|x| x.id == *w)) {
         eprintln!("skipped: the two models are not there");
         return;
     }
-    let _: Models = call(
-        &bus,
-        "inference.assign",
-        json!({ "task": "check", "model": want[1] }),
-    )
-    .await
-    .unwrap();
-    for (task, model) in [
-        ("explain.draft", want[0]),
-        ("explain.check", want[1]),
-        ("explain.draft", want[0]),
-    ] {
-        let r: LlmResponse = call(&bus, "inference.complete", json!({ "task": task, "messages": [{ "role": "user", "content": "Say OK." }], "limits": { "max_tokens": 5 } })).await.unwrap();
-        eprintln!("{task}: {} | {}", r.model, r.route_reason);
-        assert_eq!(r.model, model);
+    let choose = json!({ "order": want, "keep_ready": false });
+    for bus in [&one, &two] {
+        let _: Models = call(bus, "inference.choose", choose.clone()).await.unwrap();
     }
-    let _: Status = call(&bus, "inference.unload", Value::Null).await.unwrap();
+    let ask = async |bus: &Arc<Bus>, task: &str| -> LlmResponse {
+        let t = std::time::Instant::now();
+        let r: LlmResponse = call(bus, "inference.complete", json!({ "task": task, "messages": [{ "role": "user", "content": "Say OK." }], "limits": { "max_tokens": 5 } })).await.unwrap();
+        eprintln!(
+            "{task}: {} in {} ms | {}",
+            r.model,
+            t.elapsed().as_millis(),
+            r.route_reason
+        );
+        r
+    };
+    let mut loads = one.events().subscribe("model.loaded");
+    for task in ["explain.draft", "sort.names", "find.understand"] {
+        assert_eq!(ask(&one, task).await.model, want[0]);
+    }
+    let mut n = 0;
+    while let Ok(ep_bus::Recv::Event(_)) =
+        tokio::time::timeout(std::time::Duration::from_millis(50), loads.recv()).await
+    {
+        n += 1;
+    }
+    assert_eq!(n, 1, "loaded once");
+    let r = ask(&two, "explain.draft").await;
+    let st: Status = call(&two, "inference.status", Value::Null).await.unwrap();
+    let m: Models = call(&two, "inference.models", Value::Null).await.unwrap();
+    eprintln!("second: {st:?} {:?}", m.memory);
+    assert_eq!(r.model, want[1]);
+    for bus in [&one, &two] {
+        let _: Status = call(bus, "inference.unload", Value::Null).await.unwrap();
+    }
 }

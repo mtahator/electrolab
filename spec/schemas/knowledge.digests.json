@@ -68,6 +68,18 @@
             "description": "Paper id.",
             "type": "string"
           },
+          "problem": {
+            "default": null,
+            "description": "Why it cannot be understood (`no_text`), when that was tried.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ready": {
+            "description": "Understood: every section was read and it belongs to the file as it is now.",
+            "type": "boolean"
+          },
           "sections": {
             "description": "Number of sections.",
             "format": "uint32",
@@ -89,6 +101,7 @@
         "required": [
           "paper",
           "complete",
+          "ready",
           "summary",
           "topics",
           "kind",

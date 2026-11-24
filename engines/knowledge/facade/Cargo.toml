@@ -7,6 +7,7 @@ publish.workspace = true
 description = "Knowledge engine facade: digests of papers and asking the library (see CONTRACT.md)"
 
 [dependencies]
+ep-os = { path = "../../../foundation/os" }
 ep-knowledge-contract = { path = "../contract" }
 ep-knowledge-core = { path = "../core" }
 ep-document-contract = { path = "../../document/contract" }
@@ -25,7 +26,6 @@ tracing.workspace = true
 ep-document = { path = "../../document/facade" }
 ep-inference = { path = "../../inference/facade" }
 ep-workspace = { path = "../../workspace/facade" }
-ep-os = { path = "../../../foundation/os" }
 tempfile.workspace = true
 
 [lints]

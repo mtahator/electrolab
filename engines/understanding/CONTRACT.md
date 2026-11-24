@@ -1,6 +1,6 @@
 # Understanding engine — contract
 
-Version: 0.3.0      Stability: experimental      Tier: T1
+Version: 0.3.1      Stability: experimental      Tier: T1
 Crates: `ep-understanding-contract` (types), `ep-understanding` (facade)
 
 ## Purpose
@@ -53,6 +53,7 @@ Error kinds: those of `inference.complete` (`no_model`, `no_runtime`, …), plus
 - Golden Explain set (P0.C.2) with the real model when present: ≥ the S3 result (98% correct after the check with Qwen3-4B).
 
 ## Changelog
+- 0.3.1 (2026-11-24): any number of papers fits one question; a part that cannot be read stays where it is instead of failing the whole.
 - 0.3.0 (2026-11-24): `about` of a paper (its summary) is used instead of its first page.
 - 0.2.0 (2026-11-24): `suggest_folders`.
 - 0.1.0 (2026-11-21): `explain_span` (P1.M5.UND.1–2).

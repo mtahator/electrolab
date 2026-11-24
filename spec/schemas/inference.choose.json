@@ -1,25 +1,28 @@
 {
-  "command": "inference.assign",
+  "command": "inference.choose",
   "input": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "description": "Input of `inference.assign`.",
+    "description": "Input of `inference.choose`.",
     "properties": {
-      "model": {
-        "description": "Model id; the default again when missing.",
+      "keep_ready": {
+        "description": "Load a model when the app starts and keep it.",
         "type": [
-          "string",
+          "boolean",
           "null"
         ]
       },
-      "task": {
-        "description": "`default`, `explain`, `check`.",
-        "type": "string"
+      "order": {
+        "description": "Model ids, first choice first; empty: automatic again; missing: as it is.",
+        "items": {
+          "type": "string"
+        },
+        "type": [
+          "array",
+          "null"
+        ]
       }
     },
-    "required": [
-      "task"
-    ],
-    "title": "LlmAssign",
+    "title": "LlmChoose",
     "type": "object"
   },
   "output": {
@@ -91,6 +94,33 @@
         ],
         "type": "object"
       },
+      "LlmMemory": {
+        "description": "Memory of the graphics card.",
+        "properties": {
+          "device": {
+            "description": "Name of the card.",
+            "type": "string"
+          },
+          "free": {
+            "description": "Bytes that were free when a model was last loaded.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total": {
+            "description": "Bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "device",
+          "total",
+          "free"
+        ],
+        "type": "object"
+      },
       "LlmModel": {
         "description": "A local model that was found.",
         "properties": {
@@ -123,6 +153,12 @@
           "name": {
             "description": "Name for people.",
             "type": "string"
+          },
+          "needs": {
+            "description": "Memory it needs on the graphics card, in bytes (about).",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
           },
           "path": {
             "description": "Full path.",
@@ -168,7 +204,8 @@
           "architecture",
           "state",
           "recommended",
-          "context"
+          "context",
+          "needs"
         ],
         "type": "object"
       },
@@ -231,26 +268,6 @@
           "backend"
         ],
         "type": "object"
-      },
-      "LlmTask": {
-        "description": "A kind of work and the model chosen for it.",
-        "properties": {
-          "id": {
-            "description": "`default`, `explain`, `check`, `sort`, `digest`, `find`.",
-            "type": "string"
-          },
-          "model": {
-            "description": "The user's choice; the suggestion answers without one.",
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "id"
-        ],
-        "type": "object"
       }
     },
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -263,6 +280,21 @@
         },
         "type": "array"
       },
+      "keep_ready": {
+        "description": "A model is loaded when the app starts and stays loaded.",
+        "type": "boolean"
+      },
+      "memory": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/LlmMemory"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Memory of the graphics card, when it was measured."
+      },
       "models": {
         "description": "The models that were found.",
         "items": {
@@ -270,22 +302,28 @@
         },
         "type": "array"
       },
+      "order": {
+        "description": "Models in the order they are tried.",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "own_order": {
+        "description": "The user chose that order (otherwise it is automatic).",
+        "type": "boolean"
+      },
       "runtime": {
         "$ref": "#/$defs/LlmRuntime",
         "description": "The runtime."
-      },
-      "tasks": {
-        "description": "The kinds of work and their models.",
-        "items": {
-          "$ref": "#/$defs/LlmTask"
-        },
-        "type": "array"
       }
     },
     "required": [
       "models",
       "folders",
-      "tasks",
+      "order",
+      "own_order",
+      "keep_ready",
       "runtime"
     ],
     "title": "LlmModels",
@@ -298,5 +336,5 @@
   },
   "stability": "experimental",
   "streaming": false,
-  "summary": "Choose the language model of a task"
+  "summary": "Choose the order of the language models, and whether one is kept ready"
 }

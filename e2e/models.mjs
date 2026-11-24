@@ -46,9 +46,9 @@ const settings = async (s) => {
 };
 const SEEN = `(() => ({
   folders: [...document.querySelectorAll(".llm .model-list")][0].innerText,
-  models: [...document.querySelectorAll(".llm .model-list .model-row strong")].map((e) => e.textContent),
+  models: [...document.querySelectorAll(".llm .model-list:not(.llm-order) .model-row strong")].map((e) => e.textContent),
   states: [...document.querySelectorAll(".llm .model-list .model-state")].map((e) => e.textContent.trim()),
-  tasks: [...document.querySelectorAll(".llm select")].map((e) => ({ value: e.value, options: [...e.options].map((o) => o.textContent) })),
+  order: [...document.querySelectorAll(".llm-order .model-row")].map((e) => [...e.querySelectorAll(".model-text > *")].map((x) => x.textContent)),
 }))()`;
 
 let s = await start();
@@ -60,9 +60,23 @@ try {
   const seen = await s.js(SEEN);
   await s.shot("models-settings.png");
   check("models_are_listed_and_suggested", seen.models?.length === 3 && seen.states.filter((x) => x === "Suggested").length === 1 && seen.states.includes("Picture part of another model") && /3 models found/.test(seen.folders) && /1 files in other formats/.test(seen.folders), seen);
-  check("a_model_can_be_chosen_per_task", seen.tasks?.length === 6 && seen.tasks[0].options.length === 3 && /^Suggested: /.test(seen.tasks[0].options[0]), { tasks: seen.tasks });
-  await s.js(`(() => { const e = document.querySelectorAll(".llm select")[2]; e.value = "second-model"; e.dispatchEvent(new Event("change", { bubbles: true })); })()`);
-  await s.until(`document.querySelectorAll(".llm select")[2].value === "second-model" && !document.querySelector(".llm-searching") ? true : null`, 5000);
+  const first = seen.order?.[0]?.[1];
+  check("the_order_of_the_models_is_shown", seen.order?.length === 2 && seen.order[0][0] === "First choice" && seen.order[1][0] === "If that does not work" && seen.order.every((x) => /needs about/.test(x[2])), { order: seen.order });
+  // The second one first.
+  await s.js(`document.querySelectorAll('.llm-order [aria-label^="Earlier"]')[1].click()`);
+  const swapped = await s.until(`document.querySelectorAll(".llm-order strong")[1]?.textContent === ${JSON.stringify(first)} && !document.querySelector(".llm-searching") ? true : null`, 8000);
+  check("the_order_can_be_changed", swapped === true, { order: (await s.js(SEEN)).order });
+  // Left out, and taken in again.
+  await s.js(`document.querySelectorAll('.llm-order [aria-label^="Leave out"]')[1].click()`);
+  const one = await s.until(`document.querySelectorAll(".llm-order .model-row").length === 1 && !document.querySelector(".llm-searching") ? true : null`, 8000);
+  await s.js(`(() => { const e = document.querySelector(".llm select"); e.value = e.options[1].value; e.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+  const two = await s.until(`document.querySelectorAll(".llm-order .model-row").length === 2 && !document.querySelector(".llm-searching") ? true : null`, 8000);
+  check("a_model_can_be_left_out_and_added", one === true && two === true);
+  // Not kept ready: made-up models would not start anyway.
+  await s.js(`(() => { const e = [...document.querySelectorAll(".llm .settings-row")].find((x) => /keep it ready/.test(x.textContent)).querySelector("input"); e.click(); })()`);
+  await s.until(`document.querySelector(".llm-searching") ? null : true`, 8000);
+  await s.shot("models-order.png");
+  var chosen = first;
   await sleep(300);
 } finally {
   s.app.kill();
@@ -73,7 +87,8 @@ try {
   await s.until(`document.querySelector(".pane.focused img.page-canvas")`, 20000);
   await settings(s);
   const seen = await s.js(SEEN);
-  check("choices_survive_a_restart", seen.tasks?.[2]?.value === "second-model" && seen.models.length === 3, { tasks: seen.tasks?.map((x) => x.value), models: seen.models });
+  const keep = await s.js(`[...document.querySelectorAll(".llm .settings-row")].find((x) => /keep it ready/.test(x.textContent)).querySelector("input").checked`);
+  check("choices_survive_a_restart", seen.order?.length === 2 && seen.order[1][1] === chosen && keep === false && seen.models.length >= 3, { order: seen.order, keep, models: seen.models });
   await s.js(`[...document.querySelectorAll(".llm button")].find((b) => b.textContent.trim() === "Forget").click()`);
   const gone = await s.until(`document.querySelectorAll(".llm .model-row").length === 0 && !document.querySelector(".llm-searching") ? true : null`, 8000);
   const says = await s.js(`document.querySelector(".llm").innerText`);

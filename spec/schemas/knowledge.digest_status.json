@@ -6,6 +6,18 @@
     "type": "null"
   },
   "output": {
+    "$defs": {
+      "DigestWaiting": {
+        "description": "Why making digests waits.",
+        "oneOf": [
+          {
+            "const": "battery",
+            "description": "The computer runs on its battery.",
+            "type": "string"
+          }
+        ]
+      }
+    },
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "description": "State of making digests.",
     "properties": {
@@ -25,7 +37,7 @@
       },
       "error": {
         "default": null,
-        "description": "Why it stopped.",
+        "description": "Why it ended early (an error kind, or a text).",
         "type": [
           "string",
           "null"
@@ -63,11 +75,28 @@
           "null"
         ]
       },
+      "stopped": {
+        "default": false,
+        "description": "The person stopped it.",
+        "type": "boolean"
+      },
       "total": {
         "description": "Papers.",
         "format": "uint32",
         "minimum": 0,
         "type": "integer"
+      },
+      "waiting": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/DigestWaiting"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Why it waits."
       }
     },
     "required": [

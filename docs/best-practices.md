@@ -60,7 +60,7 @@ tags: setting, preference, option
 - do: give it a good default, so that nobody has to set it; find by machine what can be found (files, models, sizes)
 - do: say what was found, what cannot be used and why
 - never: ask for an exact file name or folder level; a choice that silently does nothing
-- proof: `test:choices_survive_a_restart` `test:folder_is_searched_with_its_sub_folders` `test:models_are_listed_and_suggested`
+- proof: `test:choices_survive_a_restart` `test:the_order_can_be_changed` `test:folder_is_searched_with_its_sub_folders` `test:models_are_listed_and_suggested`
 - done: `node e2e/layout.mjs`, the suite of the setting
 
 ## command A command of an engine
@@ -97,9 +97,10 @@ tags: search, background, stream, progress, large document
 - read: design language §17.1–17.3; programming guideline 4.1a
 - do: first result at once, nearest to the reader first, then the rest; a newer request ends the older one
 - do: background work in the background lane, in pieces, cancellable; one run for one result
+- do: work that starts by itself is kept piece by piece, goes on where it stopped, waits on a low battery, and shows one quiet line
 - do: limit depth, number and time, and say so when a limit was reached
 - never: wait for everything; the same work twice; small reads or seeks by the hundred thousand
-- proof: `test:find_streams` `test:interactive_requests_go_before_background_work` `test:real_models_are_found_below_the_folder`
+- proof: `test:find_streams` `test:interactive_requests_go_before_background_work` `test:real_models_are_found_below_the_folder` `test:a_paper_closed_too_early_is_gone_on_with_the_next_time` `test:reading_stays_fluid`
 - done: `node e2e/large.mjs` with the budgets of §17.3
 
 ## ai A feature with a language model
@@ -109,9 +110,12 @@ tags: ai, llm, model, explain, prompt
 - do: Stop ends the model, not only the card; a Replay test for every path
 - do: where a model ranks or chooses, add what code can count (words, numbers, kinds); show what code alone finds first
 - do: work without a model as far as possible, and say so; background answers wait for people
+- do: try it with as many papers as a person has (40 and more), and with another program holding the graphics memory
+- do: one model, kept loaded; measure the free memory before loading another; a second choice for when it does not fit
+- do: say a failure in plain words with Try again; a part that fails does not lose the rest
 - do: look at real output with a real paper before the page is built, and again in the finished page
 - never: text from a paper in an instruction; local-only text to a remote backend; "checked" without a check
-- proof: `test:data_is_a_labelled_section_after_the_question` `test:local_only_never_goes_to_a_remote_backend` `test:a_wrong_draft_is_corrected_from_the_paper` `test:stop_ends_the_answer` `test:what_a_person_asks_goes_before_background_answers` `test:finding_works_without_a_model`
+- proof: `test:data_is_a_labelled_section_after_the_question` `test:local_only_never_goes_to_a_remote_backend` `test:a_wrong_draft_is_corrected_from_the_paper` `test:stop_ends_the_answer` `test:what_a_person_asks_goes_before_background_answers` `test:finding_works_without_a_model` `test:a_full_memory_means_the_next_model` `test:all_papers_of_a_library_are_sorted` `test:a_part_that_cannot_be_read_does_not_lose_the_others`
 - done: the engine's tests, `node e2e/explain.mjs` with and without a model
 
 ## file A file or program from outside
@@ -130,7 +134,7 @@ tags: migration, storage, library, settings file
 - do: write to a new file and rename; numbered migrations; take over what an older version wrote
 - do: undo instead of asking; delete for good only later
 - never: change the user's own files or folders without being asked
-- proof: `test:remove_restore_and_purge_on_next_open` `test:a_task_keeps_its_model_after_a_restart` `test:forgetting_a_folder_touches_nothing_on_disk`
+- proof: `test:remove_restore_and_purge_on_next_open` `test:the_order_is_kept_and_can_be_automatic_again` `test:forgetting_a_folder_touches_nothing_on_disk`
 - done: the engine's tests, restart in the end-to-end suite
 
 ## test A test

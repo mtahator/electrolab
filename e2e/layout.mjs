@@ -43,7 +43,7 @@ const selectWords = () =>
     document.querySelector(".pane.focused .scroller").dispatchEvent(new MouseEvent("mouseup", { bubbles: true })); return true; })()`);
 
 // covers: App.tsx (menus, model question, address, confirm), shell/Settings.tsx, shell/LanguageModels.tsx, shell/Print.tsx, shell/Overlays.tsx (palette, shortcuts, address)
-// covers: shell/LibraryView.tsx, shell/LibraryFolders.tsx, shell/SortSheet.tsx, shell/AskView.tsx, shell/SummarySheet.tsx, shell/SidePanel.tsx, assistant/ExplainCard.tsx, annotations/SelectionBar.tsx, annotations/ToolRail.tsx, annotations/Editor.tsx, annotations/AnnotationLayer.tsx
+// covers: shell/BrainMark.tsx, shell/LibraryView.tsx, shell/LibraryFolders.tsx, shell/SortSheet.tsx, shell/AskView.tsx, shell/SummarySheet.tsx, shell/SidePanel.tsx, assistant/ExplainCard.tsx, annotations/SelectionBar.tsx, annotations/ToolRail.tsx, annotations/Editor.tsx, annotations/AnnotationLayer.tsx
 // covers: annotations/AnnotationsPanel.tsx, intel/Peek.tsx, intel/TableView.tsx, intel/PageLinks.tsx, notes/NotesPanel.tsx, viewer/Viewer.tsx, annotations/MarginNotes.tsx
 /** Parts of the interface: open it (true when it is there), close it. */
 const PARTS = {

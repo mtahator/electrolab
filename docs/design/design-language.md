@@ -1,6 +1,6 @@
 # ElectroPaper design language and UX guideline
 
-Version 1.5 · 2026-11-24 · applies to **every ElectroPaper app**: the Reader, the Lab desktop app, later the web and server consoles, and any panel an engine contributes. Owner: `ui/kit`. Decision: [ADR-012](../adr/ADR-012-design-language-and-icons.md).
+Version 1.6 · 2026-11-24 · applies to **every ElectroPaper app**: the Reader, the Lab desktop app, later the web and server consoles, and any panel an engine contributes. Owner: `ui/kit`. Decision: [ADR-012](../adr/ADR-012-design-language-and-icons.md).
 
 > **In one sentence:** the paper is the hero; the app is a quiet, well-made desk around it that shows tools when you reach for them and puts them away when you don't.
 
@@ -533,6 +533,14 @@ Every app works fully on touch laptops and with precision touchpads, not only wi
 - **Summaries** belong to the papers and are kept with them. The quick one (headings, captions, main words) is made by itself in the background; the written one on request: for one paper (*Summary* in its menu), for the selected ones, or for all. It can be read while it is made, stopped and gone on with, and it never makes the person wait for an answer.
 - **The sheet** shows what the document is, its subjects, questions it can answer (a click asks one), then every section with its pages, role, summary and tags. A summary that is the paper's own words says *Quoted from the paper*.
 - *Suggest folders* (§17.10) uses the summaries where there are some.
+
+### 17.12 Understood by AI (founder request, 2026-11-24)
+- **Brain mark** (`brain`): a paper the app has understood shows it, in the list, on its cover, in the accent colour. While a paper is being read its mark pulses (not with reduced motion) and says the section in its tooltip. A paper whose turn has not come shows nothing. A click opens the summary.
+- **By itself and out of the way:** papers are understood in the background, the one opened last first. Nothing opens, nothing is asked, no message for what simply works; the status line says *Understanding papers: n of m* with a menu (pause, go on, settings). When all is done it disappears.
+- **Never in the way:** reading, scrolling, explaining and asking come first; on a low battery it waits and says so (*Go on anyway* in its menu).
+- **Closed too early?** It goes on the next time, where it stopped.
+- **One model:** Settings show the order of the models (first choice, if that does not work, …) with what each needs. When another than the first choice answers, the app says so once, with the reason, and offers the order.
+- **A failed answer** is said in words a person understands, with *Try again*; never the text of an error of a program.
 
 ### 17.7 Transient things
 Hover popovers and previews close by themselves when:

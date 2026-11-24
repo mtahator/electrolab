@@ -8,6 +8,7 @@ import { For, type JSX, Show, createMemo, createSignal, onMount } from "solid-js
 import { ask, askError, askResult, askStep, asking, digestStatus, digests, enterAsk, library, makeDigests, question, setQuestion, stopAsk, stopDigests } from "../assistant/ask";
 import { canExplain, languageModels } from "../assistant/explain";
 import { ObjectPicture } from "../intel/ObjectPicture";
+import { understandingNote } from "../assistant/understand";
 import { setSettingsOpen } from "../intel/state";
 import { titleOf } from "../library";
 import { SummarySheet } from "./SummarySheet";
@@ -44,7 +45,7 @@ export function AskView(props: { onOpenAt: (p: Paper, page: number, y: number) =
   });
   const others = createMemo(() => (askResult()?.others ?? []).filter((o) => library().has(o.paper) && !groups().some((g) => g.id === o.paper)));
   const modelName = (): string => languageModels()?.models.find((m) => m.id === askResult()?.model)?.name ?? askResult()?.model ?? "";
-  const written = (): number => [...digests().values()].filter((d) => d.level === "full" && d.complete).length;
+  const written = (): number => [...digests().values()].filter((d) => d.ready).length;
 
   const Place_ = (q: { place: Place; picture: boolean }): JSX.Element => {
     const paper = (): Paper | undefined => library().get(q.place.paper);
@@ -115,6 +116,7 @@ export function AskView(props: { onOpenAt: (p: Paper, page: number, y: number) =
           when={digestStatus()?.running}
           fallback={
             <>
+              <Icon name="brain" size={16} />
               <span class="muted">{t("ask.summaries", { n: written(), total: library().size })}</span>
               <Show when={library().size > written()}>
                 <Show
@@ -126,7 +128,7 @@ export function AskView(props: { onOpenAt: (p: Paper, page: number, y: number) =
                   }
                 >
                   <Button variant="quiet" icon="sparkles" onClick={() => safe(() => makeDigests({ full: true }))}>
-                    {t("ask.make_all")}
+                    {digestStatus()?.stopped ? t("summary.go_on") : t("ask.make_all")}
                   </Button>
                 </Show>
               </Show>
@@ -143,9 +145,7 @@ export function AskView(props: { onOpenAt: (p: Paper, page: number, y: number) =
             {t("explain.stop")}
           </Button>
         </Show>
-        <Show when={digestStatus()?.error && !digestStatus()?.running}>
-          <span class="error">{digestStatus()?.error}</span>
-        </Show>
+        <Show when={understandingNote()}>{(n) => <span class="muted">{n()}</span>}</Show>
       </div>
 
       <div class="ask-results">

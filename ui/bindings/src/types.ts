@@ -355,6 +355,8 @@ export type Destination = "device" | "our_server" | "external";
 export type Digest = {
   /** Every section that can have a summary was looked at. */
   complete?: boolean;
+  /** Content hash of the file it was made from (a changed file is read again). */
+  file?: string | null;
   /** What the document is (`research paper`, `report`, …). */
   kind?: string;
   /** How much it holds. */
@@ -407,6 +409,10 @@ export type DigestInfo = {
   model?: string | null;
   /** Paper id. */
   paper: string;
+  /** Why it cannot be understood (`no_text`), when that was tried. */
+  problem?: string | null;
+  /** Understood: every section was read and it belongs to the file as it is now. */
+  ready: boolean;
   /** Number of sections. */
   sections: number;
   /** Summary. */
@@ -420,6 +426,8 @@ export type DigestLevel = "basic" | "full";
 
 /** Input of `knowledge.digest_library`. */
 export type DigestLibrary = {
+  /** Nobody asked: it does nothing after the person has stopped it, and waits on battery. */
+  auto?: boolean;
   /** Make those of `papers` anew. */
   force?: boolean;
   /** Written summaries too (needs a model). */
@@ -466,7 +474,7 @@ export type DigestStatus = {
   current?: string | null;
   /** Papers done. */
   done: number;
-  /** Why it stopped. */
+  /** Why it ended early (an error kind, or a text). */
   error?: string | null;
   /** Written summaries are being made. */
   full: boolean;
@@ -478,9 +486,16 @@ export type DigestStatus = {
   running: boolean;
   /** Section at work (`12 / 30`). */
   step?: string | null;
+  /** The person stopped it. */
+  stopped?: boolean;
   /** Papers. */
   total: number;
+  /** Why it waits. */
+  waiting?: unknown & (DigestWaiting | null);
 };
+
+/** Why making digests waits. */
+export type DigestWaiting = "battery";
 
 /** Output of `document.info`: everything the viewer needs before drawing anything. */
 export interface DocInfo {
@@ -803,16 +818,19 @@ export type ListPapers = {
   unfiled?: boolean;
 };
 
-/** Input of `inference.assign`. */
-export type LlmAssign = {
-  /** Model id; the default again when missing. */
-  model?: string | null;
-  /** `default`, `explain`, `check`. */
-  task: string;
-};
-
 /** The llama.cpp build in use. */
 export type LlmBackend = "cuda" | "vulkan" | "cpu" | "none";
+
+/** Input of `inference.choose`. */
+export type LlmChoose = {
+  /** Load a model when the app starts and keep it. */
+  keep_ready?: boolean | null;
+  /** Model ids, first choice first; empty: automatic again; missing: as it is. */
+  order?: string[] | null;
+};
+
+/** Why another model than the first choice is used. */
+export type LlmFallback = "not_enough_memory" | "start_failed" | "too_slow";
 
 /** A folder that is searched for models. */
 export interface LlmFolder {
@@ -850,6 +868,16 @@ export type LlmLoad = {
   model?: string | null;
 };
 
+/** Memory of the graphics card. */
+export interface LlmMemory {
+  /** Name of the card. */
+  device: string;
+  /** Bytes that were free when a model was last loaded. */
+  free: number;
+  /** Bytes. */
+  total: number;
+}
+
 /** One message of a conversation. */
 export interface LlmMessage {
   /** What is said. */
@@ -874,6 +902,8 @@ export type LlmModel = {
   licence: string;
   /** Name for people. */
   name: string;
+  /** Memory it needs on the graphics card, in bytes (about). */
+  needs: number;
   /** Full path. */
   path: string;
   /** Why it could not be started the last time. */
@@ -895,16 +925,22 @@ export type LlmModelKind = "chat" | "embedding" | "vision_part" | "other";
 export type LlmModelState = "ready" | "loaded";
 
 /** Models and runtime. */
-export interface LlmModels {
+export type LlmModels = {
   /** The folders searched. */
   folders: LlmFolder[];
+  /** A model is loaded when the app starts and stays loaded. */
+  keep_ready: boolean;
+  /** Memory of the graphics card, when it was measured. */
+  memory?: LlmMemory | null;
   /** The models that were found. */
   models: LlmModel[];
+  /** Models in the order they are tried. */
+  order: string[];
+  /** The user chose that order (otherwise it is automatic). */
+  own_order: boolean;
   /** The runtime. */
   runtime: LlmRuntime;
-  /** The kinds of work and their models. */
-  tasks: LlmTask[];
-}
+};
 
 /** A request to a language model. */
 export type LlmRequest = {
@@ -963,12 +999,16 @@ export type LlmStatus = {
   backend?: LlmBackend | null;
   /** Why it failed. */
   error?: string | null;
+  /** Why the first choice is not used. */
+  fallback?: LlmFallback | null;
   /** Model loaded or loading. */
   model?: string | null;
   /** How long the last start took. */
   ready_ms?: number | null;
   /** State. */
   state: LlmRunState;
+  /** The first choice, when another model is used. */
+  wanted?: string | null;
 };
 
 /** Ask for the answer to be streamed as `inference.token` events. */
@@ -976,14 +1016,6 @@ export interface LlmStream {
   /** Id carried by every event of this answer. */
   id: string;
 }
-
-/** A kind of work and the model chosen for it. */
-export type LlmTask = {
-  /** `default`, `explain`, `check`, `sort`, `digest`, `find`. */
-  id: string;
-  /** The user's choice; the suggestion answers without one. */
-  model?: string | null;
-};
 
 /** Token counts and times of one answer. */
 export interface LlmUsage {
@@ -1242,6 +1274,8 @@ export interface PageRect {
 
 /** Input naming one page. */
 export interface PageRequest {
+  /** Nobody is waiting: pages that are looked at go first. */
+  background?: boolean;
   /** The stored PDF. */
   file: BlobRef;
   /** 1-based page number. */

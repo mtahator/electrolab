@@ -33,3 +33,9 @@ ElectroChat 2.5 runs models with vLLM inside WSL: 60–90 s to start (77.6 s mea
 
 ## Evidence
 `spikes/s3-llamacpp/RESULTS.md`, `spikes/s3-llamacpp/out/report.md`.
+
+## Addition, 2026-11-24 (founder reports: sorting 41 papers failed; the model starts slowly)
+- **Cause of the failure:** with a schema, llama-server lets a model write its thoughts first; with a long list Qwen3-4B did, used up its limit and answered nothing. Requests with a schema now carry `reasoning_format: none`: the answer starts with the JSON (41 papers: five folders in 4.8 s; before: nothing in 18 s, twice).
+- **Cause of the slowness:** the 16-bit cache did not fit beside the weights on a 4 GB card (10 tokens a second). With the 8-bit cache 23–25; on the Vulkan build the card is named (`-dev`), since an integrated one is listed as well. Start 5–7 s (before 10–17), and once per session: the model stays loaded.
+- **Full card:** `--list-devices` says nearly the whole card is free although another program uses it (Windows gives each program its own view). The use by all programs comes from the performance counters (the Task Manager's number) and is taken off.
+- CUDA starts faster (4.7 s) but is 730 MB; Vulkan stays the default.

@@ -209,6 +209,14 @@ pub trait Accelerators: Send + Sync {
     fn unregister(&self, id: &str);
 }
 
+/// What the machine is doing, so that background work can fit in. Both may be unknown.
+pub trait Machine: Send + Sync {
+    /// Memory in use on the graphics card that uses most, by every program, in bytes.
+    fn graphics_used(&self) -> Option<u64>;
+    /// It runs on its battery, and less than half of it is left.
+    fn low_on_power(&self) -> Option<bool>;
+}
+
 /// App updates.
 pub trait Updater: Send + Sync {
     /// Look for an update; returns its version.

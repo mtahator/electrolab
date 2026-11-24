@@ -237,11 +237,12 @@ practice: page panel command data ai
 - best: no paper is lost when a folder goes — `test:deleting_a_folder_keeps_its_papers`
 - best: a suggestion changes nothing until it is approved — `test:suggestion_changes_nothing_until_approved`
 - best: every paper is in exactly one place — `test:every_paper_is_in_exactly_one_place`
+- best: any number of papers fits one question; a part that fails does not lose the others — `test:many_papers_fit_into_one_question` `test:a_part_that_cannot_be_read_does_not_lose_the_others` `test:all_papers_of_a_library_are_sorted`
 - best: what a model names is cleaned before it is used — `test:folder_names_are_clean_and_not_doubled`
 check: `cargo test -p ep-workspace -p ep-understanding` · `node e2e/folders.mjs <reader.exe> <scratch> <out>`
 
 ## #knowledge Asking the library, summaries of papers
-tags: ask, question, search library, summary, digest, section, tags, related papers, nearest, figure, npv, topics
+tags: understood, brain, background, automatic, resume, ask, question, search library, summary, digest, section, tags, related papers, nearest, figure, npv, topics
 connects: #library #folders #inference #search #labels #layout
 practice: page dialog longwork ai command engine data
 - Contract `engines/knowledge/CONTRACT.md`. Cutting a paper into sections, checks and ranking are pure (`engines/knowledge/core/src/split.rs`, `check.rs`, `rank.rs` beside it); making summaries `engines/knowledge/facade/src/digest.rs`; asking `engines/knowledge/facade/src/find.rs`.
@@ -256,16 +257,19 @@ practice: page dialog longwork ai command engine data
 - best: background work waits for people — `test:what_a_person_asks_goes_before_background_answers`
 - best: long work can be read while it grows, stopped and gone on with — `test:papers_asked_for_come_next_and_only_they_are_written` `test:the_library_is_digested_in_the_background_and_can_be_stopped` `test:a_summary_grows_while_it_is_made`
 - best: running heads and feet are no text — `test:running_heads_and_feet_are_left_out`
-check: `cargo test -p ep-knowledge-core -p ep-knowledge -p ep-workspace` · `node e2e/find.mjs <reader.exe> <scratch> <out>`
+- best: papers are understood by themselves, once, and gone on with after an early end — `test:every_paper_is_understood_by_itself_and_nothing_is_made_twice` `test:a_paper_closed_too_early_is_gone_on_with_the_next_time`
+- best: out of the way: people, reading and the battery come first — `test:a_person_comes_first` `test:reading_stays_fluid` `test:on_battery_only_what_a_person_asks_is_made`
+- Marks and start: `ui/reader/src/shell/BrainMark.tsx`, `ui/reader/src/assistant/understand.ts`
+check: `cargo test -p ep-knowledge-core -p ep-knowledge -p ep-workspace` · `node e2e/find.mjs <reader.exe> <scratch> <out>` · `node e2e/understand.mjs <reader.exe> <scratch> <out>`
 
 ## #inference Language models (M5)
-tags: inference, llm, model folder, search models, suggestion, task, gguf, llama.cpp, sidecar, qwen, replay, schema, vulkan, cuda
+tags: inference, llm, model folder, search models, suggestion, order, first choice, second choice, fallback, memory full, vram, keep ready, slow, gguf, llama.cpp, sidecar, qwen, replay, schema, vulkan, cuda
 connects: #explain #bus #natives #models
 practice: engine ai file setting
 - Contract `engines/inference/CONTRACT.md`; decision `docs/adr/ADR-005-local-model-runtime.md`. Qwen3-4B Q4_K_M on GPUs ≥ 4 GB, LFM2.5-1.2B Q8 otherwise.
 - `llama-server` is a child on 127.0.0.1, random port, one-time key, started through the Job Object spawner so it ends with the app (`engines/inference/adapters/llamacpp/src/lib.rs`; HTTP in `http.rs` beside it).
 - Paper text goes only into the labelled DATA section (`prepare` in `engines/inference/core/src/lib.rs`); prefill is a trailing assistant message; a schema is enforced, checked, retried once.
-- Models are found by themselves: folders and their sub-folders, each GGUF recognised by its header (`engines/inference/core/src/gguf.rs`, `engines/inference/facade/src/catalog.rs`); one is suggested, the user chooses per task in `ui/reader/src/shell/LanguageModels.tsx`. Choices: `llm.json` in the app's models folder.
+- Models are found by themselves: folders and their sub-folders, each GGUF recognised by its header (`engines/inference/core/src/gguf.rs`, `engines/inference/facade/src/catalog.rs`); one model answers everything, in the user's order (`engines/inference/facade/src/select.rs`, `ui/reader/src/shell/LanguageModels.tsx`), by the free memory (`engines/inference/adapters/llamacpp/src/devices.rs`, what others use: `foundation/os-windows/src/machine.rs`). Choices: `llm.json` in the app's models folder.
 - `Replay` answers recorded tasks in tests and fails on unknown ones. Live test: set `EP_LLM_DIR` to a folder with a known GGUF.
 - best: paper text is data, never instructions, and cannot close its own section — `test:data_is_a_labelled_section_after_the_question`
 - best: structured output is valid or the call fails — `test:schema_is_retried_once_then_fails`
@@ -276,7 +280,11 @@ practice: engine ai file setting
 - best: the state can be asked while a model runs — `test:models_and_status_answer_while_a_model_runs`
 - best: models are found wherever they are in the folder, by what they are — `test:models_in_sub_folders_are_found_by_what_they_are` `test:folder_is_searched_with_its_sub_folders`
 - best: a file from outside is untrusted: broken headers are errors, never crashes — `test:broken_headers_are_errors_never_crashes`
-- best: the suggestion fits the machine; a choice is kept, and a lost one says so — `test:the_suggestion_fits_the_machine` `test:a_task_keeps_its_model_after_a_restart` `test:a_chosen_model_that_is_gone_falls_back_and_says_so`
+- best: the suggestion fits the machine; the order is kept, and gone models are left out — `test:the_suggestion_fits_the_machine` `test:the_order_is_kept_and_can_be_automatic_again` `test:the_users_order_is_followed_and_gone_models_are_left_out`
+- best: one model for all work, loaded once, ready before it is asked — `test:one_model_answers_every_task_and_stays_loaded` `test:a_model_is_made_ready_before_it_is_asked` `test:the_model_stays_ready`
+- best: memory is measured, other programs count, the next model takes over and says why — `test:a_full_memory_means_the_next_model` `test:what_other_programs_use_counts` `test:a_model_that_does_not_start_gives_way_to_the_next`
+- best: an answer with a schema starts at once; a cut answer gets more room — `test:sse_lines_are_read_defensively` `test:schema_is_retried_once_then_fails`
+- best: background answers give way at once — `test:a_background_answer_gives_way_to_a_person_and_is_begun_again`
 - best: tests never reach a real model by accident — `test:replay_answers_recorded_tasks_and_refuses_others`
 check: `cargo test -p ep-inference-core -p ep-inference-contract -p ep-inference-adapter-llamacpp -p ep-inference` · `node e2e/models.mjs <reader.exe> <scratch> <out>`
 

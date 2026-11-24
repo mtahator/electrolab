@@ -183,34 +183,6 @@ async fn new_models_appear_and_the_same_name_is_told_apart() {
 }
 
 #[tokio::test]
-async fn a_task_keeps_its_model_after_a_restart() {
-    let dir = tempfile::tempdir().unwrap();
-    library(dir.path());
-    let choices = dir.path().join("choices/llm.json");
-    let bus = engine(Some(&choices));
-    call(&bus, "inference.add_folder", json!({ "path": dir.path() }))
-        .await
-        .unwrap();
-    call(
-        &bus,
-        "inference.assign",
-        json!({ "task": "check", "model": "tiny" }),
-    )
-    .await
-    .unwrap();
-    let task = |m: &Models, id: &str| m.tasks.iter().find(|t| t.id == id).unwrap().model.clone();
-    let again = engine(Some(&choices));
-    let m = call(&again, "inference.models", Value::Null).await.unwrap();
-    assert_eq!(task(&m, "check").as_deref(), Some("tiny"));
-    assert_eq!(task(&m, "explain"), None);
-    assert_eq!(m.folders.len(), 1, "the folder is remembered");
-    let m = call(&again, "inference.assign", json!({ "task": "check" }))
-        .await
-        .unwrap();
-    assert_eq!(task(&m, "check"), None, "back to the default");
-}
-
-#[tokio::test]
 async fn what_cannot_work_is_refused() {
     let dir = tempfile::tempdir().unwrap();
     library(dir.path());
@@ -222,39 +194,10 @@ async fn what_cannot_work_is_refused() {
         CommandError::Failed { kind, .. } => kind,
         e => format!("{e:?}").chars().take(12).collect(),
     };
-    assert_eq!(
-        kind(
-            call(
-                &bus,
-                "inference.assign",
-                json!({ "task": "explain", "model": "mmproj-x" })
-            )
-            .await
-        ),
-        "no_model"
-    );
-    assert_eq!(
-        kind(
-            call(
-                &bus,
-                "inference.assign",
-                json!({ "task": "explain", "model": "nope" })
-            )
-            .await
-        ),
-        "no_model"
-    );
-    assert_eq!(
-        kind(
-            call(
-                &bus,
-                "inference.assign",
-                json!({ "task": "cook", "model": "tiny" })
-            )
-            .await
-        ),
-        "InvalidInput"
-    );
+    for id in ["mmproj-x", "nope"] {
+        let r = call(&bus, "inference.choose", json!({ "order": [id] })).await;
+        assert_eq!(kind(r), "no_model");
+    }
     let file = dir.path().join("text/tiny.txt");
     std::fs::write(&file, b"x").unwrap();
     assert_eq!(

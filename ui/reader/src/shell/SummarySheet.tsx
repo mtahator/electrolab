@@ -5,7 +5,7 @@ import type { Digest, Paper, SectionDigest } from "@electropaper/bindings";
 import { Button, Dialog, type MessageKey, Skeleton, t } from "@electropaper/kit";
 import { For, type JSX, Show, createSignal, onCleanup, onMount } from "solid-js";
 
-import { digestStatus, makeDigests, stopDigests } from "../assistant/ask";
+import { digestStatus, digests, makeDigests, stopDigests } from "../assistant/ask";
 import { canExplain, languageModels, refreshLanguageModels } from "../assistant/explain";
 import { bus, onBusEvent } from "../host";
 import { setSettingsOpen } from "../intel/state";
@@ -81,7 +81,7 @@ export function SummarySheet(props: { paper: Paper; onClose: () => void; onError
           </p>
         </Show>
         <Show when={loaded()} fallback={<Skeleton lines={4} />}>
-          <Show when={digest()} fallback={<p class="muted">{t("summary.none")}</p>}>
+          <Show when={digest()} fallback={<p class="muted">{digests().get(props.paper.id)?.problem === "no_text" ? t("summary.no_text") : t("summary.none")}</p>}>
             {(d) => (
               <>
                 <Show when={!full()}>

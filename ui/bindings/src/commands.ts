@@ -55,8 +55,8 @@ export interface Commands {
   "document.thumbnails": { input: T.ThumbnailsRequest; output: T.Rendered[] };
   /** Search a folder for language models, from now on */
   "inference.add_folder": { input: T.LlmFolderPath; output: T.LlmModels };
-  /** Choose the language model of a task */
-  "inference.assign": { input: T.LlmAssign; output: T.LlmModels };
+  /** Choose the order of the language models, and whether one is kept ready */
+  "inference.choose": { input: T.LlmChoose; output: T.LlmModels };
   /** Generate an answer with a language model (streamed as inference.token) */
   "inference.complete": { input: T.LlmRequest; output: T.LlmResponse };
   /** Start the language model runtime with a model */
@@ -71,6 +71,8 @@ export interface Commands {
   "inference.status": { input: null; output: T.LlmStatus };
   /** Stop the language model runtime */
   "inference.unload": { input: null; output: T.LlmStatus };
+  /** Make a model ready, when the user wants one kept ready */
+  "inference.warm": { input: null; output: T.LlmStatus };
   /** Make digests of the library in the background */
   "knowledge.digest_library": { input: T.DigestLibrary; output: T.DigestStatus };
   /** Make the digest of a paper: summaries, tags and terms of every section */

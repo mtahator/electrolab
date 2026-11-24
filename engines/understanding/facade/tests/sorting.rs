@@ -189,3 +189,71 @@ async fn what_is_known_about_a_paper_is_used_for_sorting() {
         assert!(!p.messages[0].content.contains("wind farms"));
     }
 }
+
+#[tokio::test]
+async fn many_papers_fit_into_one_question() {
+    let replay = Replay::new()
+        .on("sort.names", r#"{"folders":["A"]}"#)
+        .on_with("sort.assign", None, |p| {
+            let props = p.schema.as_ref().unwrap()["properties"]
+                .as_object()
+                .unwrap()
+                .clone();
+            let v: serde_json::Map<String, Value> =
+                props.keys().map(|k| (k.clone(), json!("A"))).collect();
+            Value::Object(v).to_string()
+        });
+    let b = bus(replay.clone());
+    let titles: Vec<String> = (0..300)
+        .map(|i| format!("Paper {i} {}", "long title ".repeat(12)))
+        .collect();
+    let refs: Vec<&str> = titles.iter().map(String::as_str).collect();
+    let mut list = papers(&refs);
+    for p in &mut list {
+        p["about"] = json!("what it is about ".repeat(40));
+    }
+    let r = suggest(&b, json!({ "papers": list, "folders": [] }))
+        .await
+        .unwrap();
+    assert_eq!(r.folders[0].papers.len(), 300);
+    for p in replay.seen() {
+        let n = p.messages[1].content.chars().count();
+        assert!(n < 16_000, "{}: {n} characters", p.task);
+    }
+}
+
+#[tokio::test]
+async fn a_part_that_cannot_be_read_does_not_lose_the_others() {
+    let n = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let m = n.clone();
+    let replay = Replay::new()
+        // The first try at names gives nothing (a model that only "thought").
+        .on_with("sort.names", None, move |_| {
+            if m.fetch_add(1, std::sync::atomic::Ordering::SeqCst) < 2 {
+                String::new()
+            } else {
+                r#"{"folders":["A"]}"#.into()
+            }
+        })
+        .on_with("sort.assign", None, |p| {
+            let props = p.schema.as_ref().unwrap()["properties"]
+                .as_object()
+                .unwrap()
+                .clone();
+            if props.contains_key("1") {
+                return String::new();
+            }
+            let v: serde_json::Map<String, Value> =
+                props.keys().map(|k| (k.clone(), json!("A"))).collect();
+            Value::Object(v).to_string()
+        });
+    let titles: Vec<String> = (0..41).map(|i| format!("Paper {i}")).collect();
+    let refs: Vec<&str> = titles.iter().map(String::as_str).collect();
+    let r = suggest(
+        &bus(replay),
+        json!({ "papers": papers(&refs), "folders": [] }),
+    )
+    .await
+    .unwrap();
+    assert_eq!((r.folders[0].papers.len(), r.unsure.len()), (16, 25));
+}

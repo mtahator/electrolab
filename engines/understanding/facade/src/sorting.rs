@@ -36,6 +36,10 @@ fn worth(papers: usize) -> usize {
 const START: usize = 220;
 /// Text of what is known about a paper, shown instead.
 const ABOUT: usize = 320;
+/// All lines of one question together (a model reads about 6000 tokens).
+const ALL: usize = 13_000;
+/// A line has at least this much of every paper.
+const LEAST: usize = 70;
 
 /// A folder name as it may be used: short, no control characters or path separators.
 fn clean_folder(name: &str) -> Option<String> {
@@ -170,18 +174,30 @@ impl Understanding {
         } else {
             existing.join("; ")
         };
-        let schema = json!({ "type": "object", "properties": { "folders": { "type": "array", "items": { "type": "string" }, "maxItems": most } }, "required": ["folders"], "additionalProperties": false });
-        let (said, model) = self
-            .ask(
-                cx,
-                "sort.names",
-                NAMES_SYSTEM,
-                format!("Existing folders: {have}\n\nWhich folders?"),
-                sample.join("\n"),
-                schema,
-                160,
-            )
-            .await?;
+        let schema = json!({ "type": "object", "properties": { "folders": { "type": "array", "items": { "type": "string", "minLength": 2, "maxLength": 32 }, "minItems": 1, "maxItems": most } }, "required": ["folders"], "additionalProperties": false });
+        let question = format!("Existing folders: {have}\n\nWhich folders?");
+        // As much of every paper as fits; when no names come of it, once more with less.
+        let width = (ALL / sample.len().max(1)).max(LEAST);
+        let mut answer = Err(failed("bad_output", "no folder names"));
+        for width in [width, LEAST] {
+            let data: Vec<&str> = sample.iter().map(|l| head(l, width)).collect();
+            answer = self
+                .ask(
+                    cx,
+                    "sort.names",
+                    NAMES_SYSTEM,
+                    question.clone(),
+                    data.join("\n"),
+                    schema.clone(),
+                    260,
+                )
+                .await;
+            match &answer {
+                Err(CommandError::Failed { kind, .. }) if kind == "bad_output" => {}
+                _ => break,
+            }
+        }
+        let (said, model) = answer?;
         let names = folder_names(&said, &existing, most);
         let mut groups: Vec<(String, Vec<String>)> =
             names.iter().map(|n| (n.clone(), vec![])).collect();
@@ -202,7 +218,7 @@ impl Understanding {
                     keys.iter().map(|k| (k.clone(), one.clone())).collect();
                 let schema = json!({ "type": "object", "properties": props, "required": keys, "additionalProperties": false });
                 let tokens = u32::try_from(part.len() * 16 + 40).unwrap_or(600);
-                let (said, _) = self
+                let said = match self
                     .ask(
                         cx,
                         "sort.assign",
@@ -212,7 +228,17 @@ impl Understanding {
                         schema,
                         tokens,
                     )
-                    .await?;
+                    .await
+                {
+                    Ok((said, _)) => said,
+                    // One part that cannot be read does not lose the others: its papers stay where
+                    // they are.
+                    Err(CommandError::Failed { kind, message }) if kind == "bad_output" => {
+                        tracing::warn!(%message, first, "papers could not be sorted");
+                        Value::Null
+                    }
+                    Err(e) => return Err(e),
+                };
                 for (k, p) in keys.iter().zip(&i.papers[first..]) {
                     match groups
                         .iter_mut()

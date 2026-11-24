@@ -5,14 +5,15 @@
 mod digest;
 mod find;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Weak};
 
 use ep_bus::{Bus, CommandError, Cx, Envelope, Permission, RegisterError, Spec, Stability};
 pub use ep_knowledge_contract as contract;
 use ep_knowledge_contract::{
     DIGEST_VERSION, Digest, DigestInfo, DigestLibrary, DigestRequest, DigestStatus, FindRequest,
-    Level, PaperId, Papers, commands as cmd, events,
+    Level, PaperId, Papers, Waiting, commands as cmd, events,
 };
 use ep_workspace_contract::{Paper, PaperDigest};
 use parking_lot::{Mutex, RwLock};
@@ -20,7 +21,10 @@ use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 use tokio_util::sync::CancellationToken;
 
-use digest::Item;
+use digest::{GAVE_WAY, Item};
+
+/// How often the battery is looked at again.
+const BATTERY_LOOK: std::time::Duration = std::time::Duration::from_secs(5);
 
 /// The engine.
 #[derive(Default)]
@@ -30,6 +34,22 @@ pub struct Knowledge {
     stop: Mutex<Option<CancellationToken>>,
     /// Papers whose digest is made anew when their turn comes.
     anew: Mutex<HashSet<String>>,
+    /// Papers a person asked for (the others were put in the row by themselves).
+    asked: Mutex<HashSet<String>>,
+    /// How often papers were named; a paper at work gives way to one named after it was begun.
+    named: AtomicU64,
+    /// Papers that could not be understood since the app started, and why.
+    problems: Mutex<HashMap<String, String>>,
+    machine: RwLock<Option<Arc<dyn ep_os::Machine>>>,
+}
+
+/// Is a digest finished, and of the file as it is now?
+fn is_ready(d: &Digest, item: &Item) -> bool {
+    d.level == Level::Full
+        && d.complete
+        && d.file
+            .as_ref()
+            .is_none_or(|f| *f == item.file.hash.to_string())
 }
 
 pub(crate) fn failed(kind: &str, message: impl Into<String>) -> CommandError {
@@ -44,6 +64,16 @@ impl Knowledge {
     #[must_use]
     pub fn new() -> Arc<Self> {
         Arc::new(Self::default())
+    }
+
+    /// Ask `machine` whether it is low on power.
+    pub fn use_machine(&self, machine: Arc<dyn ep_os::Machine>) {
+        *self.machine.write() = Some(machine);
+    }
+
+    fn low_on_power(&self) -> bool {
+        let m = self.machine.read().clone();
+        m.and_then(|m| m.low_on_power()).unwrap_or(false)
     }
 
     pub(crate) fn bus(&self) -> Result<Arc<Bus>, CommandError> {
@@ -136,12 +166,11 @@ impl Knowledge {
             .pop()
             .filter(|_| !i.force);
         if let Some(d) = &old
-            && d.level == Level::Full
-            && d.complete
+            && is_ready(d, &item)
         {
             return Ok(d.clone());
         }
-        let d = self.full(cx, &item, old, &|_, _| {}).await?;
+        let d = self.full(cx, &item, old, &|_, _| true).await?;
         self.say_digested(cx, &d);
         Ok(d)
     }
@@ -171,26 +200,43 @@ impl Knowledge {
     /// Start making digests in the background; papers that are named come next.
     fn start(self: &Arc<Self>, cx: &Cx, i: &DigestLibrary) -> DigestStatus {
         let named: Vec<String> = i.papers.iter().flatten().map(ToString::to_string).collect();
-        let full = i.full;
         {
             let mut stop = self.stop.lock();
             let mut status = self.status.lock();
-            for id in &named {
+            if i.auto && status.stopped {
+                return status.clone();
+            }
+            if !named.is_empty() {
+                self.named.fetch_add(1, Ordering::SeqCst);
+            }
+            for (n, id) in named.iter().enumerate() {
                 if i.force {
                     self.anew.lock().insert(id.clone());
                 }
-                if !status.next.contains(id) && status.paper.as_ref() != Some(id) {
-                    status.next.push(id.clone());
+                self.problems.lock().remove(id);
+                let at_work = status.paper.as_ref() == Some(id) && !i.force;
+                if i.auto {
+                    // The paper opened last goes first.
+                    if !at_work {
+                        status.next.retain(|x| x != id);
+                        let n = n.min(status.next.len());
+                        status.next.insert(n, id.clone());
+                    }
+                } else {
+                    self.asked.lock().insert(id.clone());
+                    if !status.next.contains(id) && !at_work {
+                        status.next.push(id.clone());
+                    }
                 }
             }
             if status.running {
-                status.full |= full;
+                status.full |= i.full;
                 return status.clone();
             }
             *stop = Some(CancellationToken::new());
             *status = DigestStatus {
                 running: true,
-                full,
+                full: i.full,
                 next: std::mem::take(&mut status.next),
                 ..DigestStatus::default()
             };
@@ -205,6 +251,7 @@ impl Knowledge {
         own.cancel = self.stop.lock().clone().unwrap_or_default();
         tokio::spawn(async move {
             let r = me.make_all(&own).await;
+            me.asked.lock().clear();
             me.set(&own, |s| {
                 s.running = false;
                 s.full = false;
@@ -212,8 +259,14 @@ impl Knowledge {
                 s.next.clear();
                 s.current = None;
                 s.step = None;
+                s.waiting = None;
                 s.error = match r {
                     Ok(()) | Err(CommandError::Cancelled) => None,
+                    Err(CommandError::Failed { kind, .. })
+                        if kind == "no_model" || kind == "no_runtime" =>
+                    {
+                        Some(kind)
+                    }
                     Err(e) => Some(e.to_string()),
                 };
             });
@@ -221,16 +274,43 @@ impl Knowledge {
         self.status.lock().clone()
     }
 
-    async fn make_all(&self, cx: &Cx) -> Result<(), CommandError> {
-        let items = self.library(cx, None).await?;
-        let have = self.stored(cx, None).await?;
-        let total = u32::try_from(items.len()).unwrap_or(u32::MAX);
-        self.set(cx, |s| s.total = total);
-        // First the quick ones, so that everything can be found.
-        for p in items
-            .iter()
-            .filter(|p| !have.iter().any(|d| d.paper == p.id))
-        {
+    /// Wait while the computer is low on power and nobody asked for this paper.
+    async fn wait_for_power(&self, cx: &Cx, id: &str) -> Result<(), CommandError> {
+        while self.low_on_power() && !self.asked.lock().contains(id) {
+            if self.status.lock().waiting.is_none() {
+                self.set(cx, |s| s.waiting = Some(Waiting::Battery));
+            }
+            tokio::select! {
+                () = tokio::time::sleep(BATTERY_LOOK) => {}
+                () = cx.cancel.cancelled() => return Err(CommandError::Cancelled),
+            }
+            // Something a person asked for goes first.
+            let asked = self.asked.lock().clone();
+            if self.status.lock().next.iter().any(|n| asked.contains(n)) {
+                return Err(failed(GAVE_WAY, "another paper goes first"));
+            }
+        }
+        if self.status.lock().waiting.is_some() {
+            self.set(cx, |s| s.waiting = None);
+        }
+        Ok(())
+    }
+
+    /// The quick digests, of every paper that has none (or a changed file).
+    async fn quick_ones(&self, cx: &Cx, items: &[Item]) -> Result<(), CommandError> {
+        let have: HashMap<String, Digest> = self
+            .stored(cx, None)
+            .await?
+            .into_iter()
+            .map(|d| (d.paper.clone(), d))
+            .collect();
+        for p in items.iter().filter(|p| !have.contains_key(&p.id)) {
+            if cx.is_cancelled() {
+                return Err(CommandError::Cancelled);
+            }
+            if self.problems.lock().contains_key(&p.id) {
+                continue;
+            }
             self.set(cx, |s| s.current = Some(p.title.clone()));
             match self.basic(cx, p).await {
                 Ok((d, _)) => {
@@ -239,68 +319,117 @@ impl Knowledge {
                 }
                 Err(CommandError::Cancelled) => return Err(CommandError::Cancelled),
                 // A scanned or damaged paper does not hold up the others.
-                Err(e) => tracing::info!(paper = %p.title, %e, "no basic digest"),
+                Err(e) => self.problem(p, &e),
             }
             tokio::task::yield_now().await;
         }
-        let mut row: std::collections::VecDeque<&Item> = items.iter().collect();
+        Ok(())
+    }
+
+    fn problem(&self, p: &Item, e: &CommandError) {
+        tracing::info!(paper = %p.title, %e, "not understood");
+        let kind = match e {
+            CommandError::Failed { kind, .. } => kind.clone(),
+            e => e.to_string(),
+        };
+        self.problems.lock().insert(p.id.clone(), kind);
+    }
+
+    async fn make_all(&self, cx: &Cx) -> Result<(), CommandError> {
         let mut wrong = 0;
         loop {
             if cx.is_cancelled() {
                 return Err(CommandError::Cancelled);
             }
-            // Those asked for, then (when all are wanted) the others in order.
-            let (asked, all) = {
+            // Looked at anew every time: papers are added, opened and removed meanwhile.
+            let items = self.library(cx, None).await?;
+            self.quick_ones(cx, &items).await?;
+            let stored = self.stored(cx, None).await?;
+            let ready = |p: &Item| stored.iter().any(|d| d.paper == p.id && is_ready(d, p));
+            let possible = |p: &Item| !self.problems.lock().contains_key(&p.id);
+            let count = |n: usize| u32::try_from(n).unwrap_or(u32::MAX);
+            self.set(cx, |s| {
+                s.total = count(items.iter().filter(|p| possible(p)).count());
+                s.done = count(items.iter().filter(|p| ready(p)).count());
+                s.current = None;
+                s.paper = None;
+                s.step = None;
+            });
+            // Those named first, then (when all are wanted) the one opened last.
+            let (named, all) = {
                 let mut s = self.status.lock();
-                let asked = (!s.next.is_empty()).then(|| s.next.remove(0));
-                (asked, s.full)
+                let named = (!s.next.is_empty()).then(|| s.next.remove(0));
+                (named, s.full)
             };
-            let was_asked = asked.is_some();
-            let p = match asked {
+            let was_named = named.is_some();
+            let p = match named {
                 Some(id) => items.iter().find(|p| p.id == id),
-                None if all => match row.pop_front() {
-                    Some(p) => Some(p),
-                    None => break,
-                },
-                None => break,
+                None if all => items.iter().find(|p| !ready(p) && possible(p)),
+                None => None,
             };
-            let Some(p) = p else { continue };
+            let Some(p) = p else {
+                if was_named {
+                    continue;
+                }
+                return Ok(());
+            };
             let anew = self.anew.lock().remove(&p.id);
-            let old = self.stored(cx, Some(&p.id)).await?.pop().filter(|_| !anew);
-            if old
-                .as_ref()
-                .is_some_and(|d| d.level == Level::Full && d.complete)
-            {
-                self.set(cx, |s| s.done += u32::from(!was_asked));
+            if ready(p) && !anew {
                 continue;
             }
+            let old = stored
+                .iter()
+                .find(|d| d.paper == p.id)
+                .filter(|_| !anew)
+                .cloned();
             self.set(cx, |s| {
                 s.current = Some(p.title.clone());
                 s.paper = Some(p.id.clone());
             });
-            let step = |n: usize, of: usize| self.set(cx, |s| s.step = Some(format!("{n} / {of}")));
-            match self.full(cx, p, old, &step).await {
-                Ok(d) => self.say_digested(cx, &d),
+            let mine = self.asked.lock().contains(&p.id);
+            let begun = self.named.load(Ordering::SeqCst);
+            let step = |n: usize, of: usize| {
+                self.set(cx, |s| s.step = Some(format!("{n} / {of}")));
+                let s = self.status.lock();
+                // A paper nobody asked for gives way to one that was opened or asked for.
+                let later = self.named.load(Ordering::SeqCst) != begun && !s.next.is_empty();
+                mine || (!later && (was_named || s.full))
+            };
+            let made = match self.wait_for_power(cx, &p.id).await {
+                Ok(()) => self.full(cx, p, old, &step).await,
+                Err(e) => Err(e),
+            };
+            match made {
+                Ok(d) => {
+                    wrong = 0;
+                    self.asked.lock().remove(&p.id);
+                    self.say_digested(cx, &d);
+                }
                 Err(CommandError::Cancelled) => return Err(CommandError::Cancelled),
-                Err(CommandError::Failed { kind, .. })
-                    if kind == ep_knowledge_contract::errors::NO_TEXT => {}
-                // Without a model, or with one that does not answer, there is no point in going on.
+                Err(CommandError::Failed { kind, .. }) if kind == GAVE_WAY => {
+                    // A paper that was opened is gone on with afterwards.
+                    if was_named {
+                        let mut s = self.status.lock();
+                        if !s.next.contains(&p.id) {
+                            s.next.push(p.id.clone());
+                        }
+                    }
+                }
+                // Without a model there is no point in going on.
                 Err(e) => {
-                    wrong += 1;
-                    tracing::warn!(paper = %p.title, %e, "digest not finished");
                     let hopeless = matches!(&e, CommandError::Failed { kind, .. } if ["no_model", "no_runtime", "start_failed"].contains(&kind.as_str()));
+                    self.problem(p, &e);
+                    let no_text = matches!(&e, CommandError::Failed { kind, .. } if kind == ep_knowledge_contract::errors::NO_TEXT);
+                    wrong += u32::from(!no_text);
+                    if hopeless {
+                        self.problems.lock().remove(&p.id);
+                    }
                     if hopeless || wrong >= 3 {
                         return Err(e);
                     }
                 }
             }
-            self.set(cx, |s| {
-                s.done += u32::from(!was_asked);
-                s.paper = None;
-                s.step = None;
-            });
         }
-        Ok(())
     }
 
     async fn infos(&self, cx: &Cx, i: Papers) -> Result<Vec<DigestInfo>, CommandError> {
@@ -313,6 +442,8 @@ impl Knowledge {
                 DigestInfo {
                     level: d.map(|d| d.level),
                     complete: d.is_some_and(|d| d.complete),
+                    ready: d.is_some_and(|d| is_ready(d, &p)),
+                    problem: self.problems.lock().get(&p.id).cloned(),
                     summary: d.map(|d| d.summary.clone()).unwrap_or_default(),
                     topics: d.map(|d| d.topics.clone()).unwrap_or_default(),
                     kind: d.map(|d| d.kind.clone()).unwrap_or_default(),
@@ -382,7 +513,9 @@ impl Knowledge {
                 if let Some(t) = me.stop.lock().as_ref() {
                     t.cancel();
                 }
-                Ok(me.status.lock().clone())
+                let mut s = me.status.lock();
+                s.stopped = true;
+                Ok(s.clone())
             }
         );
         reg!(

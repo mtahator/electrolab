@@ -115,3 +115,16 @@ fn uuid_like() -> u128 {
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.as_nanos())
 }
+
+#[test]
+fn the_machine_says_what_it_is_doing() {
+    use ep_os::Machine;
+    let m = ep_os_windows::WinMachine;
+    // Unknown is allowed (a server without a graphics card); nonsense is not.
+    if let Some(used) = m.graphics_used() {
+        assert!(used < 1 << 40, "{used}");
+    }
+    let t = std::time::Instant::now();
+    let _ = m.low_on_power();
+    assert!(t.elapsed().as_millis() < 200);
+}

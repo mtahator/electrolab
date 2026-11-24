@@ -23,6 +23,16 @@ pub struct Header {
     pub file_type: Option<u32>,
     /// `<architecture>.context_length`.
     pub context: Option<u32>,
+    /// `<architecture>.block_count`.
+    pub layers: Option<u32>,
+    /// `<architecture>.embedding_length`.
+    pub width: Option<u32>,
+    /// `<architecture>.attention.head_count`.
+    pub heads: Option<u32>,
+    /// `<architecture>.attention.head_count_kv` (when it is the same in every layer).
+    pub cache_heads: Option<u32>,
+    /// `<architecture>.attention.key_length`.
+    pub key_length: Option<u32>,
     /// `<architecture>.pooling_type` is present: an embedding or reranking model.
     pub pooling: bool,
     /// A chat template is present.
@@ -153,6 +163,11 @@ pub fn read<R: Read + Seek>(r: &mut R) -> io::Result<Header> {
             ("general.license", 8) => h.licence = Some(r.text()?),
             ("general.file_type", 4) => h.file_type = Some(r.u32()?),
             (k, 4) if k.ends_with(".context_length") => h.context = Some(r.u32()?),
+            (k, 4) if k.ends_with(".block_count") => h.layers = Some(r.u32()?),
+            (k, 4) if k.ends_with(".embedding_length") => h.width = Some(r.u32()?),
+            (k, 4) if k.ends_with(".attention.head_count") => h.heads = Some(r.u32()?),
+            (k, 4) if k.ends_with(".attention.head_count_kv") => h.cache_heads = Some(r.u32()?),
+            (k, 4) if k.ends_with(".attention.key_length") => h.key_length = Some(r.u32()?),
             (k, _) if k.ends_with(".pooling_type") => {
                 h.pooling = true;
                 r.skip_value(ty, 0)?;
@@ -186,6 +201,25 @@ impl Header {
         } else {
             Kind::Other
         }
+    }
+
+    /// Bytes of 8-bit cache per token of context, when the file says enough. Untrusted numbers are
+    /// multiplied without overflow.
+    #[must_use]
+    pub fn cache_per_token(&self) -> Option<u64> {
+        let (layers, heads) = (u64::from(self.layers?), u64::from(self.heads?).max(1));
+        let cache_heads = u64::from(self.cache_heads?);
+        let key = match self.key_length {
+            Some(k) => u64::from(k),
+            None => u64::from(self.width?) / heads,
+        };
+        // Keys and values; 34 bytes hold 32 numbers.
+        let numbers = layers
+            .checked_mul(2)?
+            .checked_mul(cache_heads)?
+            .checked_mul(key)?;
+        let bytes = numbers.checked_mul(17)? / 16;
+        (bytes > 0 && bytes < 64 << 20).then_some(bytes)
     }
 
     /// Name of the quantisation (`Q4_K_M`), when known.
@@ -275,6 +309,27 @@ mod tests {
         assert_eq!(kind("nomic-bert", false), Kind::Embedding);
         assert_eq!(kind("deepseek2-ocr", true), Kind::Other);
         assert_eq!(kind("llama", false), Kind::Other);
+    }
+
+    #[test]
+    fn the_cache_is_counted_from_the_header() {
+        let h = Header {
+            layers: Some(36),
+            width: Some(2560),
+            heads: Some(32),
+            cache_heads: Some(8),
+            key_length: Some(128),
+            ..Header::default()
+        };
+        // Qwen3 4B: about 640 MiB at 8192 tokens.
+        let mib = (h.cache_per_token().unwrap() * 8192) >> 20;
+        assert!((600..680).contains(&mib), "{mib}");
+        let huge = Header {
+            layers: Some(u32::MAX),
+            ..h.clone()
+        };
+        assert_eq!(huge.cache_per_token(), None, "a wrong number is no number");
+        assert_eq!(Header::default().cache_per_token(), None);
     }
 
     #[test]

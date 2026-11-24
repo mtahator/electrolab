@@ -1,0 +1,155 @@
+{
+  "command": "inference.warm",
+  "input": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "null",
+    "type": "null"
+  },
+  "output": {
+    "$defs": {
+      "LlmBackend": {
+        "description": "The llama.cpp build in use.",
+        "oneOf": [
+          {
+            "const": "cuda",
+            "description": "NVIDIA.",
+            "type": "string"
+          },
+          {
+            "const": "vulkan",
+            "description": "Any GPU with Vulkan.",
+            "type": "string"
+          },
+          {
+            "const": "cpu",
+            "description": "The processor.",
+            "type": "string"
+          },
+          {
+            "const": "none",
+            "description": "No build found.",
+            "type": "string"
+          }
+        ]
+      },
+      "LlmFallback": {
+        "description": "Why another model than the first choice is used.",
+        "oneOf": [
+          {
+            "const": "not_enough_memory",
+            "description": "It does not fit in the memory that is free.",
+            "type": "string"
+          },
+          {
+            "const": "start_failed",
+            "description": "It did not start.",
+            "type": "string"
+          },
+          {
+            "const": "too_slow",
+            "description": "It answered too slowly.",
+            "type": "string"
+          }
+        ]
+      },
+      "LlmRunState": {
+        "description": "Runtime state.",
+        "oneOf": [
+          {
+            "const": "stopped",
+            "description": "Not running.",
+            "type": "string"
+          },
+          {
+            "const": "starting",
+            "description": "Loading a model.",
+            "type": "string"
+          },
+          {
+            "const": "ready",
+            "description": "Answering.",
+            "type": "string"
+          },
+          {
+            "const": "failed",
+            "description": "Could not start or stopped answering.",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "State of the runtime.",
+    "properties": {
+      "backend": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/LlmBackend"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Build in use."
+      },
+      "error": {
+        "description": "Why it failed.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "fallback": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/LlmFallback"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Why the first choice is not used."
+      },
+      "model": {
+        "description": "Model loaded or loading.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "ready_ms": {
+        "description": "How long the last start took.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "state": {
+        "$ref": "#/$defs/LlmRunState",
+        "description": "State."
+      },
+      "wanted": {
+        "description": "The first choice, when another model is used.",
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "required": [
+      "state"
+    ],
+    "title": "LlmStatus",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Make a model ready, when the user wants one kept ready"
+}

@@ -280,6 +280,14 @@
         "description": "Every section that can have a summary was looked at.",
         "type": "boolean"
       },
+      "file": {
+        "default": null,
+        "description": "Content hash of the file it was made from (a changed file is read again).",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
       "kind": {
         "default": "",
         "description": "What the document is (`research paper`, `report`, …).",

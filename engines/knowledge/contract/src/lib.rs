@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 pub use ep_types::{BlobRef, PaperId};
 
 /// Contract version; experimental until a second host uses it (Draft 2.2 §8.3).
-pub const VERSION: &str = "0.1.0";
+pub const VERSION: &str = "0.2.0";
 
 /// Version of the digest format; older digests are made again.
 pub const DIGEST_VERSION: u32 = 1;
@@ -187,6 +187,9 @@ pub struct Digest {
     pub version: u32,
     /// Paper id.
     pub paper: String,
+    /// Content hash of the file it was made from (a changed file is read again).
+    #[serde(default)]
+    pub file: Option<String>,
     /// Pages of the document.
     pub pages: u32,
     /// How much it holds.
@@ -229,6 +232,11 @@ pub struct DigestInfo {
     pub level: Option<Level>,
     /// Finished.
     pub complete: bool,
+    /// Understood: every section was read and it belongs to the file as it is now.
+    pub ready: bool,
+    /// Why it cannot be understood (`no_text`), when that was tried.
+    #[serde(default)]
+    pub problem: Option<String>,
     /// Summary.
     pub summary: String,
     /// Subjects.
@@ -275,6 +283,9 @@ pub struct DigestLibrary {
     /// Make those of `papers` anew.
     #[serde(default)]
     pub force: bool,
+    /// Nobody asked: it does nothing after the person has stopped it, and waits when the battery is low.
+    #[serde(default)]
+    pub auto: bool,
 }
 
 /// State of making digests.
@@ -300,9 +311,24 @@ pub struct DigestStatus {
     /// Section at work (`12 / 30`).
     #[serde(default)]
     pub step: Option<String>,
-    /// Why it stopped.
+    /// Why it waits.
+    #[serde(default)]
+    pub waiting: Option<Waiting>,
+    /// The person stopped it.
+    #[serde(default)]
+    pub stopped: bool,
+    /// Why it ended early (an error kind, or a text).
     #[serde(default)]
     pub error: Option<String>,
+}
+
+/// Why making digests waits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+#[schemars(rename = "DigestWaiting")]
+pub enum Waiting {
+    /// The computer runs on its battery, and less than half of it is left.
+    Battery,
 }
 
 /// Ask for progress as events.

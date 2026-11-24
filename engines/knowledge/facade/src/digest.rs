@@ -45,6 +45,8 @@ const ROLES: [&str; 13] = [
     "references",
     "other",
 ];
+/// Another paper goes first.
+pub(crate) const GAVE_WAY: &str = "gave_way";
 /// Sentences and characters of a section shown to the model.
 const SENTENCES: usize = 60;
 const SENTENCE: usize = 420;
@@ -158,7 +160,11 @@ impl Knowledge {
         let mut pages = Vec::with_capacity(info.pages as usize);
         for p in 1..=info.pages {
             let t: Result<PageText, _> = self
-                .call(cx, "document.text", json!({ "file": file, "page": p }))
+                .call(
+                    cx,
+                    "document.text",
+                    json!({ "file": file, "page": p, "background": true }),
+                )
                 .await;
             match t {
                 Ok(t) => pages.push(t.text),
@@ -251,6 +257,7 @@ impl Knowledge {
         let d = Digest {
             version: DIGEST_VERSION,
             paper: item.id.clone(),
+            file: Some(item.file.hash.to_string()),
             pages,
             level: Level::Basic,
             complete: true,
@@ -466,13 +473,14 @@ impl Knowledge {
         Ok(())
     }
 
-    /// Make (or finish) the full digest; `step` is told where it is; it is kept every few sections.
+    /// Make (or finish) the full digest; it is kept after every section. `step` is told where it is
+    /// and says whether to go on.
     pub(crate) async fn full(
         &self,
         cx: &Cx,
         item: &Item,
         old: Option<Digest>,
-        step: &(dyn Fn(usize, usize) + Send + Sync),
+        step: &(dyn Fn(usize, usize) -> bool + Send + Sync),
     ) -> Result<Digest, CommandError> {
         let (mut d, pieces) = self.basic(cx, item).await?;
         // Go on where it stopped, when the document is still cut the same way.
@@ -490,7 +498,10 @@ impl Knowledge {
         d.complete = false;
         let total = pieces.len();
         for (i, piece) in pieces.iter().enumerate() {
-            step(i + 1, total);
+            // What a person wants first goes first; what is made so far is kept.
+            if !step(i + 1, total) {
+                return Err(failed(GAVE_WAY, "another paper goes first"));
+            }
             let s = &mut d.sections[i];
             let quiet = matches!(s.role, Role::References | Role::Administrative);
             if s.source != Source::None || quiet {
@@ -504,18 +515,18 @@ impl Knowledge {
                     String::new()
                 }
                 Err(e) => {
-                    self.keep(cx, &d).await?;
+                    if d.sections.iter().any(|s| s.source != Source::None) {
+                        self.keep(cx, &d).await?;
+                    }
                     return Err(e);
                 }
             };
             if !model.is_empty() {
                 d.model = Some(model);
             }
-            if i % 3 == 0 {
-                self.keep(cx, &d).await?;
-                // What is made so far can be read.
-                self.say_digested(cx, &d);
-            }
+            // What is made so far is kept, and can be read.
+            self.keep(cx, &d).await?;
+            self.say_digested(cx, &d);
         }
         match self.whole(cx, &mut d).await {
             Ok(()) => {}

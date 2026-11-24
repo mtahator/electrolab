@@ -1386,6 +1386,63 @@ body,
   color: var(--accent);
 }
 
+/* Understood by AI (design language §17.12) ---------------------------------------------------- */
+.brain-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.brain-mark:hover {
+  background: var(--accent-soft);
+}
+
+.brain-mark.working svg {
+  animation: ep-brain 1.6s var(--ease) infinite alternate;
+}
+
+.paper-cover .brain-mark {
+  position: absolute;
+  inset: var(--space-2) var(--space-2) auto auto;
+  z-index: 1;
+  background: var(--bg-panel);
+  box-shadow: var(--page-shadow);
+}
+
+@keyframes ep-brain {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brain-mark.working svg {
+    animation: none;
+  }
+}
+
+@media (pointer: coarse) {
+  .brain-mark {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+.llm-order {
+  margin-bottom: var(--space-2);
+}
+
 /* Asking the library (design language §17.11) ------------------------------------------------- */
 .ask-box {
   display: flex;

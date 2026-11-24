@@ -34,7 +34,7 @@ void onBusEvent("knowledge.digesting", (e) => void setStatus(e.data as DigestSta
 let timer: number | undefined;
 void onBusEvent("knowledge.digested", () => {
   window.clearTimeout(timer);
-  timer = window.setTimeout(() => void refreshDigests(), 300);
+  timer = window.setTimeout(() => void refreshDigests().catch(() => {}), 600);
 });
 
 export async function refreshDigests(): Promise<void> {
@@ -47,12 +47,12 @@ export async function refreshDigests(): Promise<void> {
 export async function enterAsk(): Promise<void> {
   await Promise.all([refreshDigests(), refreshLanguageModels()]);
   setStatus(await bus("knowledge.digest_status", null));
-  if ([...library().keys()].some((id) => !digests().get(id)?.level)) await makeDigests({ full: false });
+  if ([...library().keys()].some((id) => !digests().get(id)?.level)) await makeDigests({ full: false, auto: true });
 }
 
 /** Make summaries in the background: of these papers, or (`full`) of all. */
-export async function makeDigests(i: { full: boolean; papers?: string[]; force?: boolean }): Promise<void> {
-  setStatus(await bus("knowledge.digest_library", { full: i.full, papers: i.papers ?? null, force: i.force ?? false }));
+export async function makeDigests(i: { full: boolean; papers?: string[]; force?: boolean; auto?: boolean }): Promise<void> {
+  setStatus(await bus("knowledge.digest_library", { full: i.full, papers: i.papers ?? null, force: i.force ?? false, auto: i.auto ?? false }));
 }
 
 export async function stopDigests(): Promise<void> {

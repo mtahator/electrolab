@@ -56,9 +56,9 @@ export async function removeModelFolder(path: string): Promise<void> {
   setModels(await bus("inference.remove_folder", { path }));
 }
 
-/** The model of a task (null: the default again). */
-export async function assignModel(task: string, model: string | null): Promise<void> {
-  setModels(await bus("inference.assign", model ? { task, model } : { task }));
+/** The order in which models are tried (empty: automatic), and whether one is kept ready. */
+export async function chooseModels(i: { order?: string[]; keep_ready?: boolean }): Promise<void> {
+  setModels(await bus("inference.choose", i));
 }
 
 const isRunning = (p: Phase): boolean => p === "starting" || p === "draft" || p === "checking";

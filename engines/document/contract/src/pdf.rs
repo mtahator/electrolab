@@ -41,6 +41,9 @@ pub struct PageRequest {
     pub file: BlobRef,
     /// 1-based page number.
     pub page: u32,
+    /// Nobody is waiting: pages that are looked at go first.
+    #[serde(default)]
+    pub background: bool,
 }
 
 /// A run of characters (a word or a line) and its box.

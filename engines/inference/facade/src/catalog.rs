@@ -2,7 +2,7 @@
 //! recognised from its header (contract: automatic model search). A suggestion is made for this
 //! machine; what the user chose is kept in a small settings file.
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
@@ -69,6 +69,8 @@ pub struct Found {
     pub architecture: String,
     pub quantisation: Option<String>,
     pub context: u32,
+    /// Bytes of cache per token of context, when the file says so.
+    pub cache_per_token: Option<u64>,
 }
 
 /// What a search of one folder gave.
@@ -169,6 +171,7 @@ fn recognise(path: &Path, cache: &mut Cache) -> Option<Found> {
             gguf::Kind::VisionPart => ModelKind::VisionPart,
             gguf::Kind::Other => ModelKind::Other,
         },
+        cache_per_token: h.cache_per_token(),
         context: h.context.map_or(CONTEXT, |c| c.clamp(512, CONTEXT)),
         architecture: h.architecture,
         quantisation,
@@ -256,6 +259,11 @@ pub fn scan(dirs: &[PathBuf], cache: &mut Cache) -> Catalog {
     c
 }
 
+/// A model the project has measured.
+pub fn is_known(id: &str) -> bool {
+    KNOWN.iter().any(|k| k.id == id)
+}
+
 /// The model suggested for this machine: the measured one for its kind, else the largest chat
 /// model that runs well here, else the smallest one.
 pub fn suggested(models: &[Found], backend: Backend) -> Option<&Found> {
@@ -275,9 +283,12 @@ pub struct Choices {
     /// Folders added by the user.
     #[serde(default)]
     pub folders: Vec<PathBuf>,
-    /// Task → model id (`default` for everything else).
+    /// Models in the order they are tried (empty: automatic).
     #[serde(default)]
-    pub tasks: BTreeMap<String, String>,
+    pub order: Vec<String>,
+    /// No model is loaded before it is needed.
+    #[serde(default)]
+    pub on_demand: bool,
 }
 
 impl Choices {
@@ -330,6 +341,7 @@ mod tests {
             architecture: "llama".into(),
             quantisation: None,
             context: CONTEXT,
+            cache_per_token: None,
         }
     }
 

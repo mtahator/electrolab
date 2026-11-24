@@ -33,7 +33,9 @@ impl BlobAccess for Blobs {
 struct Lib {
     bus: Arc<Bus>,
     ids: Vec<String>,
-    dir: tempfile::TempDir,
+    dir: Arc<tempfile::TempDir>,
+    ws: Arc<Workspace>,
+    knowledge: Arc<Knowledge>,
 }
 
 static PDF: std::sync::OnceLock<Arc<dyn ep_document::Backend>> = std::sync::OnceLock::new();
@@ -45,28 +47,10 @@ async fn lib(files: &[&str], inference: Arc<Inference>) -> Option<Lib> {
         eprintln!("skipped: PDFium or a fixture is missing");
         return None;
     }
-    let pdf = PDF
-        .get_or_init(|| ep_document::start_pdfium(&natives).unwrap())
-        .clone();
-    let dir = tempfile::tempdir().unwrap();
-    let bus = Arc::new(Bus::default());
+    PDF.get_or_init(|| ep_document::start_pdfium(&natives).unwrap());
+    let dir = Arc::new(tempfile::tempdir().unwrap());
     let ws = Workspace::new(Arc::new(ep_os::RootDirs(dir.path().join("data"))));
-    ws.register(&bus).unwrap();
-    Document::new(
-        Arc::new(Blobs(ws)),
-        Some(pdf),
-        Some(&dir.path().join("cache")),
-    )
-    .unwrap()
-    .register(&bus)
-    .unwrap();
-    inference.register(&bus).unwrap();
-    Knowledge::new().register(&bus).unwrap();
-    let mut l = Lib {
-        bus,
-        ids: vec![],
-        dir,
-    };
+    let mut l = engines(dir, ws, &inference, "cache");
     l.ok("workspace.open_default_library", Value::Null).await;
     for f in files {
         let v = l
@@ -77,7 +61,43 @@ async fn lib(files: &[&str], inference: Arc<Inference>) -> Option<Lib> {
     Some(l)
 }
 
+/// The engines on a library.
+fn engines(
+    dir: Arc<tempfile::TempDir>,
+    ws: Arc<Workspace>,
+    inference: &Arc<Inference>,
+    cache: &str,
+) -> Lib {
+    let bus = Arc::new(Bus::default());
+    ws.register(&bus).unwrap();
+    let pdf = PDF.get().unwrap().clone();
+    Document::new(
+        Arc::new(Blobs(ws.clone())),
+        Some(pdf),
+        Some(&dir.path().join(cache)),
+    )
+    .unwrap()
+    .register(&bus)
+    .unwrap();
+    inference.register(&bus).unwrap();
+    let knowledge = Knowledge::new();
+    knowledge.register(&bus).unwrap();
+    Lib {
+        bus,
+        ids: vec![],
+        dir,
+        ws,
+        knowledge,
+    }
+}
+
 impl Lib {
+    /// The same library, opened again by new engines.
+    fn again(&self, inference: &Arc<Inference>) -> Lib {
+        let mut l = engines(self.dir.clone(), self.ws.clone(), inference, "cache-2");
+        l.ids.clone_from(&self.ids);
+        l
+    }
     async fn call(&self, c: &str, i: Value) -> Result<Value, CommandError> {
         self.bus.call(Envelope::new(c, i)).await
     }
@@ -347,6 +367,212 @@ async fn papers_asked_for_come_next_and_only_they_are_written() {
         grew += u32::from(e.data["paper"] == json!(l.ids[1]) && e.data["level"] == "full");
     }
     assert!(grew >= 2, "{grew}");
+}
+
+/// Wait until making digests has ended.
+async fn ended(l: &Lib) -> DigestStatus {
+    for _ in 0..1200 {
+        let s: DigestStatus =
+            serde_json::from_value(l.ok("knowledge.digest_status", Value::Null).await).unwrap();
+        if !s.running {
+            return s;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
+    panic!("still running")
+}
+
+async fn infos(l: &Lib) -> Vec<DigestInfo> {
+    serde_json::from_value(l.ok("knowledge.digests", json!({})).await).unwrap()
+}
+
+#[tokio::test]
+async fn every_paper_is_understood_by_itself_and_nothing_is_made_twice() {
+    let replay = Replay::new()
+        .on_with("digest.section", None, |p| card(&sentences(p)[0], p))
+        .on("digest.paper", paper_card());
+    let Some(l) = lib(
+        &[MANUAL, REPORT],
+        Inference::with_backend(Arc::new(replay.clone())),
+    )
+    .await
+    else {
+        return;
+    };
+    let auto = json!({ "full": true, "auto": true });
+    l.ok("knowledge.digest_library", auto.clone()).await;
+    let s = ended(&l).await;
+    assert_eq!((s.done, s.total, s.error), (2, 2, None));
+    assert!(infos(&l).await.iter().all(|i| i.ready && i.complete));
+    let asked = replay.seen().len();
+    l.ok("knowledge.digest_library", auto).await;
+    ended(&l).await;
+    assert_eq!(replay.seen().len(), asked, "it is ready already");
+}
+
+#[tokio::test]
+async fn a_paper_closed_too_early_is_gone_on_with_the_next_time() {
+    let slow = Replay::new()
+        .on_with("digest.section", None, |p| {
+            card(&format!("{} {}", sentences(p)[0], "word ".repeat(1500)), p)
+        })
+        .on("digest.paper", paper_card());
+    let Some(l) = lib(&[MANUAL], Inference::with_backend(Arc::new(slow.clone()))).await else {
+        return;
+    };
+    let mut sub = l.bus.events().subscribe("knowledge.digested");
+    l.ok(
+        "knowledge.digest_library",
+        json!({ "full": false, "papers": [l.ids[0]], "auto": true }),
+    )
+    .await;
+    // Closed after the first section was read.
+    while let Ok(ep_bus::Recv::Event(e)) =
+        tokio::time::timeout(std::time::Duration::from_secs(20), sub.recv()).await
+    {
+        if e.data["level"] == "full" {
+            break;
+        }
+    }
+    l.ok("knowledge.digest_stop", Value::Null).await;
+    ended(&l).await;
+    let i = infos(&l).await;
+    assert!(!i[0].ready && i[0].level == Some(Level::Full), "{i:?}");
+    let sections = slow
+        .seen()
+        .iter()
+        .filter(|p| p.task == "digest.section")
+        .count();
+    // The person stopped it: nothing starts by itself until they say so.
+    let s: DigestStatus = serde_json::from_value(
+        l.ok(
+            "knowledge.digest_library",
+            json!({ "full": true, "auto": true }),
+        )
+        .await,
+    )
+    .unwrap();
+    assert!(!s.running && s.stopped);
+    // The next time the app starts (a new engine on the same library), it goes on by itself.
+    let quick = Replay::new()
+        .on_with("digest.section", None, |p| card(&sentences(p)[0], p))
+        .on("digest.paper", paper_card());
+    let again = l.again(&Inference::with_backend(Arc::new(quick.clone())));
+    again
+        .ok(
+            "knowledge.digest_library",
+            json!({ "full": true, "auto": true }),
+        )
+        .await;
+    ended(&again).await;
+    assert!(infos(&again).await[0].ready);
+    let rest = quick
+        .seen()
+        .iter()
+        .filter(|p| p.task == "digest.section")
+        .count();
+    let all = {
+        let d: Digest = serde_json::from_value(
+            again
+                .ok("knowledge.get_digest", json!({ "paper": l.ids[0] }))
+                .await,
+        )
+        .unwrap();
+        d.sections.len()
+    };
+    assert!(
+        rest < all,
+        "what was made is not made again: {sections} + {rest} of {all}"
+    );
+}
+
+#[tokio::test]
+async fn on_battery_only_what_a_person_asks_is_made() {
+    let replay = Replay::new()
+        .on_with("digest.section", None, |p| card(&sentences(p)[0], p))
+        .on("digest.paper", paper_card());
+    let Some(l) = lib(&[MANUAL, REPORT], Inference::with_backend(Arc::new(replay))).await else {
+        return;
+    };
+    let machine = Arc::new(ep_os::fake::FakeMachine::default());
+    *machine.battery.lock() = Some(true);
+    l.knowledge.use_machine(machine.clone());
+    l.ok(
+        "knowledge.digest_library",
+        json!({ "full": true, "auto": true }),
+    )
+    .await;
+    let status = async || -> DigestStatus {
+        serde_json::from_value(l.ok("knowledge.digest_status", Value::Null).await).unwrap()
+    };
+    for _ in 0..200 {
+        if status().await.waiting.is_some() {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
+    assert_eq!(
+        status().await.waiting,
+        Some(ep_knowledge::contract::Waiting::Battery)
+    );
+    assert!(
+        infos(&l)
+            .await
+            .iter()
+            .all(|i| i.level == Some(Level::Basic)),
+        "words can be found"
+    );
+    // Asked for: made at once.
+    l.ok(
+        "knowledge.digest_library",
+        json!({ "full": false, "papers": [l.ids[1]] }),
+    )
+    .await;
+    for _ in 0..600 {
+        if infos(&l).await.iter().any(|i| i.ready) {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
+    let i = infos(&l).await;
+    assert!(i.iter().all(|i| i.ready == (i.paper == l.ids[1])), "{i:?}");
+    // Plugged in: the rest.
+    *machine.battery.lock() = Some(false);
+    ended(&l).await;
+    assert!(infos(&l).await.iter().all(|i| i.ready));
+}
+
+#[tokio::test]
+async fn without_a_model_it_says_so_and_goes_on_when_there_is_one() {
+    let Some(l) = lib(
+        &[MANUAL],
+        Inference::new(
+            vec![],
+            vec![],
+            Arc::new(ep_os::fake::FakeSpawner::default()),
+            None,
+            None,
+        ),
+    )
+    .await
+    else {
+        return;
+    };
+    l.ok(
+        "knowledge.digest_library",
+        json!({ "full": true, "auto": true }),
+    )
+    .await;
+    let s = ended(&l).await;
+    assert!(
+        matches!(s.error.as_deref(), Some("no_model" | "no_runtime")),
+        "{s:?}"
+    );
+    let i = infos(&l).await;
+    assert!(
+        !i[0].ready && i[0].problem.is_none() && i[0].level == Some(Level::Basic),
+        "{i:?}"
+    );
 }
 
 #[tokio::test]

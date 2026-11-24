@@ -27,7 +27,7 @@
     "document.text",
     "document.thumbnails",
     "inference.add_folder",
-    "inference.assign",
+    "inference.choose",
     "inference.load",
     "inference.models",
     "inference.remove_folder",

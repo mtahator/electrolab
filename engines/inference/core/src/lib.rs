@@ -73,6 +73,8 @@ pub struct Completion {
     pub prompt_tokens: u32,
     /// Tokens written.
     pub completion_tokens: u32,
+    /// It ended at the limit, not by itself.
+    pub cut: bool,
 }
 
 /// Why a backend failed.
@@ -222,6 +224,7 @@ impl InferenceBackend for Replay {
                     .unwrap_or(u32::MAX),
                 prompt_tokens: u32::try_from(all.split_whitespace().count()).unwrap_or(u32::MAX),
                 text: sent,
+                cut: false,
             })
         })
     }

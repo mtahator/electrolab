@@ -18,10 +18,16 @@ use std::sync::Arc;
 use ep_os::{ChildProcess, ProcessSpawner, ProcessSpec};
 use tokio::sync::Mutex;
 
+pub mod devices;
 pub mod http;
 
 /// How long a model may take to load.
-const START_LIMIT: Duration = Duration::from_secs(90);
+const START_LIMIT: Duration = Duration::from_secs(75);
+/// How long the server may write nothing before it counts as stuck (reading a long text on a slow
+/// processor takes a while; a stuck graphics driver never ends).
+const STALL: Duration = Duration::from_secs(150);
+/// Memory for texts read before (the server's own limit is 8 GB).
+const PROMPT_CACHE_MIB: &str = "512";
 
 /// What to run.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,6 +42,10 @@ pub struct Config {
     pub context: u32,
     /// Layers on the GPU (0 for the CPU build); llama.cpp chooses when missing (large models).
     pub gpu_layers: Option<u32>,
+    /// Graphics card (`-dev`), when more than one is there.
+    pub device: Option<String>,
+    /// 8-bit cache: half the memory, as good (a model that cannot do it is started without).
+    pub compact: bool,
     /// Backend name for route reasons (`cuda`, `vulkan`, `cpu`).
     pub backend: String,
     /// The server's own log (otherwise discarded).
@@ -174,12 +184,25 @@ impl LlamaCppSidecar {
                 "-np".into(),
                 "1".into(),
                 "--no-webui".into(),
+                "-cram".into(),
+                PROMPT_CACHE_MIB.into(),
             ]
             .into_iter()
             .chain(
                 c.gpu_layers
                     .into_iter()
                     .flat_map(|n| ["-ngl".into(), n.to_string().into()]),
+            )
+            .chain(
+                c.device
+                    .iter()
+                    .flat_map(|d| ["-dev".into(), d.clone().into()]),
+            )
+            .chain(
+                ["-fa", "on", "-ctk", "q8_0", "-ctv", "q8_0"]
+                    .into_iter()
+                    .filter(|_| c.compact)
+                    .map(Into::into),
             )
             .collect(),
             cwd: c.exe.parent().map(Path::to_path_buf),
@@ -210,6 +233,9 @@ impl LlamaCppSidecar {
             "stream_options": { "include_usage": true },
         });
         if let Some(schema) = &req.schema {
+            // The answer starts at once: without this a model may "think" first, which the schema
+            // does not hold and which uses up the limit (founder report, 2026-11-24).
+            body["reasoning_format"] = json!("none");
             body["response_format"] = json!({
                 "type": "json_schema",
                 "json_schema": { "name": "answer", "schema": schema, "strict": true }
@@ -245,9 +271,10 @@ impl LlamaCppSidecar {
                 text.chars().take(300).collect::<String>()
             )));
         }
-        let mut out = Completion::default();
+        let mut out = Answer::default();
         // Bytes, not text: a letter may be split between two reads.
         let mut pending: Vec<u8> = Vec::new();
+        let mut heard = Instant::now();
         loop {
             if cancelled() {
                 // Dropping the connection stops the slot in llama-server.
@@ -255,23 +282,42 @@ impl LlamaCppSidecar {
             }
             let next = tokio::time::timeout(Duration::from_millis(100), resp.next()).await;
             let bytes = match next {
+                Err(_) if heard.elapsed() > STALL => {
+                    // A stuck server is ended, so that it can be started again.
+                    if let Some(r) = self.running.lock().await.as_mut() {
+                        let _ = r.child.kill();
+                    }
+                    return Err(BackendError::Failed("the model stopped answering".into()));
+                }
                 Err(_) => continue,
                 Ok(Err(e)) => return Err(BackendError::Failed(e.to_string())),
                 Ok(Ok(None)) => break,
                 Ok(Ok(Some(b))) => b,
             };
+            heard = Instant::now();
             pending.extend(bytes);
             if take_lines(&mut pending, &mut out, on_token) {
-                return Ok(out);
+                break;
             }
         }
         sse_line(String::from_utf8_lossy(&pending).trim(), &mut out, on_token);
-        Ok(out)
+        match out.error.take() {
+            Some(e) => Err(BackendError::Failed(e)),
+            None => Ok(out.done),
+        }
     }
 }
 
+/// What was read of an answer.
+#[derive(Debug, Default)]
+struct Answer {
+    done: Completion,
+    /// The server said what went wrong (after it had begun to answer).
+    error: Option<String>,
+}
+
 /// Read the whole lines of `pending`, keeping the rest; true at `[DONE]`.
-fn take_lines(pending: &mut Vec<u8>, out: &mut Completion, on_token: OnToken<'_>) -> bool {
+fn take_lines(pending: &mut Vec<u8>, out: &mut Answer, on_token: OnToken<'_>) -> bool {
     while let Some(i) = pending.iter().position(|b| *b == b'\n') {
         let line: Vec<u8> = pending.drain(..=i).collect();
         if sse_line(String::from_utf8_lossy(&line).trim(), out, on_token) {
@@ -282,7 +328,7 @@ fn take_lines(pending: &mut Vec<u8>, out: &mut Completion, on_token: OnToken<'_>
 }
 
 /// Read one server-sent-events line; true at `[DONE]`. Broken lines are skipped.
-fn sse_line(line: &str, out: &mut Completion, on_token: OnToken<'_>) -> bool {
+fn sse_line(line: &str, out: &mut Answer, on_token: OnToken<'_>) -> bool {
     let Some(data) = line.strip_prefix("data:") else {
         return false;
     };
@@ -293,6 +339,19 @@ fn sse_line(line: &str, out: &mut Completion, on_token: OnToken<'_>) -> bool {
     let Ok(ev) = serde_json::from_str::<Value>(data) else {
         return false;
     };
+    if let Some(e) = ev.get("error").filter(|e| !e.is_null()) {
+        let said = e.get("message").and_then(Value::as_str).unwrap_or("error");
+        out.error = Some(said.chars().take(300).collect());
+        return true;
+    }
+    let out = &mut out.done;
+    if ev
+        .pointer("/choices/0/finish_reason")
+        .and_then(Value::as_str)
+        == Some("length")
+    {
+        out.cut = true;
+    }
     if let Some(piece) = ev
         .pointer("/choices/0/delta/content")
         .and_then(Value::as_str)
@@ -357,7 +416,7 @@ mod tests {
 
     #[test]
     fn sse_lines_are_read_defensively() {
-        let mut c = Completion::default();
+        let mut c = Answer::default();
         let got = parking_lot::Mutex::new(String::new());
         let on = |t: &str| got.lock().push_str(t);
         let mut feed = |l: &str| sse_line(l, &mut c, &on);
@@ -367,7 +426,15 @@ mod tests {
         assert!(!feed(
             r#"data: {"choices":[{"delta":{"content":"lo"}}],"usage":{"prompt_tokens":7,"completion_tokens":2}}"#
         ));
+        assert!(!feed(
+            r#"data: {"choices":[{"delta":{},"finish_reason":"length"}]}"#
+        ));
         assert!(feed("data: [DONE]"));
+        let e = r#"data: {"error":{"message":"too long"}}"#;
+        assert!(feed(e));
+        assert_eq!(c.error.as_deref(), Some("too long"));
+        let c = c.done;
+        assert!(c.cut);
         assert_eq!(c.text, "Hello");
         assert_eq!(*got.lock(), "Hello");
         assert_eq!((c.prompt_tokens, c.completion_tokens), (7, 2));
@@ -376,12 +443,12 @@ mod tests {
     #[test]
     fn letters_split_between_reads_stay_whole() {
         let line = "data: {\"choices\":[{\"delta\":{\"content\":\"∇·u = α\"}}]}\n".as_bytes();
-        let (mut pending, mut c) = (Vec::new(), Completion::default());
+        let (mut pending, mut c) = (Vec::new(), Answer::default());
         for b in line {
             pending.push(*b);
             assert!(!take_lines(&mut pending, &mut c, &|_| {}));
         }
-        assert_eq!(c.text, "∇·u = α");
+        assert_eq!(c.done.text, "∇·u = α");
     }
 
     /// Starts a tiny server instead of a process: healthy, checks the key, answers one request per
@@ -482,6 +549,8 @@ mod tests {
             model_id: "m".into(),
             context: 4096,
             gpu_layers: Some(0),
+            device: None,
+            compact: true,
             backend: "cpu".into(),
             log_file: None,
         };

@@ -40,6 +40,11 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "description": "Input naming one page.",
     "properties": {
+      "background": {
+        "default": false,
+        "description": "Nobody is waiting: pages that are looked at go first.",
+        "type": "boolean"
+      },
       "file": {
         "$ref": "#/$defs/BlobRef",
         "description": "The stored PDF."

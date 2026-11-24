@@ -8,8 +8,8 @@ use futures::future::BoxFuture;
 use parking_lot::Mutex;
 
 use crate::{
-    Accelerators, ChildProcess, FileDialog, FileWatcher, Filter, KeyStore, LocalIpc, Notifier,
-    OsError, ProcessSpawner, ProcessSpec, Result, Sandbox, ShellOpen, Stream, Updater,
+    Accelerators, ChildProcess, FileDialog, FileWatcher, Filter, KeyStore, LocalIpc, Machine,
+    Notifier, OsError, ProcessSpawner, ProcessSpec, Result, Sandbox, ShellOpen, Stream, Updater,
 };
 
 /// App folders under one root (e.g. a temporary folder).
@@ -30,6 +30,24 @@ impl KeyStore for MemoryKeyStore {
     fn delete(&self, name: &str) -> Result<()> {
         self.0.lock().remove(name);
         Ok(())
+    }
+}
+
+/// A machine that says what the test sets.
+#[derive(Debug, Default)]
+pub struct FakeMachine {
+    /// Memory in use on the graphics card.
+    pub used: Mutex<Option<u64>>,
+    /// Low on power.
+    pub battery: Mutex<Option<bool>>,
+}
+
+impl Machine for FakeMachine {
+    fn graphics_used(&self) -> Option<u64> {
+        *self.used.lock()
+    }
+    fn low_on_power(&self) -> Option<bool> {
+        *self.battery.lock()
     }
 }
 

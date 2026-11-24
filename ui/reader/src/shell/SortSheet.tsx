@@ -25,7 +25,7 @@ export function SortSheet(props: {
   onApply: (groups: FolderGroup[]) => void;
   onClose: () => void;
 }): JSX.Element {
-  const id = crypto.randomUUID();
+  let id = "";
   const [state, setState] = createSignal<"running" | "ready" | "failed">("running");
   const [progress, setProgress] = createSignal<{ step: string; done: number; total: number } | null>(null);
   const [error, setError] = createSignal<{ kind: string; message: string } | null>(null);
@@ -35,17 +35,17 @@ export function SortSheet(props: {
   const paper = (p: string): Paper | undefined => props.papers.find((x) => x.id === p);
   let open = true;
 
-  onMount(async () => {
-    const stop = await onBusEvent("understanding.sorting", (e) => {
-      const d = e.data as { id: string; step: string; done: number; total: number };
-      if (d.id === id) setProgress(d);
-    });
-    onCleanup(stop);
+  const suggest = async (): Promise<void> => {
+    id = crypto.randomUUID();
+    const mine = id;
+    setState("running");
+    setProgress(null);
+    setError(null);
     try {
       // What the summaries say about the papers; a paper without one is read by the engine.
       const known = await bus("knowledge.digests", { papers: props.papers.map((p) => p.id) }).catch(() => []);
-      const about = (id: string): string | null => {
-        const d = known.find((x) => x.paper === id);
+      const about = (paper: string): string | null => {
+        const d = known.find((x) => x.paper === paper);
         return d?.level ? [d.kind, d.summary, d.topics.join(", ")].filter(Boolean).join(". ") || null : null;
       };
       const r: FolderSuggestion = await bus(
@@ -53,9 +53,9 @@ export function SortSheet(props: {
         {
           papers: props.papers.map((p) => ({ id: p.id, title: titleOf(p), file: p.file, about: about(p.id) })),
           folders: collections().filter((c) => (c.parent ?? null) === props.parent).map((c) => ({ id: c.id, name: c.name })),
-          stream: { id },
+          stream: { id: mine },
         },
-        { id },
+        { id: mine },
       );
       if (!open) return;
       setGroups(r.folders.map((f) => ({ name: f.name, existing: f.existing ?? null, take: true, papers: f.papers })));
@@ -68,6 +68,14 @@ export function SortSheet(props: {
       setError({ kind: err?.code === "failed" ? err.kind : (err?.code ?? ""), message: String((e as Error).message ?? e) });
       setState("failed");
     }
+  };
+  onMount(async () => {
+    const stop = await onBusEvent("understanding.sorting", (e) => {
+      const d = e.data as { id: string; step: string; done: number; total: number };
+      if (d.id === id) setProgress(d);
+    });
+    onCleanup(stop);
+    await suggest();
   });
   const close = (): void => {
     open = false;
@@ -139,7 +147,13 @@ export function SortSheet(props: {
           </p>
         </Show>
         <Show when={state() === "failed"}>
-          <p>{needsModel() ? t("explain.no_model") : error()?.message}</p>
+          <p>{needsModel() ? t("explain.no_model") : t("sort.failed")}</p>
+          <Show when={!needsModel()}>
+            <p class="muted">{error()?.kind === "bad_output" ? t("sort.failed_answer") : error()?.message}</p>
+            <Button variant="primary" onClick={() => void suggest()}>
+              {t("sort.again")}
+            </Button>
+          </Show>
           <Show when={needsModel()}>
             <Button icon="settings" onClick={() => (close(), setSettingsOpen(true))}>
               {t("explain.open_settings")}

@@ -8,12 +8,14 @@
 mod dirs;
 mod ipc;
 mod keystore;
+mod machine;
 mod process;
 mod shell;
 
 pub use dirs::WinDirs;
 pub use ipc::NamedPipes;
 pub use keystore::CredentialStore;
+pub use machine::WinMachine;
 pub use process::JobSpawner;
 pub use shell::WinShell;
 

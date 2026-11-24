@@ -7,6 +7,7 @@ import {
   Banner,
   Button,
   Dialog,
+  Icon,
   IconButton,
   type MenuItem,
   Panel,
@@ -54,12 +55,13 @@ import {
   setRightWidth,
   toggleMarginView,
 } from "./shell/frame";
-import { setAskOpen } from "./assistant/ask";
+import { digestStatus, digests, makeDigests, setAskOpen, stopDigests } from "./assistant/ask";
+import { setUnderstandOn, startUnderstanding, understand, understandOn } from "./assistant/understand";
 import { LibraryView } from "./shell/LibraryView";
 import { KeymapSettings, Palette, Prompt } from "./shell/Overlays";
 import { activate, activeTab, closeTab, moveTab, openPapers, openTab, restore, session, setShowLibrary, toggleSplit, updatePaper } from "./shell/session";
 import { PrintSheet } from "./shell/Print";
-import { explainCard, refreshLanguageModels } from "./assistant/explain";
+import { canExplain, explainCard, refreshLanguageModels } from "./assistant/explain";
 import { Settings } from "./shell/Settings";
 import { SidePanel } from "./shell/SidePanel";
 import type { Marks, ViewerApi, ViewerStatus } from "./viewer/Viewer";
@@ -430,7 +432,30 @@ export function App(): JSX.Element {
     onCleanup(() => window.removeEventListener("keydown", stopBrowserPrint, true));
   });
 
+  // A paper that was opened (or added) is understood next, in the background.
+  let last = "";
+  createEffect(() => {
+    const id = current().paper?.id ?? "";
+    if (!id || id === last) return;
+    last = id;
+    understand([id]);
+  });
+  const understandMenu = (at: DOMRect): void => {
+    const s = digestStatus();
+    openMenu(
+      t("brain.menu"),
+      [
+        ...(s?.waiting === "battery" ? [{ label: t("brain.anyway"), icon: "sparkles" as const, run: () => void makeDigests({ full: true, papers: [...digests().values()].filter((d) => !d.ready && !d.problem).map((d) => d.paper) }).catch(report) }] : []),
+        { label: s?.running ? t("brain.pause") : t("summary.go_on"), icon: "brain", run: () => void (s?.running ? stopDigests() : setUnderstandOn(true)) },
+        { label: t("ask.title"), icon: "sparkles", run: () => (setAskOpen(true), setShowLibrary(true)) },
+        { label: t("settings.title"), icon: "settings", run: () => setSettings(true) },
+      ],
+      at,
+    );
+  };
+
   onMount(async () => {
+    startUnderstanding();
     void refreshLanguageModels();
     void refreshModels().then(async () => {
       // The user chose the layout model while installing: get it now, progress in the status line.
@@ -764,6 +789,14 @@ export function App(): JSX.Element {
                 <StatusItem icon="cpu">
                   {t("intel.preparing", { stage: t(`intel.stage.${r().stage}`), done: r().done, total: r().total })}
                 </StatusItem>
+              )}
+            </Show>
+            <Show when={understandOn() && canExplain() && digestStatus()?.running && digestStatus()?.paper ? digestStatus() : null}>
+              {(s) => (
+                <button type="button" class="ep-status-item understanding" data-tone="muted" aria-label={t("brain.menu")} onClick={(e) => understandMenu(e.currentTarget.getBoundingClientRect())}>
+                  <Icon name="brain" size={14} />
+                  <span>{s().waiting === "battery" ? t("brain.battery") : t("brain.status", { n: s().done, total: s().total })}</span>
+                </button>
               )}
             </Show>
             <Show when={explainCard()?.phase === "starting"}>

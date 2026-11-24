@@ -7,7 +7,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Contract version; experimental until a second host uses it (Draft 2.2 §8.3).
-pub const VERSION: &str = "0.3.0";
+pub const VERSION: &str = "0.4.0";
 
 /// Command names.
 pub mod commands {
@@ -21,12 +21,14 @@ pub mod commands {
     pub const ADD_FOLDER: &str = "inference.add_folder";
     /// Forget a folder.
     pub const REMOVE_FOLDER: &str = "inference.remove_folder";
-    /// Choose the model of a task.
-    pub const ASSIGN: &str = "inference.assign";
+    /// Choose the order of the models, and whether one is kept ready.
+    pub const CHOOSE: &str = "inference.choose";
     /// State of the runtime.
     pub const STATUS: &str = "inference.status";
     /// Start the runtime with a model.
     pub const LOAD: &str = "inference.load";
+    /// Make a model ready, when the user wants one kept ready.
+    pub const WARM: &str = "inference.warm";
     /// Stop the runtime.
     pub const UNLOAD: &str = "inference.unload";
 }
@@ -35,8 +37,12 @@ pub mod commands {
 pub mod events {
     /// The next piece of a streamed answer: `{ id, text }`.
     pub const TOKEN: &str = "inference.token";
+    /// A model is being loaded: `{ model }`.
+    pub const MODEL_LOADING: &str = "model.loading";
     /// A model was loaded: `{ model, backend, ms }`.
     pub const MODEL_LOADED: &str = "model.loaded";
+    /// Another model than the first choice is used: `{ wanted, used, reason }`.
+    pub const MODEL_FALLBACK: &str = "model.fallback";
     /// The runtime stopped: `{ model }`.
     pub const MODEL_UNLOADED: &str = "model.unloaded";
     /// Folders, choices or models changed: `{}`.
@@ -275,6 +281,8 @@ pub struct ModelInfo {
     pub recommended: bool,
     /// Context length used.
     pub context: u32,
+    /// Memory it needs on the graphics card, in bytes (about).
+    pub needs: u64,
     /// Why it could not be started the last time.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub problem: Option<String>,
@@ -298,15 +306,29 @@ pub struct Folder {
     pub own: bool,
 }
 
-/// A kind of work and the model chosen for it.
+/// Memory of the graphics card.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[schemars(rename = "LlmTask")]
-pub struct Task {
-    /// `default`, `explain`, `check`, `sort`, `digest`, `find`.
-    pub id: String,
-    /// The user's choice; the suggestion answers without one.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub model: Option<String>,
+#[schemars(rename = "LlmMemory")]
+pub struct Memory {
+    /// Name of the card.
+    pub device: String,
+    /// Bytes.
+    pub total: u64,
+    /// Bytes that were free when a model was last loaded.
+    pub free: u64,
+}
+
+/// Why another model than the first choice is used.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+#[schemars(rename = "LlmFallback")]
+pub enum Fallback {
+    /// It does not fit in the memory that is free.
+    NotEnoughMemory,
+    /// It did not start.
+    StartFailed,
+    /// It answered too slowly.
+    TooSlow,
 }
 
 /// Input of `inference.add_folder` and `inference.remove_folder`.
@@ -317,15 +339,16 @@ pub struct FolderPath {
     pub path: String,
 }
 
-/// Input of `inference.assign`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[schemars(rename = "LlmAssign")]
-pub struct Assign {
-    /// `default`, `explain`, `check`.
-    pub task: String,
-    /// Model id; the default again when missing.
+/// Input of `inference.choose`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[schemars(rename = "LlmChoose")]
+pub struct Choose {
+    /// Model ids, first choice first; empty: automatic again; missing: as it is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub model: Option<String>,
+    pub order: Option<Vec<String>>,
+    /// Load a model when the app starts and keep it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub keep_ready: Option<bool>,
 }
 
 /// The llama.cpp build in use.
@@ -362,8 +385,15 @@ pub struct Models {
     pub models: Vec<ModelInfo>,
     /// The folders searched.
     pub folders: Vec<Folder>,
-    /// The kinds of work and their models.
-    pub tasks: Vec<Task>,
+    /// Models in the order they are tried.
+    pub order: Vec<String>,
+    /// The user chose that order (otherwise it is automatic).
+    pub own_order: bool,
+    /// A model is loaded when the app starts and stays loaded.
+    pub keep_ready: bool,
+    /// Memory of the graphics card, when it was measured.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub memory: Option<Memory>,
     /// The runtime.
     pub runtime: Runtime,
 }
@@ -398,6 +428,12 @@ pub struct Status {
     /// Why it failed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    /// The first choice, when another model is used.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wanted: Option<String>,
+    /// Why the first choice is not used.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fallback: Option<Fallback>,
     /// How long the last start took.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ready_ms: Option<u64>,

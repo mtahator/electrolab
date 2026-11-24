@@ -1,6 +1,6 @@
 # Knowledge engine — contract
 
-Version: 0.1.0      Stability: experimental      Tier: T1
+Version: 0.2.0      Stability: experimental      Tier: T1
 Crates: `ep-knowledge-contract` (types), `ep-knowledge-core` (splitting, checks, ranking — pure), `ep-knowledge` (facade)
 
 ## Purpose
@@ -11,11 +11,11 @@ Know what is in the library and find it again (Draft 2.2 §14.3). First slice (f
 | Command | Input → Output | Permission |
 |---|---|---|
 | `knowledge.digest_paper` | `{ paper, force }` → `Digest` (made when missing or old; resumes where it stopped) | create |
-| `knowledge.digests` | `{ papers? }` → `[DigestInfo { paper, level, summary, topics, kind, sections, made_ms, model? }]` (what there is; nothing is made) | read |
+| `knowledge.digests` | `{ papers? }` → `[DigestInfo { paper, level, complete, ready, problem?, summary, topics, kind, sections, made_ms, model? }]` (what there is; nothing is made) | read |
 | `knowledge.get_digest` | `{ paper }` → `Digest` or `null` | read |
-| `knowledge.digest_library` | `{ full, papers?, force }` → `DigestStatus` (starts in the background: first the basic digest of every paper, then the written ones of `papers` in the order asked — also while it works — and, with `full`, of all others, one paper after the other; `force` makes those of `papers` anew) | create |
+| `knowledge.digest_library` | `{ full, papers?, force }` → `DigestStatus` (starts in the background: first the basic digest of every paper, then the written ones of `papers` in the order asked — also while it works — and, with `full`, of all others, one paper after the other; `force` makes those of `papers` anew; `auto`: nobody asked) | create |
 | `knowledge.digest_stop` | `null` → `DigestStatus` (what is made stays; starting again goes on) | read |
-| `knowledge.digest_status` | `null` → `DigestStatus { running, full, done, total, paper?, next, current?, step?, error? }` | read |
+| `knowledge.digest_status` | `null` → `DigestStatus { running, full, done, total, paper?, next, current?, step?, waiting?: battery, stopped, error? }` | read |
 | `knowledge.find` | `FindRequest { question, papers?, stream?: { id } }` → `FindResult` (streamed when `stream` is set) | read |
 
 Error kinds: `nothing_to_find`, `no_text` (a paper without any text), and those of the engines used.
@@ -36,6 +36,12 @@ Error kinds: `nothing_to_find`, `no_text` (a paper without any text), and those 
 4. Terms that do not stand in the section are dropped; tags are cleaned; the sentence numbers are checked.
 5. The paper's summary is written from the section summaries only, and passes the same checks against them.
 So a summary is never better than its source: it is either checked (`written`), the paper's own words (`quoted`), or absent (`none`).
+
+### Understood by itself (founder request, 2026-11-24)
+- The app asks for all papers (`full`, `auto`) a moment after it starts, when a paper is opened or added (that one next) and when a model appears. Every section is kept as soon as it is made; a paper that was closed too early is **gone on with**, never begun again.
+- **`ready`** = every section was read and the digest belongs to the file as it is now (`file` is its content hash; a changed file is read again, unchanged sections are kept).
+- **Out of the way:** text is read in the background lane of the PDF engine, answers are `background` (they give way to people at once); a paper nobody asked for gives way to one that is opened; below half a battery only what a person asks is made.
+- A paper without text, or one that cannot be read, has its `problem` and does not hold up the others; it is tried again when it is opened or the app starts. Without a model only the quick digests are made, without a message. After `digest_stop` nothing starts by itself until the person says so or the app starts again.
 
 ## Asking the library (`knowledge.find`)
 1. **Understand** (model, schema): what is looked for (figure, table, equation, definition, text) and the 1–4 **things** it is about, each with its other names (abbreviation, written-out form, technical wording), in the language of documents. Abbreviations are also written out by code, as the papers do (`NPV` → `net present value`). The question's own words are searched as well (those of another script only where the papers use it). Without a model: every word of the question is a thing.
@@ -63,4 +69,5 @@ Each step is sent as it is there (`knowledge.finding`); the first one holds what
 - Live check with the real model on fixture papers (digest accepted share, example question finds the figure).
 
 ## Changelog
+- 0.2.0 (2026-11-24): understood by itself; `ready`, `problem`, `auto`, `waiting`, `stopped`.
 - 0.1.0 (2026-11-24): digests and asking the library.

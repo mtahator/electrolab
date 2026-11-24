@@ -196,8 +196,13 @@ fn main() -> anyhow::Result<()> {
             tracing::warn!(%e, "a model folder could not be taken over");
         }
     }
+    #[cfg(windows)]
+    inference.use_machine(Arc::new(ep_os_windows::WinMachine));
     inference.register(&bus)?;
-    ep_knowledge::Knowledge::new().register(&bus)?;
+    let knowledge = ep_knowledge::Knowledge::new();
+    #[cfg(windows)]
+    knowledge.use_machine(Arc::new(ep_os_windows::WinMachine));
+    knowledge.register(&bus)?;
     ep_understanding::Understanding::new().register(&bus)?;
 
     #[cfg(windows)]
@@ -210,6 +215,7 @@ fn main() -> anyhow::Result<()> {
     let protocol_ws = workspace.clone();
     let protocol_doc = document.clone();
     let events_bus = bus.clone();
+    let warm_bus = bus.clone();
     let mut builder = tauri::Builder::default();
     // One window per user; a run with its own data folder (tests, EP_DATA_DIR) is separate, so
     // it can run next to the user's own Reader.
@@ -266,6 +272,18 @@ fn main() -> anyhow::Result<()> {
                         ep_bus::Recv::Closed => break,
                     }
                 }
+            });
+            // The language model is made ready a moment after the window (when the user wants that),
+            // so that the first answer does not wait for it.
+            let warm = warm_bus.clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                let _ = warm
+                    .call(ep_bus::Envelope::new(
+                        "inference.warm",
+                        serde_json::Value::Null,
+                    ))
+                    .await;
             });
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.set_focus();
