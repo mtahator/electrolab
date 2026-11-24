@@ -64,6 +64,18 @@
         "format": "uint64",
         "minimum": 0,
         "type": "integer"
+      },
+      "parent": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/CollectionId"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The folder it is in; the top of the library when missing."
       }
     },
     "required": [

@@ -518,6 +518,12 @@ Every app works fully on touch laptops and with precision touchpads, not only wi
 - **Rename** (F2 or the row menu): the title shown in the library and tabs. The file name stays as the original name.
 - **Remove from library** (Delete or the row menu) takes a paper out at once, with **Undo** for 10 s in a toast; no confirmation dialog (§9.8: undo instead of confirm). Its notes and annotations go with it and come back with Undo. The managed copy is deleted when the library is next opened, unless Undo was used.
 
+**Folders and several papers at once (founder request, 2026-11-24: "the page of my PDFs is crowded")**
+- **Home** shows the folders first, then only the papers in no folder; *All papers* shows everything. A folder shows its folders, then its papers, with the way back above. Folders can be made anywhere, inside folders too, renamed, moved and deleted (papers stay).
+- **Selecting:** a check mark on each paper (on hover, always on touch), Ctrl+click adds, Shift+click a range, Ctrl+A all, Esc none. While something is selected a click selects. The bar in place of the tools says how many and what can be done: *Move to*, *Suggest folders*, *Remove*, *Clear*.
+- **Moving:** by menu, or by dragging onto a folder with mouse or pen (a touch scrolls). Everything that moves or removes has Undo.
+- **Suggest folders** (`sparkles`, AI): shows the groups with their papers before anything happens. Names can be changed, papers put elsewhere, groups left out; only *Create folders and move* does it. Papers it is unsure about stay where they are. Stop ends the model.
+
 ### 17.7 Transient things
 Hover popovers and previews close by themselves when:
 - the pointer leaves both the trigger and the popover (after 300 ms);

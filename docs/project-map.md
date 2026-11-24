@@ -226,6 +226,20 @@ practice: page data
 - best: a removed paper can be brought back until the library is next opened — `test:remove_restore_and_purge_on_next_open`
 check: `cargo test -p ep-workspace` · `node e2e/library.mjs <reader.exe> <scratch> <out>`
 
+## #folders Folders, selecting several papers, suggested sorting
+tags: folder, collection, sort, organise, select, multi, move, drag, remove several, undo, suggest
+connects: #library #inference #explain #layout
+practice: page panel command data ai
+- Folders are collections with a parent (migration 7): `engines/workspace/facade/src/folders.rs`; every change of several papers is one transaction and has its undo.
+- Suggesting: `engines/understanding/facade/src/sorting.rs`; only names from its own list can be answered, so nothing is lost or doubled. Applying needs the person's approval: `ui/reader/src/shell/SortSheet.tsx`.
+- Page: `ui/reader/src/shell/LibraryView.tsx`, `ui/reader/src/shell/LibraryFolders.tsx`. Dragging is made with pointer events (the window's own file drop turns HTML dragging off).
+- best: all of it or nothing, and back again — `test:a_sorting_is_applied_whole_or_not_at_all` `test:several_papers_move_at_once_and_back`
+- best: no paper is lost when a folder goes — `test:deleting_a_folder_keeps_its_papers`
+- best: a suggestion changes nothing until it is approved — `test:suggestion_changes_nothing_until_approved`
+- best: every paper is in exactly one place — `test:every_paper_is_in_exactly_one_place`
+- best: what a model names is cleaned before it is used — `test:folder_names_are_clean_and_not_doubled`
+check: `cargo test -p ep-workspace -p ep-understanding` · `node e2e/folders.mjs <reader.exe> <scratch> <out>`
+
 ## #inference Language models (M5)
 tags: inference, llm, model folder, search models, suggestion, task, gguf, llama.cpp, sidecar, qwen, replay, schema, vulkan, cuda
 connects: #explain #bus #natives #models

@@ -9,13 +9,15 @@ use serde::{Deserialize, Serialize};
 
 pub use ep_types::{BlobRef, CollectionId, Hash, MediaType, PaperId, ProjectId};
 
+mod folders;
 mod library;
 mod notes;
+pub use folders::*;
 pub use library::*;
 pub use notes::*;
 
 /// Contract version; experimental until a second host uses it (Draft 2.2 §8.3).
-pub const VERSION: &str = "0.4.0";
+pub const VERSION: &str = "0.5.0";
 
 /// Project folder format written by this version (ADR-010).
 pub const PROJECT_FORMAT: u32 = 1;
@@ -48,6 +50,16 @@ pub mod commands {
     pub const RESTORE_PAPER: &str = "workspace.restore_paper";
     /// Make a collection.
     pub const CREATE_COLLECTION: &str = "workspace.create_collection";
+    /// Move a folder into another one.
+    pub const MOVE_COLLECTION: &str = "workspace.move_collection";
+    /// Put groups of papers into folders.
+    pub const APPLY_FOLDERS: &str = "workspace.apply_folders";
+    /// Take `apply_folders` back.
+    pub const UNDO_FOLDERS: &str = "workspace.undo_folders";
+    /// Take several papers out of the library.
+    pub const REMOVE_PAPERS: &str = "workspace.remove_papers";
+    /// Bring several papers back.
+    pub const RESTORE_PAPERS: &str = "workspace.restore_papers";
     /// Rename a collection.
     pub const RENAME_COLLECTION: &str = "workspace.rename_collection";
     /// Delete a collection (its papers stay in the library).
@@ -228,6 +240,9 @@ pub struct ListPapers {
     pub offset: u32,
     /// Only papers in this collection.
     pub collection: Option<CollectionId>,
+    /// Only papers in no folder.
+    #[serde(default)]
+    pub unfiled: bool,
     /// Only papers with this tag.
     pub tag: Option<String>,
     /// Only papers whose title, authors, DOI or file name contain these words.

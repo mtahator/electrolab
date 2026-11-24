@@ -125,12 +125,26 @@ export interface AnnotationsOf {
   paper: PaperId;
 }
 
+/** Output of `workspace.apply_folders`, and input of `workspace.undo_folders`. */
+export interface AppliedFolders {
+  /** Where the papers were before. */
+  before: Placement[];
+  /** Folders that were made. */
+  created: Collection[];
+}
+
 /** Input of `document.annotations_apply`: changes applied together, undone together. */
 export interface ApplyAnnotations {
   /** Changes, in order. */
   ops: AnnotationOp[];
   /** The paper. */
   paper: PaperId;
+}
+
+/** Input of `workspace.apply_folders`: all of it, or nothing. */
+export interface ApplyFolders {
+  /** Groups. */
+  groups: FolderGroup[];
 }
 
 /** A file in the content-addressed store: messages carry these, never large bytes (§9.4). */
@@ -193,7 +207,7 @@ export interface Classification {
 }
 
 /** A named group of papers. */
-export interface Collection {
+export type Collection = {
   /** Created, ms since the Unix epoch. */
   created_ms: number;
   /** Id. */
@@ -202,7 +216,9 @@ export interface Collection {
   name: string;
   /** Number of papers in it. */
   papers: number;
-}
+  /** The folder it is in; the top of the library when missing. */
+  parent?: unknown & (CollectionId | null);
+};
 
 /**
  * A collection of papers.
@@ -312,10 +328,12 @@ export interface ContextOptions {
 export type ContextUnit = "words" | "sentence" | "none";
 
 /** Input of `workspace.create_collection`. */
-export interface CreateCollection {
+export type CreateCollection = {
   /** Name. */
   name: string;
-}
+  /** The folder it goes into. */
+  parent?: unknown & (CollectionId | null);
+};
 
 /** Input of `workspace.create_project`. */
 export interface CreateProject {
@@ -496,6 +514,28 @@ export interface FileRequest {
   file: BlobRef;
 }
 
+/** Papers that go together into one folder. */
+export type FolderGroup = {
+  /** An existing folder. */
+  collection?: unknown & (CollectionId | null);
+  /** A new folder. Neither this nor `collection`: out of all folders. */
+  new?: unknown & (NewFolder | null);
+  /** The papers. */
+  papers: PaperId[];
+};
+
+/** Output of `understanding.suggest_folders`. */
+export interface FolderSuggestion {
+  /** Folders with their papers. */
+  folders: SuggestedFolder[];
+  /** Model that answered. */
+  model: string;
+  /** Time taken. */
+  total_ms: number;
+  /** Papers that fit nowhere (they stay where they are). */
+  unsure: string[];
+}
+
 /** Input of `workspace.get_paper`. */
 export interface GetPaper {
   /** Which paper. */
@@ -582,6 +622,8 @@ export type ListPapers = {
   sort?: PaperSort;
   /** Only papers with this tag. */
   tag?: string | null;
+  /** Only papers in no folder. */
+  unfiled?: boolean;
 };
 
 /** Input of `inference.assign`. */
@@ -758,7 +800,7 @@ export interface LlmStream {
 
 /** A kind of work and the model chosen for it. */
 export type LlmTask = {
-  /** `default`, `explain`, `check`. */
+  /** `default`, `explain`, `check`, `sort`. */
   id: string;
   /** The user's choice; the suggestion answers without one. */
   model?: string | null;
@@ -868,6 +910,22 @@ export interface ModelInfo {
   /** Download size in bytes. */
   size: number;
 }
+
+/** Input of `workspace.move_collection`. */
+export type MoveCollection = {
+  /** Which folder. */
+  id: CollectionId;
+  /** The folder it goes into; the top of the library when missing. */
+  parent?: unknown & (CollectionId | null);
+};
+
+/** A folder to make. */
+export type NewFolder = {
+  /** Name (an existing folder of this name in the same place is used). */
+  name: string;
+  /** Where; the top of the library when missing. */
+  parent?: unknown & (CollectionId | null);
+};
 
 /** One point in a notebook's history. */
 export interface NotesVersion {
@@ -1078,6 +1136,12 @@ export interface PaperFile {
  */
 export type PaperId = string;
 
+/** Input of `workspace.remove_papers` and `workspace.restore_papers`. */
+export interface PaperIds {
+  /** The papers. */
+  ids: PaperId[];
+}
+
 /** Input naming one paper. */
 export interface PaperInput {
   /** The paper. */
@@ -1132,6 +1196,14 @@ export interface Permission {
   destination: Destination;
   /** Permission level. */
   operation: Operation;
+}
+
+/** The folders a paper was in. */
+export interface Placement {
+  /** Its folders. */
+  collections: CollectionId[];
+  /** Paper. */
+  paper: PaperId;
 }
 
 /**
@@ -1453,6 +1525,24 @@ export interface SetTags {
 /** Order of hits. */
 export type Sort = "position" | "score";
 
+/** A folder that is there. */
+export interface SortFolder {
+  /** Id, returned in the suggestion. */
+  id: string;
+  /** Name. */
+  name: string;
+}
+
+/** A paper to sort. */
+export interface SortPaper {
+  /** Its file (the first page is read). */
+  file: BlobRef;
+  /** Id, returned in the suggestion. */
+  id: string;
+  /** Title or file name. */
+  title: string;
+}
+
 /** How settled a command's contract is (Draft 2.2 §8.3). */
 export type Stability = "experimental" | "stable";
 
@@ -1475,6 +1565,26 @@ export type StageState = {
 
 /** How a stage stands for one file. */
 export type StageStatus = "pending" | "running" | "done" | "skipped" | "failed";
+
+/** Input of `understanding.suggest_folders`. */
+export type SuggestFolders = {
+  /** Folders that may be used again. */
+  folders?: SortFolder[];
+  /** Papers. */
+  papers: SortPaper[];
+  /** Send progress. */
+  stream?: ExplainStream | null;
+};
+
+/** A suggested folder. */
+export type SuggestedFolder = {
+  /** The folder that is there with this name. */
+  existing?: string | null;
+  /** Name. */
+  name: string;
+  /** Papers (ids). */
+  papers: string[];
+};
 
 /** Output of `document.table`: cells in rows and columns, from the words inside the table box. */
 export type Table = {

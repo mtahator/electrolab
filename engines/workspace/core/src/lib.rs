@@ -196,6 +196,15 @@ pub const MIGRATIONS: &[(u32, &str, &str)] = &[
         "removing papers with undo (design language 17.10)",
         "ALTER TABLE paper ADD COLUMN removed_ms INTEGER;",
     ),
+    (
+        7,
+        "folders: collections inside collections",
+        "ALTER TABLE collection ADD COLUMN parent TEXT REFERENCES collection(id) ON DELETE CASCADE;
+    DROP INDEX collection_name;
+    CREATE UNIQUE INDEX collection_name ON collection (coalesce(parent, ''), name COLLATE NOCASE);
+    CREATE INDEX collection_parent ON collection (parent);
+    CREATE INDEX collection_paper_paper ON collection_paper (paper);",
+    ),
 ];
 
 /// Seconds counted from one `record_reading` report at most (the UI reports every few seconds;

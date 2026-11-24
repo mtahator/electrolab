@@ -1,0 +1,208 @@
+{
+  "command": "workspace.apply_folders",
+  "input": {
+    "$defs": {
+      "CollectionId": {
+        "description": "A collection of papers.\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      },
+      "FolderGroup": {
+        "description": "Papers that go together into one folder.",
+        "properties": {
+          "collection": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/CollectionId"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "An existing folder."
+          },
+          "new": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/NewFolder"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "A new folder. Neither this nor `collection`: out of all folders."
+          },
+          "papers": {
+            "description": "The papers.",
+            "items": {
+              "$ref": "#/$defs/PaperId"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "papers"
+        ],
+        "type": "object"
+      },
+      "NewFolder": {
+        "description": "A folder to make.",
+        "properties": {
+          "name": {
+            "description": "Name (an existing folder of this name in the same place is used).",
+            "type": "string"
+          },
+          "parent": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/CollectionId"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Where; the top of the library when missing."
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "PaperId": {
+        "description": "A paper (a PDF in the library or a project).\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `workspace.apply_folders`: all of it, or nothing.",
+    "properties": {
+      "groups": {
+        "description": "Groups.",
+        "items": {
+          "$ref": "#/$defs/FolderGroup"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "groups"
+    ],
+    "title": "ApplyFolders",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "Collection": {
+        "description": "A named group of papers.",
+        "properties": {
+          "created_ms": {
+            "description": "Created, ms since the Unix epoch.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "$ref": "#/$defs/CollectionId",
+            "description": "Id."
+          },
+          "name": {
+            "description": "Name.",
+            "type": "string"
+          },
+          "papers": {
+            "description": "Number of papers in it.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "parent": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/CollectionId"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The folder it is in; the top of the library when missing."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "papers",
+          "created_ms"
+        ],
+        "type": "object"
+      },
+      "CollectionId": {
+        "description": "A collection of papers.\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      },
+      "PaperId": {
+        "description": "A paper (a PDF in the library or a project).\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      },
+      "Placement": {
+        "description": "The folders a paper was in.",
+        "properties": {
+          "collections": {
+            "description": "Its folders.",
+            "items": {
+              "$ref": "#/$defs/CollectionId"
+            },
+            "type": "array"
+          },
+          "paper": {
+            "$ref": "#/$defs/PaperId",
+            "description": "Paper."
+          }
+        },
+        "required": [
+          "paper",
+          "collections"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Output of `workspace.apply_folders`, and input of `workspace.undo_folders`.",
+    "properties": {
+      "before": {
+        "description": "Where the papers were before.",
+        "items": {
+          "$ref": "#/$defs/Placement"
+        },
+        "type": "array"
+      },
+      "created": {
+        "description": "Folders that were made.",
+        "items": {
+          "$ref": "#/$defs/Collection"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "created",
+      "before"
+    ],
+    "title": "AppliedFolders",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "create"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Put groups of papers into folders, all of it or nothing"
+}

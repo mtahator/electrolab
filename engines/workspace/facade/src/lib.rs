@@ -26,6 +26,7 @@ use ep_workspace_core::{
 };
 use parking_lot::RwLock;
 
+mod folders;
 mod library;
 mod notes;
 use serde_json::json;
@@ -476,6 +477,36 @@ impl Workspace {
             "Make a collection",
             Permission::create(),
             create_collection
+        );
+        reg!(
+            cmd::MOVE_COLLECTION,
+            "Move a folder into another one",
+            Permission::create(),
+            move_collection
+        );
+        reg!(
+            cmd::APPLY_FOLDERS,
+            "Put groups of papers into folders, all of it or nothing",
+            Permission::create(),
+            apply_folders
+        );
+        reg!(
+            cmd::UNDO_FOLDERS,
+            "Take apply_folders back",
+            Permission::create(),
+            undo_folders
+        );
+        reg!(
+            cmd::REMOVE_PAPERS,
+            "Take several papers out of the library (undo with restore_papers)",
+            Permission::create(),
+            remove_papers
+        );
+        reg!(
+            cmd::RESTORE_PAPERS,
+            "Bring back several papers",
+            Permission::create(),
+            restore_papers
         );
         reg!(
             cmd::RENAME_COLLECTION,

@@ -11,6 +11,9 @@ pub struct Collection {
     pub id: CollectionId,
     /// Name.
     pub name: String,
+    /// The folder it is in; the top of the library when missing.
+    #[serde(default)]
+    pub parent: Option<CollectionId>,
     /// Number of papers in it.
     pub papers: u64,
     /// Created, ms since the Unix epoch.
@@ -22,6 +25,9 @@ pub struct Collection {
 pub struct CreateCollection {
     /// Name.
     pub name: String,
+    /// The folder it goes into.
+    #[serde(default)]
+    pub parent: Option<CollectionId>,
 }
 
 /// Input of `workspace.rename_collection`.

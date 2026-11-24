@@ -1,0 +1,97 @@
+{
+  "command": "workspace.move_collection",
+  "input": {
+    "$defs": {
+      "CollectionId": {
+        "description": "A collection of papers.\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `workspace.move_collection`.",
+    "properties": {
+      "id": {
+        "$ref": "#/$defs/CollectionId",
+        "description": "Which folder."
+      },
+      "parent": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/CollectionId"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The folder it goes into; the top of the library when missing."
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "title": "MoveCollection",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "CollectionId": {
+        "description": "A collection of papers.\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "A named group of papers.",
+    "properties": {
+      "created_ms": {
+        "description": "Created, ms since the Unix epoch.",
+        "format": "int64",
+        "type": "integer"
+      },
+      "id": {
+        "$ref": "#/$defs/CollectionId",
+        "description": "Id."
+      },
+      "name": {
+        "description": "Name.",
+        "type": "string"
+      },
+      "papers": {
+        "description": "Number of papers in it.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "parent": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/CollectionId"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The folder it is in; the top of the library when missing."
+      }
+    },
+    "required": [
+      "id",
+      "name",
+      "papers",
+      "created_ms"
+    ],
+    "title": "Collection",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "create"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Move a folder into another one"
+}

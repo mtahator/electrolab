@@ -43,7 +43,7 @@ const selectWords = () =>
     document.querySelector(".pane.focused .scroller").dispatchEvent(new MouseEvent("mouseup", { bubbles: true })); return true; })()`);
 
 // covers: App.tsx (menus, model question, address, confirm), shell/Settings.tsx, shell/LanguageModels.tsx, shell/Print.tsx, shell/Overlays.tsx (palette, shortcuts, address)
-// covers: shell/LibraryView.tsx, shell/SidePanel.tsx, assistant/ExplainCard.tsx, annotations/SelectionBar.tsx, annotations/ToolRail.tsx, annotations/Editor.tsx, annotations/AnnotationLayer.tsx
+// covers: shell/LibraryView.tsx, shell/LibraryFolders.tsx, shell/SortSheet.tsx, shell/SidePanel.tsx, assistant/ExplainCard.tsx, annotations/SelectionBar.tsx, annotations/ToolRail.tsx, annotations/Editor.tsx, annotations/AnnotationLayer.tsx
 // covers: annotations/AnnotationsPanel.tsx, intel/Peek.tsx, intel/TableView.tsx, intel/PageLinks.tsx, notes/NotesPanel.tsx, viewer/Viewer.tsx, annotations/MarginNotes.tsx
 /** Parts of the interface: open it (true when it is there), close it. */
 const PARTS = {
@@ -84,7 +84,11 @@ const PARTS = {
   model_question: { open: async () => (await click(".ep-status-item", "Recognise"), has(".ep-dialog")), close: escape },
   address: { open: async () => (await bar("Open URL"), has(".ep-dialog .prompt-input")), close: escape },
   tool_flyout: { open: async () => (await s.js(`document.querySelector('.tool-rail [aria-label^="Highlight"]').click()`), sleep(200), true), close: async () => (await escape(), escape()) },
-  library_list: { open: async () => (await bar("Library"), await has(".library-view"), await click('.library-tools [aria-label="List"]'), has(".library-view")), keep: true },
+  library_list: { open: async () => (await bar("Library"), await has(".library-view"), await click('.library-tools [aria-label="List"]'), has(".paper-item")), keep: true },
+  library_selection: { open: async () => (await has(".library-view"), await s.js(`document.querySelector(".paper-check").click()`), has(".library-selection")), close: () => s.js(`[...document.querySelectorAll(".library-selection button")].at(-1).click()`) },
+  folder_menu: { open: async () => (await click(".library-nav .nav-item", "All papers"), await sleep(350), await click('.library-nav [aria-label^="Folder "]'), has(".ep-menu")), close: escape },
+  move_menu: { open: async () => (await s.js(`document.querySelector(".paper-check").click()`), await click(".library-selection button", "Move to"), has(".ep-menu")), close: async () => (await escape(), s.js(`[...document.querySelectorAll(".library-selection button")].at(-1)?.click()`)) },
+  suggested_folders: { open: async () => (await s.js(`document.querySelector(".paper-check").click()`), await click(".library-selection button", "Suggest"), has(".sort-sheet")), close: async () => (await escape(), s.js(`[...document.querySelectorAll(".library-selection button")].at(-1)?.click()`)) },
   library_covers: { open: async () => (await click('.library-tools [aria-label="Covers"]'), has(".paper-covers")), close: () => bar("Library") },
 };
 
@@ -141,6 +145,8 @@ try {
     writeFileSync(join(models, `A_Very_Long_Model_File_Name_${i}-Instruct-Distilled-Long-Context-Preview-Q4_K_M.gguf`), Buffer.concat([Buffer.from("GGUF"), u32(3), u64(0), u64(3), ...pairs.flatMap(([k, v]) => [text(k), u32(8), text(v)])]));
   }
   await s.call("inference.add_folder", { path: models });
+  const top = await s.call("workspace.create_collection", { name: "A folder with a rather long name that has to be shortened" });
+  await s.call("workspace.create_collection", { name: "Another-long-name-without-any-place-to-break-it-at-all", parent: top?.id });
   for (const [w, h] of [[1400, 950], [1024, 640], [800, 500]]) {
     await s.send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 1, mobile: false });
     for (const size of ["100", "90", "150"]) {
@@ -162,7 +168,7 @@ try {
         check("controls_do_not_touch", m.touching?.length === 0, { id, touching: m.touching });
         if (size !== "90" && (w === 800 || (w === 1400 && size === "100"))) await s.shot(`layout-${name}-${w}-${size}.png`);
         await part.close?.();
-        if (["settings", "shortcuts", "print", "model_question", "address"].includes(name)) await gone(".ep-dialog");
+        if (["settings", "shortcuts", "print", "model_question", "address", "suggested_folders"].includes(name)) await gone(".ep-dialog");
         await sleep(120);
       }
     }

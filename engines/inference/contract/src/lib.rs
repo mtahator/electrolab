@@ -298,7 +298,7 @@ pub struct Folder {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[schemars(rename = "LlmTask")]
 pub struct Task {
-    /// `default`, `explain`, `check`.
+    /// `default`, `explain`, `check`, `sort`.
     pub id: String,
     /// The user's choice; the suggestion answers without one.
     #[serde(default, skip_serializing_if = "Option::is_none")]

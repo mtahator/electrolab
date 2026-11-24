@@ -5,6 +5,8 @@
 //! corrects it (spike S3: 83% → 98% correct with Qwen3-4B). The engine uses the Document and
 //! Inference engines through their contracts only, over the bus.
 
+mod sorting;
+
 use std::collections::hash_map::Entry;
 use std::sync::{Arc, Weak};
 use std::time::Instant;
@@ -14,8 +16,8 @@ use ep_document_contract::{PageText, SearchResult};
 use ep_inference_contract::{LlmRequest, LlmResponse, Message};
 pub use ep_understanding_contract as contract;
 use ep_understanding_contract::{
-    Evidence, ExplainRequest, ExplainStatus, ExplainTimings, Explanation, commands as cmd, errors,
-    events,
+    Evidence, ExplainRequest, ExplainStatus, ExplainTimings, Explanation, SuggestFolders,
+    commands as cmd, errors, events,
 };
 use parking_lot::RwLock;
 use serde::de::DeserializeOwned;
@@ -419,6 +421,19 @@ impl Understanding {
             move |cx, i: ExplainRequest| {
                 let me = me.clone();
                 async move { me.explain_span(&cx, i).await }
+            },
+        )?;
+        let me = self.clone();
+        bus.register(
+            Spec {
+                name: cmd::SUGGEST_FOLDERS,
+                summary: "Suggest folders for papers; nothing is moved",
+                stability: Stability::Experimental,
+                permission: Permission::read(),
+            },
+            move |cx, i: SuggestFolders| {
+                let me = me.clone();
+                async move { me.suggest_folders(&cx, i).await }
             },
         )?;
         Ok(())

@@ -236,7 +236,7 @@
         "description": "A kind of work and the model chosen for it.",
         "properties": {
           "id": {
-            "description": "`default`, `explain`, `check`.",
+            "description": "`default`, `explain`, `check`, `sort`.",
             "type": "string"
           },
           "model": {

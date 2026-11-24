@@ -856,15 +856,17 @@ export function App(): JSX.Element {
           <Dialog
             title={c().message}
             onCancel={() => {
+              const { answer } = c();
               setConfirm(null);
-              c().answer(false);
+              answer(false);
             }}
             actions={
               <>
                 <Button
                   onClick={() => {
+                    const { answer } = c();
                     setConfirm(null);
-                    c().answer(false);
+                    answer(false);
                   }}
                 >
                   {t("common.cancel")}
@@ -873,8 +875,9 @@ export function App(): JSX.Element {
                   variant="danger"
                   data-autofocus
                   onClick={() => {
+                    const { answer } = c();
                     setConfirm(null);
-                    c().answer(true);
+                    answer(true);
                   }}
                 >
                   {t("common.delete")}

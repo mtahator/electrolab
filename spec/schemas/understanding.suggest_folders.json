@@ -1,0 +1,206 @@
+{
+  "command": "understanding.suggest_folders",
+  "input": {
+    "$defs": {
+      "BlobRef": {
+        "description": "A file in the content-addressed store: messages carry these, never large bytes (§9.4).",
+        "properties": {
+          "hash": {
+            "$ref": "#/$defs/Hash",
+            "description": "Content hash."
+          },
+          "media_type": {
+            "$ref": "#/$defs/MediaType",
+            "description": "What the bytes are."
+          },
+          "size": {
+            "description": "Size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "ExplainStream": {
+        "description": "Ask for the answer to be streamed as `understanding.explaining` events.",
+        "properties": {
+          "id": {
+            "description": "Id carried by every event of this answer.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "Hash": {
+        "description": "BLAKE3 content hash (hex)",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "MediaType": {
+        "description": "A media type such as `application/pdf`.",
+        "type": "string"
+      },
+      "SortFolder": {
+        "description": "A folder that is there.",
+        "properties": {
+          "id": {
+            "description": "Id, returned in the suggestion.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Name.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "SortPaper": {
+        "description": "A paper to sort.",
+        "properties": {
+          "file": {
+            "$ref": "#/$defs/BlobRef",
+            "description": "Its file (the first page is read)."
+          },
+          "id": {
+            "description": "Id, returned in the suggestion.",
+            "type": "string"
+          },
+          "title": {
+            "description": "Title or file name.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "file"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `understanding.suggest_folders`.",
+    "properties": {
+      "folders": {
+        "default": [],
+        "description": "Folders that may be used again.",
+        "items": {
+          "$ref": "#/$defs/SortFolder"
+        },
+        "type": "array"
+      },
+      "papers": {
+        "description": "Papers.",
+        "items": {
+          "$ref": "#/$defs/SortPaper"
+        },
+        "type": "array"
+      },
+      "stream": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ExplainStream"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Send progress."
+      }
+    },
+    "required": [
+      "papers"
+    ],
+    "title": "SuggestFolders",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "SuggestedFolder": {
+        "description": "A suggested folder.",
+        "properties": {
+          "existing": {
+            "description": "The folder that is there with this name.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "Name.",
+            "type": "string"
+          },
+          "papers": {
+            "description": "Papers (ids).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "papers"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Output of `understanding.suggest_folders`.",
+    "properties": {
+      "folders": {
+        "description": "Folders with their papers.",
+        "items": {
+          "$ref": "#/$defs/SuggestedFolder"
+        },
+        "type": "array"
+      },
+      "model": {
+        "description": "Model that answered.",
+        "type": "string"
+      },
+      "total_ms": {
+        "description": "Time taken.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "unsure": {
+        "description": "Papers that fit nowhere (they stay where they are).",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "folders",
+      "unsure",
+      "model",
+      "total_ms"
+    ],
+    "title": "FolderSuggestion",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Suggest folders for papers; nothing is moved"
+}

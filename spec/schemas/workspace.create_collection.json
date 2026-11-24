@@ -1,12 +1,31 @@
 {
   "command": "workspace.create_collection",
   "input": {
+    "$defs": {
+      "CollectionId": {
+        "description": "A collection of papers.\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "description": "Input of `workspace.create_collection`.",
     "properties": {
       "name": {
         "description": "Name.",
         "type": "string"
+      },
+      "parent": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/CollectionId"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The folder it goes into."
       }
     },
     "required": [
@@ -44,6 +63,18 @@
         "format": "uint64",
         "minimum": 0,
         "type": "integer"
+      },
+      "parent": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/CollectionId"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The folder it is in; the top of the library when missing."
       }
     },
     "required": [

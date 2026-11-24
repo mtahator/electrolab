@@ -31,13 +31,14 @@ use serde_json::json;
 
 /// Every kind of work a model can be chosen for.
 const DEFAULT: &str = "default";
-const TASKS: [&str; 3] = [DEFAULT, "explain", "check"];
+const TASKS: [&str; 4] = [DEFAULT, "explain", "check", "sort"];
 
 /// The kind of work of a request's task.
 fn task_of(task: &str) -> &'static str {
     match task {
         "explain.draft" => "explain",
         "explain.check" => "check",
+        "sort.names" | "sort.assign" => "sort",
         _ => DEFAULT,
     }
 }

@@ -17,11 +17,11 @@ use serde_json::json;
 
 use super::{PAPER_SELECT, Workspace, row_to_paper, sql_err};
 
-fn not_found(what: impl std::fmt::Display) -> CommandError {
+pub(crate) fn not_found(what: impl std::fmt::Display) -> CommandError {
     CommandError::failed(errors::NOT_FOUND, what)
 }
 
-fn row_to_collection(r: &rusqlite::Row<'_>) -> rusqlite::Result<Collection> {
+pub(crate) fn row_to_collection(r: &rusqlite::Row<'_>) -> rusqlite::Result<Collection> {
     let id: String = r.get("id")?;
     Ok(Collection {
         id: id.parse().map_err(|e: ep_types::IdParseError| {
@@ -32,12 +32,15 @@ fn row_to_collection(r: &rusqlite::Row<'_>) -> rusqlite::Result<Collection> {
             )
         })?,
         name: r.get("name")?,
+        parent: r
+            .get::<_, Option<String>>("parent")?
+            .and_then(|p| p.parse().ok()),
         papers: u64::try_from(r.get::<_, i64>("papers")?).unwrap_or(0),
         created_ms: r.get("created_ms")?,
     })
 }
 
-const COLLECTION_SELECT: &str = "SELECT c.*, (SELECT count(*) FROM collection_paper cp WHERE cp.collection = c.id) AS papers FROM collection c";
+pub(crate) const COLLECTION_SELECT: &str = "SELECT c.*, (SELECT count(*) FROM collection_paper cp JOIN paper p ON p.id = cp.paper WHERE cp.collection = c.id AND p.removed_ms IS NULL) AS papers FROM collection c";
 
 fn view_mode_str(v: ViewMode) -> &'static str {
     match v {
@@ -55,7 +58,7 @@ fn view_mode_from(s: &str) -> ViewMode {
     }
 }
 
-fn is_unique_violation(e: &rusqlite::Error) -> bool {
+pub(crate) fn is_unique_violation(e: &rusqlite::Error) -> bool {
     matches!(e, rusqlite::Error::SqliteFailure(f, _) if f.extended_code == 2067 || f.extended_code == 1555)
 }
 
@@ -74,6 +77,9 @@ impl Workspace {
         if let Some(c) = i.collection {
             sql.push_str(" AND p.id IN (SELECT paper FROM collection_paper WHERE collection = ?)");
             args.push(c.to_string());
+        }
+        if i.unfiled {
+            sql.push_str(" AND p.id NOT IN (SELECT paper FROM collection_paper)");
         }
         if let Some(t) = i.tag.as_deref().map(str::trim).filter(|t| !t.is_empty()) {
             sql.push_str(" AND p.id IN (SELECT paper FROM paper_tag WHERE tag = ? COLLATE NOCASE)");
@@ -100,7 +106,7 @@ impl Workspace {
         .map_err(sql_err)
     }
 
-    fn collection(&self, id: CollectionId) -> Result<Collection, CommandError> {
+    pub(crate) fn collection(&self, id: CollectionId) -> Result<Collection, CommandError> {
         self.require()?
             .db
             .read(|c| {
@@ -124,12 +130,16 @@ impl Workspace {
         let name = clean_name(&i.name).ok_or_else(|| CommandError::InvalidInput {
             message: "collection name is empty or too long".into(),
         })?;
+        if let Some(p) = i.parent {
+            self.collection(p)?;
+        }
         let id = CollectionId::from_uuid(cx.ids.next());
         let now = cx.clock.now_ms();
+        let parent = i.parent.map(|p| p.to_string());
         o.db.write(|t| {
             t.execute(
-                "INSERT INTO collection (id, name, created_ms) VALUES (?1, ?2, ?3)",
-                params![id.to_string(), name, now],
+                "INSERT INTO collection (id, name, parent, created_ms) VALUES (?1, ?2, ?3, ?4)",
+                params![id.to_string(), name, parent, now],
             )
         })
         .map_err(|e| {
@@ -212,13 +222,7 @@ impl Workspace {
         _cx: Cx,
         (): (),
     ) -> Result<Vec<Collection>, CommandError> {
-        let o = self.require()?;
-        o.db.read(|c| {
-            let mut s = c.prepare(&format!("{COLLECTION_SELECT} ORDER BY lower(c.name)"))?;
-            s.query_map([], row_to_collection)?
-                .collect::<rusqlite::Result<Vec<_>>>()
-        })
-        .map_err(sql_err)
+        self.all_folders()
     }
 
     pub(crate) async fn add_to_collection(

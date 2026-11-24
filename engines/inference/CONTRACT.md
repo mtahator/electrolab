@@ -32,13 +32,13 @@ All experimental. Errors are `CommandError::Failed { kind }` with the kinds belo
 `Models { models: [ModelInfo], folders: [Folder], tasks: [Task], runtime }`
 `ModelInfo { id, name, file, path, size, licence, kind: chat | embedding | vision_part | other, architecture, quantisation?, state: ready | loaded, recommended, context, problem? }`
 `Folder { path, models, other_formats, missing, partial, own }` (`own`: added by the user, can be removed)
-`Task { id: default | explain | check, model? }` (the user's choice; without one the suggestion answers)
+`Task { id: default | explain | check | sort, model? }` (the user's choice; without one the suggestion answers)
 
 ### Automatic model search (founder request, 2026-11-24)
 - Every model folder is searched **with its sub-folders** (at most 8 deep, 60 000 entries, 8 s; hidden and system folders are skipped, folder links are not followed). The folders: the app's `models/llm`, the ones the user added, `EP_LLM_DIR` (development).
 - Every GGUF file is recognised **from its header, not its name**: what it is for (writes answers, search vectors, the picture part of another model, something else), name, size, quantisation, licence, context. Broken files are ignored; later parts of a split model are not models. Files in other formats are counted, so the app can say why they are not offered.
 - **Suggestion:** the model measured for this kind of machine (ADR-005: Qwen3-4B Q4_K_M with a GPU, LFM2.5-1.2B Q8 without); else the largest chat model that runs well here (3 GB with a GPU, 1.5 GB without); else the smallest.
-- **Tasks:** the user chooses a model for everything (`default`) and may choose another one per task: `explain` (writing the explanation) and `check` (checking it against the paper). One model is loaded at a time, so two models for one answer means waiting for both.
+- **Tasks:** the user chooses a model for everything (`default`) and may choose another one per task: `explain` (writing the explanation) , `check` (checking it against the paper) and `sort` (suggesting folders for papers). One model is loaded at a time, so two models for one answer means waiting for both.
 - A chosen model that is no longer there falls back to the suggestion, and the route reason says so. A model that could not be started carries its `problem` until it starts.
 - Choices are kept in a small file of the app; nothing is written into the model folders.
 

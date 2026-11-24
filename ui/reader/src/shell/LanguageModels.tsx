@@ -105,7 +105,7 @@ export function LanguageModels(): JSX.Element {
 
       <Show when={chat().length > 0} fallback={<Show when={!searching()}><p class="muted">{t("llm.none")}</p></Show>}>
         <h4>{t("llm.tasks")}</h4>
-        <For each={["default", "explain", "check"]}>
+        <For each={["default", "explain", "check", "sort"]}>
           {(task) => <Choice label={t(`llm.task.${task}` as MessageKey)} value={chosen(task)} options={options(task)} onChange={(id) => void run(() => assignModel(task, id || null))} />}
         </For>
         <Show when={explain() !== check()}>

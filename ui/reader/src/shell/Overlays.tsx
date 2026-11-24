@@ -108,7 +108,7 @@ export function KeymapSettings(props: { onClose: () => void }): JSX.Element {
   );
 }
 
-export function Prompt(props: { message: string; placeholder: string; onAnswer: (value: string | null) => void }): JSX.Element {
+export function Prompt(props: { message: string; placeholder: string; action?: string; onAnswer: (value: string | null) => void }): JSX.Element {
   let input!: HTMLInputElement;
   return (
     <Dialog
@@ -118,7 +118,7 @@ export function Prompt(props: { message: string; placeholder: string; onAnswer: 
         <>
           <Button onClick={() => props.onAnswer(null)}>{t("common.cancel")}</Button>
           <Button variant="primary" onClick={() => props.onAnswer(input.value.trim() || null)}>
-            {t("common.open")}
+            {props.action ?? t("common.open")}
           </Button>
         </>
       }

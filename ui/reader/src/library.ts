@@ -10,6 +10,8 @@ import { bus } from "./host";
 export interface Filter {
   query: string;
   collection: string | null;
+  /** Home: only the papers in no folder. */
+  unfiled: boolean;
   tag: string | null;
   sort: PaperSort;
 }
@@ -18,7 +20,7 @@ const [project, setProject] = createSignal<ProjectInfo | null>(null);
 const [papers, setPapers] = createSignal<Paper[]>([]);
 const [collections, setCollections] = createSignal<Collection[]>([]);
 const [tags, setTags] = createSignal<TagCount[]>([]);
-const [filter, setFilterSignal] = createSignal<Filter>({ query: "", collection: null, tag: null, sort: "added" });
+const [filter, setFilterSignal] = createSignal<Filter>({ query: "", collection: null, unfiled: true, tag: null, sort: "added" });
 
 export { collections, filter, papers, project, tags };
 
@@ -49,7 +51,7 @@ export async function renamePaper(id: string, title: string): Promise<void> {
 export async function refresh(): Promise<void> {
   const f = filter();
   const [p, c, t] = await Promise.all([
-    bus("workspace.list_papers", { limit: 1000, offset: 0, query: f.query || null, collection: f.collection, tag: f.tag, sort: f.sort }),
+    bus("workspace.list_papers", { limit: 1000, offset: 0, query: f.query || null, collection: f.collection, unfiled: f.unfiled && !f.query && !f.tag && !f.collection, tag: f.tag, sort: f.sort }),
     bus("workspace.list_collections", null),
     bus("workspace.list_tags", null),
   ]);
@@ -81,9 +83,65 @@ export async function importPdf(path: string, sourceUrl: string | null = null): 
   });
 }
 
-export async function createCollection(name: string): Promise<void> {
-  await bus("workspace.create_collection", { name });
+/** What to call a paper. */
+export const titleOf = (p: Paper | undefined): string => p?.title ?? p?.original_name ?? "";
+
+/** Folders directly in a folder (null: at the top), by name. */
+export const childrenOf = (parent: string | null): Collection[] => collections().filter((c) => (c.parent ?? null) === parent);
+
+/** "Energy / Wind" */
+export function pathOf(id: string): string {
+  const names: string[] = [];
+  let at: string | null = id;
+  while (at && names.length < 20) {
+    const c = collections().find((x) => x.id === at);
+    if (!c) break;
+    names.unshift(c.name);
+    at = c.parent ?? null;
+  }
+  return names.join(" / ");
+}
+
+export async function createCollection(name: string, parent: string | null = null): Promise<void> {
+  await bus("workspace.create_collection", { name, parent });
   await refresh();
+}
+
+export async function renameCollection(id: string, name: string): Promise<void> {
+  await bus("workspace.rename_collection", { id, name });
+  await refresh();
+}
+
+export async function moveCollection(id: string, parent: string | null): Promise<void> {
+  await bus("workspace.move_collection", { id, parent });
+  await refresh();
+}
+
+/** Papers that go together: into a folder, a new folder, or out of all folders. */
+export interface FolderGroup {
+  papers: string[];
+  collection?: string;
+  new?: { name: string; parent: string | null };
+}
+
+/** Apply groups, all or nothing; returns the way back. */
+export async function applyFolders(groups: FolderGroup[]): Promise<() => Promise<void>> {
+  const done = await bus("workspace.apply_folders", { groups });
+  await refresh();
+  return async () => {
+    await bus("workspace.undo_folders", done);
+    await refresh();
+  };
+}
+
+/** Take several papers out of the library; returns the way back. */
+export async function removePapers(ids: string[]): Promise<() => Promise<void>> {
+  await bus("workspace.remove_papers", { ids });
+  await refresh();
+  return async () => {
+    await bus("workspace.restore_papers", { ids });
+    await refresh();
+  };
 }
 
 /** Delete a collection after the user confirms (the policy asks for approval). */
@@ -96,12 +154,7 @@ export async function deleteCollection(c: Collection, confirm: (message: string)
     if (!(await confirm(c.name))) return;
     await bus("workspace.delete_collection", { id: c.id }, { approved: [rule] });
   }
-  if (filter().collection === c.id) setFilter({ collection: null });
-  await refresh();
-}
-
-export async function addToCollection(collection: string, paper: string): Promise<void> {
-  await bus("workspace.add_to_collection", { collection, papers: [paper] });
+  if (filter().collection === c.id) setFilter({ collection: c.parent ?? null, unfiled: !c.parent });
   await refresh();
 }
 

@@ -73,12 +73,16 @@ export interface Commands {
   "inference.unload": { input: null; output: T.LlmStatus };
   /** Explain a selection: a fast draft, then a version checked against the paper */
   "understanding.explain_span": { input: T.ExplainRequest; output: T.Explanation };
+  /** Suggest folders for papers; nothing is moved */
+  "understanding.suggest_folders": { input: T.SuggestFolders; output: T.FolderSuggestion };
   /** Add a named place in a paper */
   "workspace.add_bookmark": { input: T.AddBookmark; output: T.Bookmark };
   /** Add a PDF as a managed copy (the original is never changed) */
   "workspace.add_file": { input: T.FilePath; output: T.Added };
   /** Put papers in a collection */
   "workspace.add_to_collection": { input: T.CollectionPapers; output: T.Collection };
+  /** Put groups of papers into folders, all of it or nothing */
+  "workspace.apply_folders": { input: T.ApplyFolders; output: T.AppliedFolders };
   /** Tell what kind of file this is (by content) */
   "workspace.classify": { input: T.FilePath; output: T.Classification };
   /** Make a collection */
@@ -101,6 +105,8 @@ export interface Commands {
   "workspace.list_papers": { input: T.ListPapers; output: T.Paper[] };
   /** Every tag in use, with counts */
   "workspace.list_tags": { input: null; output: T.TagCount[] };
+  /** Move a folder into another one */
+  "workspace.move_collection": { input: T.MoveCollection; output: T.Collection };
   /** Earlier versions of a paper's notebook */
   "workspace.notes_history": { input: T.PaperInput; output: T.NotesVersion[] };
   /** Open the default library, creating it on first run */
@@ -117,12 +123,16 @@ export interface Commands {
   "workspace.remove_from_collection": { input: T.CollectionPapers; output: T.Collection };
   /** Take a paper out of the library (undo with restore_paper until the library is next opened) */
   "workspace.remove_paper": { input: T.GetPaper; output: null };
+  /** Take several papers out of the library (undo with restore_papers) */
+  "workspace.remove_papers": { input: T.PaperIds; output: null };
   /** Rename a collection */
   "workspace.rename_collection": { input: T.RenameCollection; output: T.Collection };
   /** Bring back an earlier version of a paper's notebook */
   "workspace.restore_notes": { input: T.RestoreNotes; output: T.PaperNotes };
   /** Bring back a paper taken out of the library */
   "workspace.restore_paper": { input: T.GetPaper; output: T.Paper };
+  /** Bring back several papers */
+  "workspace.restore_papers": { input: T.PaperIds; output: null };
   /** Save the notebook of a paper (a new version; earlier ones stay in the history) */
   "workspace.save_notes": { input: T.SaveNotes; output: T.PaperNotes };
   /** Remember where the reader is in a paper */
@@ -133,6 +143,8 @@ export interface Commands {
   "workspace.set_paper_metadata": { input: T.SetPaperMetadata; output: T.Paper };
   /** Replace a paper's tags */
   "workspace.set_tags": { input: T.SetTags; output: T.Paper };
+  /** Take apply_folders back */
+  "workspace.undo_folders": { input: T.AppliedFolders; output: null };
 }
 
 /** A command name. */

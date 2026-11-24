@@ -35,9 +35,11 @@
     "inference.status",
     "inference.unload",
     "understanding.explain_span",
+    "understanding.suggest_folders",
     "workspace.add_bookmark",
     "workspace.add_file",
     "workspace.add_to_collection",
+    "workspace.apply_folders",
     "workspace.classify",
     "workspace.create_collection",
     "workspace.current",
@@ -48,6 +50,7 @@
     "workspace.list_collections",
     "workspace.list_papers",
     "workspace.list_tags",
+    "workspace.move_collection",
     "workspace.notes_history",
     "workspace.open_default_library",
     "workspace.open_project",
@@ -56,13 +59,16 @@
     "workspace.remove_bookmark",
     "workspace.remove_from_collection",
     "workspace.remove_paper",
+    "workspace.remove_papers",
     "workspace.rename_collection",
     "workspace.restore_notes",
     "workspace.restore_paper",
+    "workspace.restore_papers",
     "workspace.save_notes",
     "workspace.save_reading_state",
     "workspace.set_paper_file",
     "workspace.set_paper_metadata",
-    "workspace.set_tags"
+    "workspace.set_tags",
+    "workspace.undo_folders"
   ]
 }

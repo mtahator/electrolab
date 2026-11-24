@@ -34,11 +34,13 @@ tags: popup, popover, card, menu, tooltip, selection bar
 tags: dialog, sheet, settings, form, confirm
 - read: design language §9.9, §9.8 (undo instead of confirm), §5.4
 - do: use the kit's `Dialog`: 440 px to ask one thing, `size="lg"` for settings, lists and forms
+- do: take what is needed out of the dialog's state before closing it (after closing, its state is gone)
+- do: press every button of it in a test, the confirming one too
 - do: name the buttons with verbs; first focus on the safe or main one; Esc cancels
 - do: keep rows 8 px apart; let a row's control wrap under its text
 - never: content with a width of its own; a dialog where undo is possible; a dialog that cannot be closed
-- proof: `test:nothing_spills_out_of_its_box` `test:no_control_is_cut_off` `test:controls_do_not_touch`
-- done: `node e2e/layout.mjs`
+- proof: `test:nothing_spills_out_of_its_box` `test:no_control_is_cut_off` `test:controls_do_not_touch` `test:deleting_a_folder_keeps_the_papers`
+- done: `node e2e/layout.mjs`, the suite that presses its buttons
 
 ## panel A side panel or a list in it
 tags: panel, sidebar, list, thumbnails, contents

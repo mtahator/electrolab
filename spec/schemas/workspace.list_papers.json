@@ -80,6 +80,11 @@
           "string",
           "null"
         ]
+      },
+      "unfiled": {
+        "default": false,
+        "description": "Only papers in no folder.",
+        "type": "boolean"
       }
     },
     "title": "ListPapers",
