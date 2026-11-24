@@ -74,6 +74,16 @@ impl App {
             Some(&renders),
         )?
         .register(&bus)?;
+        // Language models: `EP_LLM_DIR` only; the builds of `.natives` above the program.
+        let llm = std::env::var_os("EP_LLM_DIR").map(std::path::PathBuf::from);
+        ep_inference::Inference::new(
+            llm.into_iter().collect(),
+            ep_inference::runtime_dirs(),
+            spawner()?,
+            None,
+        )
+        .register(&bus)?;
+        ep_understanding::Understanding::new().register(&bus)?;
         Ok(Self { bus })
     }
 
@@ -164,6 +174,18 @@ pub fn write_schemas(bus: &Bus, dir: &Path) -> anyhow::Result<usize> {
         serde_json::to_string_pretty(&bus)? + "\n",
     )?;
     Ok(commands.len())
+}
+
+/// Starts helper processes tied to this program's lifetime (ADR-009).
+#[cfg(windows)]
+fn spawner() -> anyhow::Result<Arc<dyn ep_os::ProcessSpawner>> {
+    Ok(Arc::new(ep_os_windows::JobSpawner::new()?))
+}
+
+#[cfg(not(windows))]
+#[allow(clippy::unnecessary_wraps)] // same signature on every system
+fn spawner() -> anyhow::Result<Arc<dyn ep_os::ProcessSpawner>> {
+    Ok(Arc::new(ep_os::fake::FakeSpawner::default()))
 }
 
 #[cfg(test)]

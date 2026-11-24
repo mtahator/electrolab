@@ -911,3 +911,101 @@ async fn probe_document() {
         );
     }
 }
+
+/// OCR comparison bench (ADR-013, spike S7): every `pdf:page` in `EP_OCR_BENCH` (`;`-separated)
+/// is turned into a scanned copy, read by the shipped OCR (PP-OCRv5 only, no other page models)
+/// and written as one JSON line to `EP_OCR_BENCH_OUT`: the page's real text, the OCR text and
+/// the seconds taken. Other OCR engines are scored against the same lines outside this test.
+#[tokio::test]
+#[ignore = "bench: run by hand with EP_OCR_BENCH and EP_OCR_BENCH_OUT"]
+async fn ocr_bench() {
+    use std::io::Write as _;
+    let (Some(cases), Some(out)) = (
+        std::env::var_os("EP_OCR_BENCH"),
+        std::env::var_os("EP_OCR_BENCH_OUT"),
+    ) else {
+        eprintln!("skipped: EP_OCR_BENCH or EP_OCR_BENCH_OUT not set");
+        return;
+    };
+    let tmp = tempfile::tempdir().unwrap();
+    // Only the OCR models, so the time is OCR's own.
+    let all = root().join(".natives/models");
+    let models = tmp.path().join("models");
+    for entry in std::fs::read_dir(&all).unwrap() {
+        let entry = entry.unwrap();
+        let name = entry.file_name();
+        if name.to_string_lossy().starts_with("ppocrv5") {
+            let dst = models.join(&name);
+            std::fs::create_dir_all(&dst).unwrap();
+            for f in std::fs::read_dir(entry.path()).unwrap() {
+                let f = f.unwrap();
+                std::fs::copy(f.path(), dst.join(f.file_name())).unwrap();
+            }
+        }
+    }
+    let mut lines = std::fs::File::create(out).unwrap();
+    for (i, case) in cases
+        .to_string_lossy()
+        .split(';')
+        .filter(|c| !c.is_empty())
+        .enumerate()
+    {
+        let (path, page) = case.rsplit_once(':').unwrap();
+        let src = PathBuf::from(path);
+        let page: u32 = page.parse().unwrap();
+        let scanned = tmp.path().join(format!("scan-{i}.pdf"));
+        scanned_copy(&src, page, &scanned);
+        let original = {
+            let d = Document::new(Arc::new(OneFile(src.clone())), pdfium(), None).unwrap();
+            let b = Arc::new(Bus::default());
+            d.register(&b).unwrap();
+            let ob = std::fs::read(&src).unwrap();
+            let of = BlobRef {
+                hash: Hash::of(&ob),
+                size: ob.len() as u64,
+                media_type: MediaType::pdf(),
+            };
+            call::<ep_document_contract::PageText>(
+                &b,
+                "document.text",
+                json!({ "file": of, "page": page }),
+            )
+            .await
+            .unwrap()
+        };
+        let doc = Document::new(
+            Arc::new(OneFile(scanned.clone())),
+            pdfium(),
+            Some(&tmp.path().join(format!("cache-{i}"))),
+        )
+        .unwrap();
+        doc.load_page_models(std::slice::from_ref(&models)).unwrap();
+        let bus = Arc::new(Bus::default());
+        doc.register(&bus).unwrap();
+        let bytes = std::fs::read(&scanned).unwrap();
+        let file = BlobRef {
+            hash: Hash::of(&bytes),
+            size: bytes.len() as u64,
+            media_type: MediaType::pdf(),
+        };
+        let t = Instant::now();
+        let _: Preparation = call(&bus, "document.prepare", json!({ "file": file }))
+            .await
+            .unwrap();
+        let secs = t.elapsed().as_secs_f32();
+        let after: ep_document_contract::PageText =
+            call(&bus, "document.text", json!({ "file": file, "page": 1 }))
+                .await
+                .unwrap();
+        eprintln!(
+            "{case}: {secs:.1} s, F1 {:.3}",
+            f1(&after.text, &original.text)
+        );
+        writeln!(
+            lines,
+            "{}",
+            json!({ "case": case, "truth": original.text, "ocr": after.text, "secs": secs })
+        )
+        .unwrap();
+    }
+}

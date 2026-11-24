@@ -53,6 +53,18 @@ export interface Commands {
   "document.text": { input: T.PageRequest; output: T.PageText };
   /** Small images of pages (cached) */
   "document.thumbnails": { input: T.ThumbnailsRequest; output: T.Rendered[] };
+  /** Generate an answer with a language model (streamed as inference.token) */
+  "inference.complete": { input: T.LlmRequest; output: T.LlmResponse };
+  /** Start the language model runtime with a model */
+  "inference.load": { input: T.LlmLoad | null; output: T.LlmStatus };
+  /** Language models and the runtime that runs them */
+  "inference.models": { input: null; output: T.LlmModels };
+  /** State of the language model runtime */
+  "inference.status": { input: null; output: T.LlmStatus };
+  /** Stop the language model runtime */
+  "inference.unload": { input: null; output: T.LlmStatus };
+  /** Explain a selection: a fast draft, then a version checked against the paper */
+  "understanding.explain_span": { input: T.ExplainRequest; output: T.Explanation };
   /** Add a named place in a paper */
   "workspace.add_bookmark": { input: T.AddBookmark; output: T.Bookmark };
   /** Add a PDF as a managed copy (the original is never changed) */

@@ -36,6 +36,20 @@ export function quadsFor(pt: PageText, start: number, end: number): PageQuad[] {
   return out;
 }
 
+/** Bands that show characters `start..end` as selected: one per line piece, as high as the line,
+ *  from the first to the last selected character with the spaces between (design language §9.6). */
+export function selectionRows(pt: PageText, start: number, end: number): PageRect[] {
+  const out: PageRect[] = [];
+  for (const q of quadsFor(pt, start, end)) {
+    const [a, , , d] = q.p;
+    if (!a || !d) continue;
+    const mid = (a.y + d.y) / 2;
+    const line = pt.lines.find((l) => l.rect.y0 <= mid && l.rect.y1 >= mid && l.rect.x0 <= a.x + 1 && l.rect.x1 >= d.x - 1 && l.start < end && l.end > start);
+    out.push({ page: pt.page, x0: a.x, y0: line ? Math.min(line.rect.y0, a.y) : a.y, x1: d.x, y1: line ? Math.max(line.rect.y1, d.y) : d.y });
+  }
+  return out;
+}
+
 /** The text of characters `start..end`, as the copy command gives it (soft hyphens at line ends
  *  joined, other line breaks become spaces). */
 export function textFor(pt: PageText, start: number, end: number): string {

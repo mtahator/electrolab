@@ -19,6 +19,7 @@ mod natives;
 mod os_scan;
 mod product;
 mod schema;
+mod topics;
 mod ts;
 
 use std::path::{Path, PathBuf};
@@ -33,6 +34,7 @@ fn main() -> ExitCode {
             Some(n) => product::set_name(&root, n),
             None => Err(anyhow::anyhow!("usage: cargo xtask set-name \"<Name>\"")),
         },
+        Some("topics") => topics::run(&root, &args[1..]),
         Some("gen") => schema::generate(&root),
         Some("schema-check") => schema::check(&root),
         Some("fetch-natives") => natives::fetch(&root, &args[1..]),
@@ -40,7 +42,7 @@ fn main() -> ExitCode {
         Some("fetch-models") => models::fetch(&root, &args[1..]),
         _ => {
             eprintln!(
-                "usage: cargo xtask <arch-check | gen | schema-check | set-name | fetch-natives | fetch-fixtures | fetch-models>"
+                "usage: cargo xtask <arch-check | topics | gen | schema-check | set-name | fetch-natives | fetch-fixtures | fetch-models>"
             );
             return ExitCode::from(2);
         }

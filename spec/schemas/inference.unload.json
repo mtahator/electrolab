@@ -1,0 +1,117 @@
+{
+  "command": "inference.unload",
+  "input": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "null",
+    "type": "null"
+  },
+  "output": {
+    "$defs": {
+      "LlmBackend": {
+        "description": "The llama.cpp build in use.",
+        "oneOf": [
+          {
+            "const": "cuda",
+            "description": "NVIDIA.",
+            "type": "string"
+          },
+          {
+            "const": "vulkan",
+            "description": "Any GPU with Vulkan.",
+            "type": "string"
+          },
+          {
+            "const": "cpu",
+            "description": "The processor.",
+            "type": "string"
+          },
+          {
+            "const": "none",
+            "description": "No build found.",
+            "type": "string"
+          }
+        ]
+      },
+      "LlmRunState": {
+        "description": "Runtime state.",
+        "oneOf": [
+          {
+            "const": "stopped",
+            "description": "Not running.",
+            "type": "string"
+          },
+          {
+            "const": "starting",
+            "description": "Loading a model.",
+            "type": "string"
+          },
+          {
+            "const": "ready",
+            "description": "Answering.",
+            "type": "string"
+          },
+          {
+            "const": "failed",
+            "description": "Could not start or stopped answering.",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "State of the runtime.",
+    "properties": {
+      "backend": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/LlmBackend"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Build in use."
+      },
+      "error": {
+        "description": "Why it failed.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "model": {
+        "description": "Model loaded or loading.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "ready_ms": {
+        "description": "How long the last start took.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "state": {
+        "$ref": "#/$defs/LlmRunState",
+        "description": "State."
+      }
+    },
+    "required": [
+      "state"
+    ],
+    "title": "LlmStatus",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Stop the language model runtime"
+}

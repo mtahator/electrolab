@@ -25,6 +25,12 @@ members = [
     "engines/workspace/contract",
     "engines/workspace/core",
     "engines/workspace/facade",
+    "engines/inference/contract",
+    "engines/inference/core",
+    "engines/inference/adapters/llamacpp",
+    "engines/inference/facade",
+    "engines/understanding/contract",
+    "engines/understanding/facade",
 ]
 
 [workspace.package]

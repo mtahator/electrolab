@@ -1,6 +1,6 @@
 // The small bar over selected text (P1.M3.UI.9, Scholar parity; guideline §9.1): highlight
 // colours first, then other marks, comment, add to notes, copy and cite — icons with tooltips.
-// One click makes the mark; it is stored at once. ("Explain" joins with the AI features in M5.)
+// One click makes the mark; it is stored at once. Explain (AI) comes first after the colours.
 
 import { IconButton, t } from "@electropaper/kit";
 import { For, type JSX } from "solid-js";
@@ -15,10 +15,11 @@ export interface SelectionBarProps {
   onCopy: () => void;
   onCite: () => void;
   onAddToNotes: () => void;
+  onExplain: () => void;
 }
 
 export function SelectionBar(props: SelectionBarProps): JSX.Element {
-  const W = 420;
+  const W = 460;
   const left = Math.max(8, Math.min(window.innerWidth - W - 8, props.at.left + props.at.width / 2 - W / 2));
   const above = props.at.top - 48;
   const top = above < 60 ? props.at.bottom + 8 : above;
@@ -38,6 +39,8 @@ export function SelectionBar(props: SelectionBarProps): JSX.Element {
           />
         )}
       </For>
+      <span class="bar-sep" />
+      <IconButton icon="sparkles" size="sm" label={t("explain.action")} onClick={props.onExplain} />
       <span class="bar-sep" />
       <IconButton icon="underline" size="sm" label={t("annot.kind.underline")} onClick={() => props.onMark("underline")} />
       <IconButton icon="strikethrough" size="sm" label={t("annot.kind.strike_out")} onClick={() => props.onMark("strike_out")} />

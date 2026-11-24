@@ -357,6 +357,12 @@ The Annotations list (left panel) and Notes (right panel) share filters: colour,
 
 ---
 
+### 9.6 Selecting text (founder report, 2026-11-24)
+- **What is blue is what is copied.** The selection is drawn from the engine's character boxes, one even band per line with the spaces included, never from the browser's own selection of invisible text; copying, marking and Explain use the same characters.
+- **The pointer finds the printed letter.** Invisible words are fitted to the printed word's width and height, at every zoom, whatever the font.
+
+---
+
 ## 11. AI in the interface
 
 AI helps when asked and then gets out of the way. These rules apply to every AI feature in every app.
@@ -371,6 +377,7 @@ AI helps when asked and then gets out of the way. These rules apply to every AI 
 5. **Calm streaming.** Text streams in at reading pace without moving the rest of the layout; no blinking cursor; the card or panel has a Stop button while generating.
 6. **Short by default.** First answer ≤ 4 sentences or 5 bullets, with *More* to expand. The user's preferred length is remembered.
 7. **State in the status line.** Model loading, downloading or unavailable is shown in the status line (`sparkles` icon + short text), with details on click — never as a modal or a banner over the page unless the user's action failed.
+   - **Explain:** double-click a word, or `sparkles` in the selection bar. A double-click never opens a card that can only say "no model": without a model only the selection bar answers, with a way to Settings. Closing the card or Stop ends the answer.
 8. **Respect the reading space.** Opening the assistant never changes the zoom or scroll of the page; inline cards never cover the text they explain; one AI card open at a time.
 9. **The user stays in charge.** Every AI output can be copied, pinned to notes, or dismissed; nothing is written into the user's notes or the PDF without an explicit action.
 10. **Privacy visible.** Anything that leaves the device (only with consent) shows a `cloud` icon and the destination before it is sent.

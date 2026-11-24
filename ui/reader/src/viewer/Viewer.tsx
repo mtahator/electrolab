@@ -10,8 +10,10 @@ import { createStore, produce } from "solid-js/store";
 
 import { citation } from "../annotations/geometry";
 import { MARGIN_W, MarginNotes } from "../annotations/MarginNotes";
+import { ExplainHost } from "../assistant/ExplainCard";
+import { canExplain, explain } from "../assistant/explain";
 import { SelectionBar } from "../annotations/SelectionBar";
-import { marksFor, selectionBox, selectionRanges } from "../annotations/selection";
+import { type CharRange, marksFor, selectionBox, selectionRanges } from "../annotations/selection";
 import { transformed } from "../annotations/AnnotationLayer";
 import { add, change, find, isMarkup, load as loadAnnotations, pending, picked, remove, setPending, setPicked, setTool, tool, typing } from "../annotations/state";
 import { bus, openExternal } from "../host";
@@ -334,6 +336,30 @@ export function Viewer(props: ViewerProps): JSX.Element {
     if (marks.length > 1) void add(props.paper.id, marks.slice(1));
     setPending({ paper: props.paper.id, annotation: first });
   };
+  // Explain the selection (P1.M5.UI.1): the words, what stands around them, where they are.
+  const explainSelection = (): void => {
+    const box = selectionBox();
+    const r = selectionRanges((p) => texts[p])[0];
+    const pt = r && texts[r.page];
+    const text = selectedText((p) => texts[p])?.trim();
+    if (!box || !r || !pt || !text) return;
+    const chars = Array.from(pt.text);
+    void explain({
+      paper: props.paper.id,
+      file: props.paper.file,
+      page: r.page,
+      y: marksFor("highlight", [r], (p) => texts[p])[0]?.rect.y0 ?? 0,
+      selection: text,
+      before: chars.slice(Math.max(0, r.start - 500), r.start).join(""),
+      after: chars.slice(r.end, r.end + 500).join(""),
+      at: box,
+    });
+  };
+  // Double-click explains a word — only when it can be answered (design language §11).
+  const onDblClick = (e: MouseEvent): void => {
+    if (tool() !== "select" || !canExplain() || !(e.target as HTMLElement).closest(".text-layer")) return;
+    window.setTimeout(explainSelection, 0);
+  };
   const onMouseUp = (): void => {
     // Let the browser finish the selection first.
     window.setTimeout(() => {
@@ -344,13 +370,21 @@ export function Viewer(props: ViewerProps): JSX.Element {
       else if (k === "select") setSelBar(box);
     }, 0);
   };
+  // The selection as characters, drawn by the pages (design language §9.6), once per frame.
+  const [selected, setSelected] = createSignal<CharRange[]>([]);
   onMount(() => {
+    let frame = 0;
     const onSel = (): void => {
       const s = window.getSelection();
       if (!s || s.isCollapsed) setSelBar(null);
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => setSelected(props.active ? selectionRanges((p) => texts[p]) : []));
     };
     document.addEventListener("selectionchange", onSel);
-    onCleanup(() => document.removeEventListener("selectionchange", onSel));
+    onCleanup(() => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("selectionchange", onSel);
+    });
   });
 
   onMount(async () => {
@@ -713,6 +747,7 @@ export function Viewer(props: ViewerProps): JSX.Element {
         onKeyDown={onKey}
         onCopy={onCopy}
         onMouseUp={onMouseUp}
+        onDblClick={onDblClick}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerEnd}
@@ -745,6 +780,7 @@ export function Viewer(props: ViewerProps): JSX.Element {
                     onInternalLink={(page, top) => goTo(page, top)}
                     onLinkHover={(target, at) => setPreview(target && at ? { ...target, at } : null)}
                     onExternalLink={(url) => void openExternal(url).catch((e: unknown) => setError(String(e)))}
+                    selection={selected().find((r) => r.page === s.page) ?? null}
                     flash={flashAt()?.page === s.page ? (flashAt()?.y ?? null) : null}
                   />
                   <Show when={margin() > 0}>
@@ -763,6 +799,7 @@ export function Viewer(props: ViewerProps): JSX.Element {
             onHighlight={(c) => markSelection("highlight", c)}
             onMark={(k) => markSelection(k)}
             onComment={commentSelection}
+            onExplain={explainSelection}
             onCopy={() => {
               const text = selectedText((p) => texts[p]);
               if (text) void navigator.clipboard.writeText(text).catch(() => {});
@@ -786,6 +823,13 @@ export function Viewer(props: ViewerProps): JSX.Element {
       </Show>
       <Show when={props.active}>
         <PeekHost paper={props.paper.id} goTo={(page, y) => goTo(page, y)} />
+        <ExplainHost
+          paper={props.paper.id}
+          goTo={(page, y) => {
+            goTo(page, Math.max(0, y - 60));
+            api.flash(page, y);
+          }}
+        />
       </Show>
       <Show when={preview() && doc()}>{(_) => <LinkPreview doc={doc() as PDFDocumentProxy} target={preview() as { page: number; top: number | null; at: DOMRect }} />}</Show>
     </div>

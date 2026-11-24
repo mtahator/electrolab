@@ -62,6 +62,10 @@ pnpm --filter @electropaper/reader-host bundle    # NSIS installer in target/rel
 
 The CLI works on the same engines: `cargo run -p ep-cli -- commands`, `cargo run -p ep-cli -- import paper.pdf`.
 
+## Finding things, and checking only what changed
+
+`docs/project-map.md` is the searchable memory of the project: `cargo xtask topics`, `cargo xtask topics <tag>`, and `cargo xtask topics --changed` for the topics a change touches, what to read with them, and the checks to run.
+
 ## End-to-end checks on the built app
 
 After `pnpm --filter @electropaper/reader-host tauri build --no-bundle` and `cargo xtask fetch-fixtures`:
@@ -72,6 +76,8 @@ node e2e/annotations.mjs target/release/electropaper-reader.exe <scratch> <scrat
 node e2e/perf.mjs        target/release/electropaper-reader.exe <scratch>                 # scrolling and memory
 node e2e/screens.mjs     target/release/electropaper-reader.exe <scratch> <scratch>/out   # design review: every screen in all five themes, control names
 node e2e/intel.mjs       target/release/electropaper-reader.exe <scratch> <scratch>/out   # document intelligence (M4): preparation, contents (pictures), mentions, citations, region, tables, scanned pages
+node e2e/selection.mjs   target/release/electropaper-reader.exe <scratch> <scratch>/out   # selecting and copying text
+node e2e/explain.mjs     target/release/electropaper-reader.exe <scratch> <scratch>/out   # Explain (M5); EP_LLM_DIR=<folder with a known GGUF> for the part with a model
 # intel.mjs options: EP_MODELS_DIR=<folder with egret-medium/ (and latex-ocr/)>, EP_FORMULA=1 (equation LaTeX check), EP_SCANNED_PDF=<image-only PDF>
 ```
 

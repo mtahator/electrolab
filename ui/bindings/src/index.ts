@@ -18,6 +18,8 @@ export interface CallOptions {
   deadlineMs?: number;
   /** Policy rules the user approved for this call (after a `needs_approval` error). */
   approved?: string[];
+  /** Id of the call, so it can be cancelled (a UUID). */
+  id?: string;
 }
 
 /** A failed call, carrying the bus error. */
@@ -69,6 +71,7 @@ export async function call<K extends CommandName>(
       input,
       deadlineMs: options.deadlineMs ?? null,
       approved: options.approved ?? [],
+      id: options.id ?? null,
     })) as Commands[K]["output"];
   } catch (e) {
     throw new BusError(isCommandError(e) ? e : { code: "transport", message: String(e) });

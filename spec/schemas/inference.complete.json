@@ -1,0 +1,232 @@
+{
+  "command": "inference.complete",
+  "input": {
+    "$defs": {
+      "LlmLimits": {
+        "description": "Generation limits.",
+        "properties": {
+          "max_tokens": {
+            "description": "Most tokens to generate.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "temperature": {
+            "default": 0.0,
+            "description": "Sampling temperature (0 = always the most likely token).",
+            "format": "float",
+            "type": "number"
+          }
+        },
+        "required": [
+          "max_tokens"
+        ],
+        "type": "object"
+      },
+      "LlmMessage": {
+        "description": "One message of a conversation.",
+        "properties": {
+          "content": {
+            "description": "What is said.",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/$defs/LlmRole",
+            "description": "Who says it."
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ],
+        "type": "object"
+      },
+      "LlmRole": {
+        "description": "Who says a message.",
+        "oneOf": [
+          {
+            "const": "system",
+            "description": "Instructions.",
+            "type": "string"
+          },
+          {
+            "const": "user",
+            "description": "The question.",
+            "type": "string"
+          },
+          {
+            "const": "assistant",
+            "description": "The model.",
+            "type": "string"
+          }
+        ]
+      },
+      "LlmSensitivity": {
+        "description": "Where the data of a request may go.",
+        "oneOf": [
+          {
+            "const": "local_only",
+            "description": "Only to a model on this machine.",
+            "type": "string"
+          },
+          {
+            "const": "any",
+            "description": "Anywhere the policy allows.",
+            "type": "string"
+          }
+        ]
+      },
+      "LlmStream": {
+        "description": "Ask for the answer to be streamed as `inference.token` events.",
+        "properties": {
+          "id": {
+            "description": "Id carried by every event of this answer.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "A request to a language model.",
+    "properties": {
+      "data": {
+        "description": "Source text (paper passages), sent in its own labelled data section, never as instructions.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "limits": {
+        "$ref": "#/$defs/LlmLimits",
+        "default": {
+          "max_tokens": 512,
+          "temperature": 0.0
+        },
+        "description": "Generation limits."
+      },
+      "messages": {
+        "description": "The conversation: instructions and question.",
+        "items": {
+          "$ref": "#/$defs/LlmMessage"
+        },
+        "type": "array"
+      },
+      "prefill": {
+        "description": "Start of the answer; the model continues it, and the answer includes it.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "schema": {
+        "description": "JSON Schema the answer must follow."
+      },
+      "sensitivity": {
+        "$ref": "#/$defs/LlmSensitivity",
+        "default": "local_only",
+        "description": "Where the data may go."
+      },
+      "stream": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/LlmStream"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Stream the answer as events."
+      },
+      "task": {
+        "description": "The job (`explain.draft`, …); routing and model profiles key on it.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "task",
+      "messages"
+    ],
+    "title": "LlmRequest",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "LlmUsage": {
+        "description": "Token counts and times of one answer.",
+        "properties": {
+          "completion_tokens": {
+            "description": "Tokens written.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "first_token_ms": {
+            "description": "Time to the first token.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "prompt_tokens": {
+            "description": "Tokens read.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total_ms": {
+            "description": "Time to the end.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "prompt_tokens",
+          "completion_tokens",
+          "first_token_ms",
+          "total_ms"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "An answer.",
+    "properties": {
+      "content": {
+        "description": "The text (with the prefill); JSON text when a schema was given.",
+        "type": "string"
+      },
+      "model": {
+        "description": "Model that answered.",
+        "type": "string"
+      },
+      "route_reason": {
+        "description": "Why this backend and model were chosen.",
+        "type": "string"
+      },
+      "usage": {
+        "$ref": "#/$defs/LlmUsage",
+        "description": "Counts and times."
+      }
+    },
+    "required": [
+      "content",
+      "model",
+      "route_reason",
+      "usage"
+    ],
+    "title": "LlmResponse",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Generate an answer with a language model (streamed as inference.token)"
+}

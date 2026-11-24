@@ -58,6 +58,7 @@ import { LibraryView } from "./shell/LibraryView";
 import { KeymapSettings, Palette, Prompt } from "./shell/Overlays";
 import { activate, activeTab, closeTab, moveTab, openPapers, openTab, restore, session, setShowLibrary, toggleSplit, updatePaper } from "./shell/session";
 import { PrintSheet } from "./shell/Print";
+import { explainCard, refreshLanguageModels } from "./assistant/explain";
 import { Settings } from "./shell/Settings";
 import { SidePanel } from "./shell/SidePanel";
 import type { Marks, ViewerApi, ViewerStatus } from "./viewer/Viewer";
@@ -407,6 +408,7 @@ export function App(): JSX.Element {
   });
 
   onMount(async () => {
+    void refreshLanguageModels();
     void refreshModels().then(async () => {
       // The user chose the layout model while installing: get it now, progress in the status line.
       if ((await installChoice()) && !layoutModel()?.present) void fetchModel("egret-medium").then((ok) => ok && prepareAll());
@@ -739,6 +741,9 @@ export function App(): JSX.Element {
                   {t("intel.preparing", { stage: t(`intel.stage.${r().stage}`), done: r().done, total: r().total })}
                 </StatusItem>
               )}
+            </Show>
+            <Show when={explainCard()?.phase === "starting"}>
+              <StatusItem icon="sparkles">{t("explain.starting")}</StatusItem>
             </Show>
             <Show when={addingText()}>
               <StatusItem icon="scan-text">{t("intel.adding_text_layer")}</StatusItem>

@@ -34,6 +34,10 @@
       "icons/icon.ico"
     ],
     "resources": {
+      "../../../.natives/llama-cpp-vulkan/llama-server.exe": "llama-cpp-vulkan/llama-server.exe",
+      "../../../.natives/llama-cpp-vulkan/*.dll": "llama-cpp-vulkan/",
+      "../../../.natives/llama-cpp-vulkan/LICENSE*": "licenses/llama-cpp/",
+      "licenses/llama.cpp-LICENSE.txt": "licenses/llama-cpp/llama.cpp-LICENSE.txt",
       "../../../.natives/pdfium/bin/pdfium.dll": "pdfium.dll",
       "../../../.natives/pdfium/LICENSE": "licenses/pdfium-LICENSE.txt",
       "../../../.natives/onnxruntime/onnxruntime-win-x64-1.31.1/lib/onnxruntime.dll": "onnxruntime.dll",

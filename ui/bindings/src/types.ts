@@ -407,6 +407,69 @@ export type EquationRequest = {
   object?: unknown & (ObjectRef | null);
 };
 
+/** A passage of the paper the check used. */
+export interface Evidence {
+  /** 1-based page. */
+  page: number;
+  /** Verbatim text of the paper. */
+  quote: string;
+  /** Top of the passage on its page (points). */
+  y: number;
+}
+
+/** Input of `understanding.explain_span`. */
+export type ExplainRequest = {
+  /** Up to 500 characters after the selection (read from the page when missing). */
+  after?: string | null;
+  /** Up to 500 characters before the selection (read from the page when missing). */
+  before?: string | null;
+  /** The paper's file. */
+  file: BlobRef;
+  /** 1-based page of the selection. */
+  page: number;
+  /** The selected text. */
+  selection: string;
+  /** Stream the answer. */
+  stream?: ExplainStream | null;
+};
+
+/** How far an explanation was checked. */
+export type ExplainStatus = "unchecked" | "checked" | "corrected";
+
+/** Ask for the answer to be streamed as `understanding.explaining` events. */
+export interface ExplainStream {
+  /** Id carried by every event of this answer. */
+  id: string;
+}
+
+/** Times of one explanation, from the request. */
+export interface ExplainTimings {
+  /** The check alone. */
+  check_ms: number;
+  /** Draft done. */
+  draft_ms: number;
+  /** First draft token. */
+  first_token_ms: number;
+  /** Everything. */
+  total_ms: number;
+}
+
+/** Output of `understanding.explain_span`. */
+export interface Explanation {
+  /** Passages the check used. */
+  evidence: Evidence[];
+  /** Model that answered. */
+  model: string;
+  /** The selection explained. */
+  selection: string;
+  /** How far it was checked. */
+  status: ExplainStatus;
+  /** The explanation shown. */
+  text: string;
+  /** Times. */
+  timings: ExplainTimings;
+}
+
 /** What a file is. */
 export type FileKind = "pdf" | "unsupported";
 
@@ -520,6 +583,143 @@ export type ListPapers = {
   /** Only papers with this tag. */
   tag?: string | null;
 };
+
+/** The llama.cpp build in use. */
+export type LlmBackend = "cuda" | "vulkan" | "cpu" | "none";
+
+/** Generation limits. */
+export interface LlmLimits {
+  /** Most tokens to generate. */
+  max_tokens: number;
+  /** Sampling temperature (0 = always the most likely token). */
+  temperature?: number;
+}
+
+/** Input of `inference.load`. */
+export type LlmLoad = {
+  /** Model id; the recommended one when missing. */
+  model?: string | null;
+};
+
+/** One message of a conversation. */
+export interface LlmMessage {
+  /** What is said. */
+  content: string;
+  /** Who says it. */
+  role: LlmRole;
+}
+
+/** A local model. */
+export interface LlmModel {
+  /** Context length used. */
+  context: number;
+  /** GGUF file name. */
+  file: string;
+  /** Stable id. */
+  id: string;
+  /** Licence of the weights. */
+  licence: string;
+  /** Name for people. */
+  name: string;
+  /** The model chosen for this machine. */
+  recommended: boolean;
+  /** Bytes. */
+  size: number;
+  /** Whether it is here or running. */
+  state: LlmModelState;
+}
+
+/** Whether a model can be used. */
+export type LlmModelState = "missing" | "ready" | "loaded";
+
+/** Models and runtime. */
+export interface LlmModels {
+  /** The models the engine knows. */
+  models: LlmModel[];
+  /** The runtime. */
+  runtime: LlmRuntime;
+}
+
+/** A request to a language model. */
+export type LlmRequest = {
+  /** Source text (paper passages), sent in its own labelled data section, never as instructions. */
+  data?: string | null;
+  /** Generation limits. */
+  limits?: LlmLimits;
+  /** The conversation: instructions and question. */
+  messages: LlmMessage[];
+  /** Start of the answer; the model continues it, and the answer includes it. */
+  prefill?: string | null;
+  /** JSON Schema the answer must follow. */
+  schema?: unknown;
+  /** Where the data may go. */
+  sensitivity?: LlmSensitivity;
+  /** Stream the answer as events. */
+  stream?: LlmStream | null;
+  /** The job (`explain.draft`, …); routing and model profiles key on it. */
+  task: string;
+};
+
+/** An answer. */
+export interface LlmResponse {
+  /** The text (with the prefill); JSON text when a schema was given. */
+  content: string;
+  /** Model that answered. */
+  model: string;
+  /** Why this backend and model were chosen. */
+  route_reason: string;
+  /** Counts and times. */
+  usage: LlmUsage;
+}
+
+/** Who says a message. */
+export type LlmRole = "system" | "user" | "assistant";
+
+/** Runtime state. */
+export type LlmRunState = "stopped" | "starting" | "ready" | "failed";
+
+/** The runtime that will run the models. */
+export type LlmRuntime = {
+  /** Which build. */
+  backend: LlmBackend;
+  /** Its folder, when found. */
+  build?: string | null;
+};
+
+/** Where the data of a request may go. */
+export type LlmSensitivity = "local_only" | "any";
+
+/** State of the runtime. */
+export type LlmStatus = {
+  /** Build in use. */
+  backend?: LlmBackend | null;
+  /** Why it failed. */
+  error?: string | null;
+  /** Model loaded or loading. */
+  model?: string | null;
+  /** How long the last start took. */
+  ready_ms?: number | null;
+  /** State. */
+  state: LlmRunState;
+};
+
+/** Ask for the answer to be streamed as `inference.token` events. */
+export interface LlmStream {
+  /** Id carried by every event of this answer. */
+  id: string;
+}
+
+/** Token counts and times of one answer. */
+export interface LlmUsage {
+  /** Tokens written. */
+  completion_tokens: number;
+  /** Time to the first token. */
+  first_token_ms: number;
+  /** Tokens read. */
+  prompt_tokens: number;
+  /** Time to the end. */
+  total_ms: number;
+}
 
 /**
  * "Go there": the single way to point at a place in a paper (links, history, search hits,

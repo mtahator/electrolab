@@ -10,6 +10,9 @@
 
 import type { BlobRef, Link, PageRect, PageText } from "@electropaper/bindings";
 import { t } from "@electropaper/kit";
+import { clean, selectionRows } from "../annotations/geometry";
+import { type CharRange, selectionRanges } from "../annotations/selection";
+import { fitX } from "./textfit";
 import { For, type JSX, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js";
 
 import { AnnotationLayer } from "../annotations/AnnotationLayer";
@@ -47,6 +50,8 @@ export interface PageProps {
   onLinkHover: (target: { page: number; top: number | null } | null, at: DOMRect | null) => void;
   onExternalLink: (url: string) => void;
   /** Page-space y of a line to mark briefly, or null. */
+  /** Selected characters of this page. */
+  selection: CharRange | null;
   flash?: number | null;
 }
 
@@ -116,6 +121,13 @@ export function Page(props: PageProps): JSX.Element {
       <div class="highlight-layer">
         <For each={props.highlights}>{(r) => <div class="hit" classList={{ active: props.activeHighlight === r }} style={box(r, props.layoutScale)} />}</For>
       </div>
+      <div class="selection-layer" aria-hidden="true">
+        <Show when={props.selection && props.text}>
+          <For each={selectionRows(props.text as PageText, props.selection?.start ?? 0, props.selection?.end ?? 0)}>
+            {(r) => <div class="selection-row" style={box(r, props.layoutScale)} />}
+          </For>
+        </Show>
+      </div>
       <TextLayer text={props.text} scale={props.layoutScale} />
       <Show when={props.flash !== null && props.flash !== undefined}>
         <div class="flash-band" style={{ top: `${(props.flash ?? 0) * props.layoutScale - 4}px`, height: `${18 * props.layoutScale}px` }} />
@@ -178,7 +190,10 @@ function TextLayer(props: { text: PageText | undefined; scale: number }): JSX.El
           return (
             <For each={pt().words}>
               {(w) => {
-                const h = (w.rect.y1 - w.rect.y0) * props.scale;
+                const text = createMemo(() => chars().slice(w.start, w.end).join("").replace("­", ""));
+                // Functions, not constants: the scale changes with the zoom.
+                const h = (): number => (w.rect.y1 - w.rect.y0) * props.scale;
+                const size = (): number => h() * 0.85;
                 return (
                   <span
                     data-page={pt().page}
@@ -187,12 +202,13 @@ function TextLayer(props: { text: PageText | undefined; scale: number }): JSX.El
                     style={{
                       left: `${w.rect.x0 * props.scale}px`,
                       top: `${w.rect.y0 * props.scale}px`,
-                      width: `${(w.rect.x1 - w.rect.x0) * props.scale}px`,
-                      height: `${h}px`,
-                      "font-size": `${h * 0.85}px`,
+                      height: `${h()}px`,
+                      "line-height": `${h()}px`,
+                      "font-size": `${size()}px`,
+                      transform: `scaleX(${fitX(text(), size(), (w.rect.x1 - w.rect.x0) * props.scale)})`,
                     }}
                   >
-                    {chars().slice(w.start, w.end).join("").replace("­", "")}
+                    {text()}
                   </span>
                 );
               }}
@@ -204,32 +220,11 @@ function TextLayer(props: { text: PageText | undefined; scale: number }): JSX.El
   );
 }
 
-/** Text of the current selection, taken from the engine's characters in reading order
- *  (soft-hyphenated line breaks joined, other line breaks become spaces). */
+/** Text of the current selection: exactly the characters shown as selected, taken from the
+ *  engine in reading order (soft-hyphenated line breaks joined, other line breaks become spaces). */
 export function selectedText(texts: (page: number) => PageText | undefined): string | null {
-  const sel = window.getSelection();
-  if (!sel || sel.isCollapsed || sel.rangeCount === 0) return null;
-  const range = sel.getRangeAt(0);
-  const spans = Array.from(document.querySelectorAll<HTMLSpanElement>(".text-layer span[data-page]")).filter((s) => range.intersectsNode(s));
-  if (spans.length === 0) return null;
-  const byPage = new Map<number, { start: number; end: number }>();
-  for (const s of spans) {
-    const page = Number(s.dataset.page);
-    const start = Number(s.dataset.start);
-    const end = Number(s.dataset.end);
-    const cur = byPage.get(page);
-    byPage.set(page, cur ? { start: Math.min(cur.start, start), end: Math.max(cur.end, end) } : { start, end });
-  }
-  const parts: string[] = [];
-  for (const [page, r] of [...byPage.entries()].sort((a, b) => a[0] - b[0])) {
-    const pt = texts(page);
-    if (!pt) continue;
-    parts.push(Array.from(pt.text).slice(r.start, r.end).join(""));
-  }
-  return parts
-    .join("\n")
-    .replace(/­\n/g, "")
-    .replace(/[ \t]*\n[ \t]*/g, " ")
-    .replace(/­/g, "")
-    .trim();
+  const ranges = selectionRanges(texts);
+  if (ranges.length === 0) return null;
+  const parts = ranges.map((r) => Array.from(texts(r.page)?.text ?? "").slice(r.start, r.end).join(""));
+  return clean(parts.join("\n"));
 }

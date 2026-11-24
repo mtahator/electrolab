@@ -21,6 +21,8 @@ ep-telemetry = { path = "../../../foundation/telemetry" }
 ep-types = { path = "../../../foundation/types" }
 ep-workspace = { path = "../../../engines/workspace/facade" }
 ep-document = { path = "../../../engines/document/facade" }
+ep-inference = { path = "../../../engines/inference/facade" }
+ep-understanding = { path = "../../../engines/understanding/facade" }
 tauri = { version = "=2.12.5", features = [] }
 tauri-plugin-dialog = "=2.8.4"
 tauri-plugin-single-instance = "=2.5.5"

@@ -561,6 +561,7 @@ body,
 
 .text-layer,
 .link-layer,
+.selection-layer,
 .highlight-layer {
   position: absolute;
   inset: 0;
@@ -571,13 +572,28 @@ body,
   position: absolute;
   color: transparent;
   white-space: pre;
-  line-height: 1;
   cursor: text;
+
+  /* The same font as viewer/textfit.ts measures. */
+  font-family: var(--font-fit);
+  font-kerning: auto;
+  letter-spacing: normal;
+  transform-origin: 0 0;
 }
 
+/* The selection is drawn from the engine's characters (.selection-row), not by the browser. */
 .text-layer span::selection {
-  background: var(--selection);
+  background: transparent;
   color: transparent;
+}
+
+.selection-layer {
+  pointer-events: none;
+}
+
+.selection-row {
+  position: absolute;
+  background: var(--selection);
 }
 
 /* Layers over the text must let the pointer through (review 2026-11-15: the link layer covered
@@ -1840,6 +1856,42 @@ body,
 
 .rename-field {
   width: 100%;
+}
+
+/* The Explain card (design language §11): generated text carries one quiet rule, nothing else. */
+.explain-text {
+  margin: 0;
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--fg-muted);
+  line-height: 1.5;
+  user-select: text;
+}
+
+.explain-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
+}
+
+.explain-evidence,
+.explain-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+.explain-failed {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.explain-failed p {
+  margin: 0;
 }
 
 /* Printing (design language §17.9): the print sheet, and the print-only layer that holds the

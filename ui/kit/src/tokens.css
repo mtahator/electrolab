@@ -4,6 +4,7 @@
 :root {
   /* Type (§4). Sizes are in rem so the text size setting scales them. */
   --font-ui: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-fit: sans-serif; /* invisible text-layer words, fitted to print (viewer/textfit.ts) */
   --font-read: Charter, "Bitstream Charter", Georgia, serif;
   --font-mono: "Cascadia Mono", Consolas, monospace;
   /* Free text on the page uses the font written into the PDF (Helvetica), so both look alike. */

@@ -1,0 +1,158 @@
+{
+  "command": "inference.models",
+  "input": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "null",
+    "type": "null"
+  },
+  "output": {
+    "$defs": {
+      "LlmBackend": {
+        "description": "The llama.cpp build in use.",
+        "oneOf": [
+          {
+            "const": "cuda",
+            "description": "NVIDIA.",
+            "type": "string"
+          },
+          {
+            "const": "vulkan",
+            "description": "Any GPU with Vulkan.",
+            "type": "string"
+          },
+          {
+            "const": "cpu",
+            "description": "The processor.",
+            "type": "string"
+          },
+          {
+            "const": "none",
+            "description": "No build found.",
+            "type": "string"
+          }
+        ]
+      },
+      "LlmModel": {
+        "description": "A local model.",
+        "properties": {
+          "context": {
+            "description": "Context length used.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "file": {
+            "description": "GGUF file name.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Stable id.",
+            "type": "string"
+          },
+          "licence": {
+            "description": "Licence of the weights.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Name for people.",
+            "type": "string"
+          },
+          "recommended": {
+            "description": "The model chosen for this machine.",
+            "type": "boolean"
+          },
+          "size": {
+            "description": "Bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "state": {
+            "$ref": "#/$defs/LlmModelState",
+            "description": "Whether it is here or running."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "file",
+          "size",
+          "licence",
+          "state",
+          "recommended",
+          "context"
+        ],
+        "type": "object"
+      },
+      "LlmModelState": {
+        "description": "Whether a model can be used.",
+        "oneOf": [
+          {
+            "const": "missing",
+            "description": "Not on this machine.",
+            "type": "string"
+          },
+          {
+            "const": "ready",
+            "description": "Its file is here.",
+            "type": "string"
+          },
+          {
+            "const": "loaded",
+            "description": "Running now.",
+            "type": "string"
+          }
+        ]
+      },
+      "LlmRuntime": {
+        "description": "The runtime that will run the models.",
+        "properties": {
+          "backend": {
+            "$ref": "#/$defs/LlmBackend",
+            "description": "Which build."
+          },
+          "build": {
+            "description": "Its folder, when found.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "backend"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Models and runtime.",
+    "properties": {
+      "models": {
+        "description": "The models the engine knows.",
+        "items": {
+          "$ref": "#/$defs/LlmModel"
+        },
+        "type": "array"
+      },
+      "runtime": {
+        "$ref": "#/$defs/LlmRuntime",
+        "description": "The runtime."
+      }
+    },
+    "required": [
+      "models",
+      "runtime"
+    ],
+    "title": "LlmModels",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Language models and the runtime that runs them"
+}

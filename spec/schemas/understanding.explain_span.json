@@ -1,0 +1,239 @@
+{
+  "command": "understanding.explain_span",
+  "input": {
+    "$defs": {
+      "BlobRef": {
+        "description": "A file in the content-addressed store: messages carry these, never large bytes (§9.4).",
+        "properties": {
+          "hash": {
+            "$ref": "#/$defs/Hash",
+            "description": "Content hash."
+          },
+          "media_type": {
+            "$ref": "#/$defs/MediaType",
+            "description": "What the bytes are."
+          },
+          "size": {
+            "description": "Size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "ExplainStream": {
+        "description": "Ask for the answer to be streamed as `understanding.explaining` events.",
+        "properties": {
+          "id": {
+            "description": "Id carried by every event of this answer.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "Hash": {
+        "description": "BLAKE3 content hash (hex)",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "MediaType": {
+        "description": "A media type such as `application/pdf`.",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `understanding.explain_span`.",
+    "properties": {
+      "after": {
+        "description": "Up to 500 characters after the selection (read from the page when missing).",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "before": {
+        "description": "Up to 500 characters before the selection (read from the page when missing).",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "file": {
+        "$ref": "#/$defs/BlobRef",
+        "description": "The paper's file."
+      },
+      "page": {
+        "description": "1-based page of the selection.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "selection": {
+        "description": "The selected text.",
+        "type": "string"
+      },
+      "stream": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ExplainStream"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Stream the answer."
+      }
+    },
+    "required": [
+      "file",
+      "page",
+      "selection"
+    ],
+    "title": "ExplainRequest",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "Evidence": {
+        "description": "A passage of the paper the check used.",
+        "properties": {
+          "page": {
+            "description": "1-based page.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "quote": {
+            "description": "Verbatim text of the paper.",
+            "type": "string"
+          },
+          "y": {
+            "description": "Top of the passage on its page (points).",
+            "format": "float",
+            "type": "number"
+          }
+        },
+        "required": [
+          "page",
+          "y",
+          "quote"
+        ],
+        "type": "object"
+      },
+      "ExplainStatus": {
+        "description": "How far an explanation was checked.",
+        "oneOf": [
+          {
+            "const": "unchecked",
+            "description": "Not checked (no passages, or the check gave no clear answer).",
+            "type": "string"
+          },
+          {
+            "const": "checked",
+            "description": "The check agreed with the draft.",
+            "type": "string"
+          },
+          {
+            "const": "corrected",
+            "description": "The check corrected the draft; the text is the correction.",
+            "type": "string"
+          }
+        ]
+      },
+      "ExplainTimings": {
+        "description": "Times of one explanation, from the request.",
+        "properties": {
+          "check_ms": {
+            "description": "The check alone.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "draft_ms": {
+            "description": "Draft done.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "first_token_ms": {
+            "description": "First draft token.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total_ms": {
+            "description": "Everything.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "first_token_ms",
+          "draft_ms",
+          "check_ms",
+          "total_ms"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Output of `understanding.explain_span`.",
+    "properties": {
+      "evidence": {
+        "description": "Passages the check used.",
+        "items": {
+          "$ref": "#/$defs/Evidence"
+        },
+        "type": "array"
+      },
+      "model": {
+        "description": "Model that answered.",
+        "type": "string"
+      },
+      "selection": {
+        "description": "The selection explained.",
+        "type": "string"
+      },
+      "status": {
+        "$ref": "#/$defs/ExplainStatus",
+        "description": "How far it was checked."
+      },
+      "text": {
+        "description": "The explanation shown.",
+        "type": "string"
+      },
+      "timings": {
+        "$ref": "#/$defs/ExplainTimings",
+        "description": "Times."
+      }
+    },
+    "required": [
+      "selection",
+      "text",
+      "status",
+      "evidence",
+      "model",
+      "timings"
+    ],
+    "title": "Explanation",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Explain a selection: a fast draft, then a version checked against the paper"
+}

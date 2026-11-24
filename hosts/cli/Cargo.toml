@@ -19,6 +19,8 @@ ep-types = { path = "../../foundation/types" }
 ep-workspace = { path = "../../engines/workspace/facade" }
 ep-workspace-contract = { path = "../../engines/workspace/contract" }
 ep-document = { path = "../../engines/document/facade" }
+ep-inference = { path = "../../engines/inference/facade" }
+ep-understanding = { path = "../../engines/understanding/facade" }
 ep-document-contract = { path = "../../engines/document/contract" }
 anyhow.workspace = true
 clap.workspace = true

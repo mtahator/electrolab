@@ -1,0 +1,26 @@
+[package]
+name = "ep-understanding"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Understanding engine facade: explain commands on the bus (see CONTRACT.md)"
+
+[dependencies]
+ep-understanding-contract = { path = "../contract" }
+ep-document-contract = { path = "../../document/contract" }
+ep-inference-contract = { path = "../../inference/contract" }
+ep-bus = { path = "../../../foundation/bus" }
+ep-types = { path = "../../../foundation/types" }
+parking_lot.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+ep-inference = { path = "../../inference/facade" }
+ep-document = { path = "../../document/facade" }
+
+[lints]
+workspace = true
