@@ -1,6 +1,6 @@
 # Inference engine — contract
 
-Version: 0.2.0      Stability: experimental      Tier: T1
+Version: 0.3.0      Stability: experimental      Tier: T1
 Crates: `ep-inference-contract` (types), `ep-inference-core` (ports, request building, Replay), `ep-inference-adapter-llamacpp` (sidecar), `ep-inference` (facade)
 
 ## Purpose
@@ -21,7 +21,8 @@ All experimental. Errors are `CommandError::Failed { kind }` with the kinds belo
 | `inference.load` | `{ model? }` → `Status` (starts the runtime with that model, or the recommended one; returns when it answers) | read |
 | `inference.unload` | `null` → `Status` (stops the runtime, frees the GPU) | read |
 
-`LlmRequest { task, messages: [Message { role: system | user | assistant, content }], data?, schema?, prefill?, sensitivity: local_only | any, limits: { max_tokens, temperature }, stream?: { id } }`
+`LlmRequest { task, messages: [Message { role: system | user | assistant, content }], data?, schema?, prefill?, sensitivity: local_only | any, limits: { max_tokens, temperature }, background, stream?: { id } }`
+- `background` answers (digests) wait for what a person asked, between answers.
 - `task` names the job (`explain.draft`, `explain.check`, …); routing and model profiles key on it.
 - `data` is the source text (paper passages). It is always sent as a separate, labelled data section after the instructions, **never** concatenated into a system or user instruction.
 - `prefill` is the start of the answer; the model continues it, and the response includes it.
@@ -32,13 +33,13 @@ All experimental. Errors are `CommandError::Failed { kind }` with the kinds belo
 `Models { models: [ModelInfo], folders: [Folder], tasks: [Task], runtime }`
 `ModelInfo { id, name, file, path, size, licence, kind: chat | embedding | vision_part | other, architecture, quantisation?, state: ready | loaded, recommended, context, problem? }`
 `Folder { path, models, other_formats, missing, partial, own }` (`own`: added by the user, can be removed)
-`Task { id: default | explain | check | sort, model? }` (the user's choice; without one the suggestion answers)
+`Task { id: default | explain | check | sort | digest | find, model? }` (the user's choice; without one the suggestion answers)
 
 ### Automatic model search (founder request, 2026-11-24)
 - Every model folder is searched **with its sub-folders** (at most 8 deep, 60 000 entries, 8 s; hidden and system folders are skipped, folder links are not followed). The folders: the app's `models/llm`, the ones the user added, `EP_LLM_DIR` (development).
 - Every GGUF file is recognised **from its header, not its name**: what it is for (writes answers, search vectors, the picture part of another model, something else), name, size, quantisation, licence, context. Broken files are ignored; later parts of a split model are not models. Files in other formats are counted, so the app can say why they are not offered.
 - **Suggestion:** the model measured for this kind of machine (ADR-005: Qwen3-4B Q4_K_M with a GPU, LFM2.5-1.2B Q8 without); else the largest chat model that runs well here (3 GB with a GPU, 1.5 GB without); else the smallest.
-- **Tasks:** the user chooses a model for everything (`default`) and may choose another one per task: `explain` (writing the explanation) , `check` (checking it against the paper) and `sort` (suggesting folders for papers). One model is loaded at a time, so two models for one answer means waiting for both.
+- **Tasks:** the user chooses a model for everything (`default`) and may choose another one per task: `explain` (writing the explanation) , `check` (checking it against the paper) and `sort` (suggesting folders for papers), `digest` (summaries) and `find` (asking the library). One model is loaded at a time, so two models for one answer means waiting for both.
 - A chosen model that is no longer there falls back to the suggestion, and the route reason says so. A model that could not be started carries its `problem` until it starts.
 - Choices are kept in a small file of the app; nothing is written into the model folders.
 
@@ -80,5 +81,6 @@ Error kinds: `no_model` (no model file found), `no_runtime` (no llama.cpp build 
 - A live test with the real sidecar runs when a llama.cpp build and a model are found (skipped otherwise).
 
 ## Changelog
+- 0.3.0 (2026-11-24): `LlmRequest.background` (people go first); tasks `digest` and `find`.
 - 0.2.0 (2026-11-24): automatic model search, suggestion, a model per task; `search_models`, `add_folder`, `remove_folder`, `assign`.
 - 0.1.0 (2026-11-21): first slice (P1.M5.INF.1–4, INF.6 local routing).

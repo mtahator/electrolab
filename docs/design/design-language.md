@@ -1,6 +1,6 @@
 # ElectroPaper design language and UX guideline
 
-Version 1.4 · 2026-11-24 · applies to **every ElectroPaper app**: the Reader, the Lab desktop app, later the web and server consoles, and any panel an engine contributes. Owner: `ui/kit`. Decision: [ADR-012](../adr/ADR-012-design-language-and-icons.md).
+Version 1.5 · 2026-11-24 · applies to **every ElectroPaper app**: the Reader, the Lab desktop app, later the web and server consoles, and any panel an engine contributes. Owner: `ui/kit`. Decision: [ADR-012](../adr/ADR-012-design-language-and-icons.md).
 
 > **In one sentence:** the paper is the hero; the app is a quiet, well-made desk around it that shows tools when you reach for them and puts them away when you don't.
 
@@ -523,6 +523,16 @@ Every app works fully on touch laptops and with precision touchpads, not only wi
 - **Selecting:** a check mark on each paper (on hover, always on touch), Ctrl+click adds, Shift+click a range, Ctrl+A all, Esc none. While something is selected a click selects. The bar in place of the tools says how many and what can be done: *Move to*, *Suggest folders*, *Remove*, *Clear*.
 - **Moving:** by menu, or by dragging onto a folder with mouse or pen (a touch scrolls). Everything that moves or removes has Undo.
 - **Suggest folders** (`sparkles`, AI): shows the groups with their papers before anything happens. Names can be changed, papers put elsewhere, groups left out; only *Create folders and move* does it. Papers it is unsure about stay where they are. Stop ends the model.
+
+### 17.11 Asking the library and summaries (founder request, 2026-11-24)
+- **Ask the library** is the first entry of the library's list (`sparkles`; Ctrl+Shift+L from anywhere). One box for a question or a description, in any language; Enter asks, Shift+Enter is a new line, Esc or *Stop* ends it.
+- **At once, then better:** what the question's own words find is shown within a moment, before any model answers. A line says what is being worked out. Papers, places and the nearest ones replace it as they come; a newer question ends the older one.
+- **Order:** *Nearest* first (cards, with the picture of a figure, table or equation as it looks on the page), then the papers with why they were chosen and their places, then where the words also are. A place is shown once.
+- **Words of the paper:** every quote stands in its paper word for word, with the searched words set off. Only *why* is written by the model; the last line says which model chose, or that words alone were used.
+- A place opens its paper at its page and flashes; the results are still there on the way back.
+- **Summaries** belong to the papers and are kept with them. The quick one (headings, captions, main words) is made by itself in the background; the written one on request: for one paper (*Summary* in its menu), for the selected ones, or for all. It can be read while it is made, stopped and gone on with, and it never makes the person wait for an answer.
+- **The sheet** shows what the document is, its subjects, questions it can answer (a click asks one), then every section with its pages, role, summary and tags. A summary that is the paper's own words says *Quoted from the paper*.
+- *Suggest folders* (§17.10) uses the summaries where there are some.
 
 ### 17.7 Transient things
 Hover popovers and previews close by themselves when:

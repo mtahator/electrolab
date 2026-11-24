@@ -84,6 +84,7 @@ node e2e/selection.mjs   target/release/electropaper-reader.exe <scratch> <scrat
 node e2e/layout.mjs      target/release/electropaper-reader.exe <scratch> <scratch>/out   # every part of the interface at small windows and large text
 node e2e/pages.mjs       target/release/electropaper-reader.exe <scratch> <scratch>/out   # pages of different sizes and directions
 node e2e/folders.mjs     target/release/electropaper-reader.exe <scratch> <scratch>/out   # library folders, several papers at once; EP_LLM_DIR for suggested sorting
+node e2e/find.mjs        target/release/electropaper-reader.exe <scratch> <scratch>/out   # asking the library, summaries; EP_LLM_DIR for the part with a model, EP_FIND_PDF=<a real report> for the founder's question
 node e2e/models.mjs      target/release/electropaper-reader.exe <scratch> <scratch>/out   # automatic model search; EP_LLM_PARENT=<folder with real models below it>
 node e2e/explain.mjs     target/release/electropaper-reader.exe <scratch> <scratch>/out   # Explain (M5); EP_LLM_DIR=<folder with a known GGUF> for the part with a model
 # intel.mjs options: EP_MODELS_DIR=<folder with egret-medium/ (and latex-ocr/)>, EP_FORMULA=1 (equation LaTeX check), EP_SCANNED_PDF=<image-only PDF>

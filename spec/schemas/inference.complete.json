@@ -93,6 +93,11 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "description": "A request to a language model.",
     "properties": {
+      "background": {
+        "default": false,
+        "description": "Nobody is waiting: what a person asked goes first.",
+        "type": "boolean"
+      },
       "data": {
         "description": "Source text (paper passages), sent in its own labelled data section, never as instructions.",
         "type": [

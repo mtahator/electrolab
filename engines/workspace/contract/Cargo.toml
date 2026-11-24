@@ -10,8 +10,6 @@ description = "Workspace engine contract: libraries, projects, papers (see CONTR
 ep-types = { path = "../../../foundation/types" }
 serde.workspace = true
 schemars.workspace = true
-
-[dev-dependencies]
 serde_json.workspace = true
 
 [lints]

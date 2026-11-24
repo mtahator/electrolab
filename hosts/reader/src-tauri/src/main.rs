@@ -197,6 +197,7 @@ fn main() -> anyhow::Result<()> {
         }
     }
     inference.register(&bus)?;
+    ep_knowledge::Knowledge::new().register(&bus)?;
     ep_understanding::Understanding::new().register(&bus)?;
 
     #[cfg(windows)]

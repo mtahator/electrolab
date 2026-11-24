@@ -246,3 +246,40 @@ async fn deleting_a_folder_keeps_its_papers() {
         "no paper is lost"
     );
 }
+
+#[tokio::test]
+async fn a_digest_is_kept_with_its_paper_and_goes_with_it() {
+    let (l, p) = lib(2).await;
+    for id in &p {
+        l.ok(
+            "workspace.save_digest",
+            json!({ "paper": id, "data": { "summary": id } }),
+        )
+        .await;
+    }
+    let all = l.ok("workspace.get_digests", json!({})).await;
+    assert_eq!(all.as_array().unwrap().len(), 2);
+    let one = l
+        .ok("workspace.get_digests", json!({ "papers": [p[0]] }))
+        .await;
+    assert_eq!(one[0]["data"]["summary"], json!(p[0]));
+    l.ok("workspace.remove_papers", json!({ "ids": [p[0]] }))
+        .await;
+    // The library is opened again: removed papers are purged.
+    let bus = Arc::new(Bus::default());
+    Workspace::new(Arc::new(ep_os::RootDirs(l.dir.path().join("data"))))
+        .register(&bus)
+        .unwrap();
+    let call = async |c: &str, i: Value| bus.call(Envelope::new(c, i)).await.unwrap();
+    call("workspace.open_default_library", Value::Null).await;
+    let left = call("workspace.get_digests", json!({})).await;
+    assert_eq!(left.as_array().unwrap().len(), 1);
+    assert_eq!(left[0]["paper"], json!(p[1]));
+    let r = l
+        .call(
+            "workspace.save_digest",
+            json!({ "paper": "01a20e02-906d-7097-a00e-0ce6cdb6b13d", "data": {} }),
+        )
+        .await;
+    assert_eq!(kind(r), "not_found");
+}

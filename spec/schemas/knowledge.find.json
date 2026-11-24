@@ -1,0 +1,347 @@
+{
+  "command": "knowledge.find",
+  "input": {
+    "$defs": {
+      "FindStream": {
+        "description": "Ask for progress as events.",
+        "properties": {
+          "id": {
+            "description": "Id carried by every event.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "PaperId": {
+        "description": "A paper (a PDF in the library or a project).\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `knowledge.find`.",
+    "properties": {
+      "papers": {
+        "default": null,
+        "description": "Only in these papers.",
+        "items": {
+          "$ref": "#/$defs/PaperId"
+        },
+        "type": [
+          "array",
+          "null"
+        ]
+      },
+      "question": {
+        "description": "A question, or a description of what is looked for.",
+        "type": "string"
+      },
+      "stream": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/FindStream"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Send progress."
+      }
+    },
+    "required": [
+      "question"
+    ],
+    "title": "FindRequest",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "DigestCount": {
+        "description": "Which digests a search could use.",
+        "properties": {
+          "basic": {
+            "description": "Basic.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "full": {
+            "description": "With written summaries.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total": {
+            "description": "Papers asked.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "full",
+          "basic",
+          "total"
+        ],
+        "type": "object"
+      },
+      "OtherHits": {
+        "description": "Hits in a paper that is not among the related ones.",
+        "properties": {
+          "hits": {
+            "description": "Hits.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "paper": {
+            "description": "Paper id.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "paper",
+          "hits"
+        ],
+        "type": "object"
+      },
+      "Place": {
+        "description": "A place where it may be.",
+        "properties": {
+          "kind": {
+            "$ref": "#/$defs/PlaceKind",
+            "description": "Kind."
+          },
+          "label": {
+            "default": null,
+            "description": "Label as printed.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nearest": {
+            "default": false,
+            "description": "Chosen as nearest.",
+            "type": "boolean"
+          },
+          "object": {
+            "default": null,
+            "description": "Id in the Document engine.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "page": {
+            "description": "1-based page.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "paper": {
+            "description": "Paper id.",
+            "type": "string"
+          },
+          "quote": {
+            "description": "Words of the paper.",
+            "type": "string"
+          },
+          "rect": {
+            "default": null,
+            "description": "Area of the object on its page in points (left, top, right, bottom).",
+            "items": {
+              "format": "float",
+              "type": "number"
+            },
+            "maxItems": 4,
+            "minItems": 4,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "score": {
+            "description": "Score by words.",
+            "format": "float",
+            "type": "number"
+          },
+          "section": {
+            "default": null,
+            "description": "Section it is in.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "terms": {
+            "description": "Which words met here.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "y": {
+            "description": "Top on its page (points).",
+            "format": "float",
+            "type": "number"
+          }
+        },
+        "required": [
+          "paper",
+          "page",
+          "y",
+          "kind",
+          "quote",
+          "terms",
+          "score"
+        ],
+        "type": "object"
+      },
+      "PlaceKind": {
+        "description": "Kind of a labelled object or of a place.",
+        "oneOf": [
+          {
+            "const": "figure",
+            "description": "A figure or chart.",
+            "type": "string"
+          },
+          {
+            "const": "table",
+            "description": "A table.",
+            "type": "string"
+          },
+          {
+            "const": "equation",
+            "description": "An equation.",
+            "type": "string"
+          },
+          {
+            "const": "section",
+            "description": "A section.",
+            "type": "string"
+          },
+          {
+            "const": "text",
+            "description": "Running text.",
+            "type": "string"
+          }
+        ]
+      },
+      "RelatedPaper": {
+        "description": "A paper in which it may be.",
+        "properties": {
+          "paper": {
+            "description": "Paper id.",
+            "type": "string"
+          },
+          "score": {
+            "description": "Score by words.",
+            "format": "float",
+            "type": "number"
+          },
+          "why": {
+            "default": null,
+            "description": "Why, in a few words (from the model).",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "paper",
+          "score"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Output of `knowledge.find`.",
+    "properties": {
+      "digests": {
+        "$ref": "#/$defs/DigestCount",
+        "description": "Digests used."
+      },
+      "looking_for": {
+        "$ref": "#/$defs/PlaceKind",
+        "description": "What is looked for."
+      },
+      "model": {
+        "default": null,
+        "description": "Which.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "others": {
+        "description": "Hits elsewhere.",
+        "items": {
+          "$ref": "#/$defs/OtherHits"
+        },
+        "type": "array"
+      },
+      "places": {
+        "description": "Places, nearest first.",
+        "items": {
+          "$ref": "#/$defs/Place"
+        },
+        "type": "array"
+      },
+      "question": {
+        "description": "The question.",
+        "type": "string"
+      },
+      "related": {
+        "description": "Papers it can be in, best first.",
+        "items": {
+          "$ref": "#/$defs/RelatedPaper"
+        },
+        "type": "array"
+      },
+      "terms": {
+        "description": "Words searched.",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "total_ms": {
+        "description": "Time taken.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "used_model": {
+        "description": "A model helped.",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "question",
+      "looking_for",
+      "terms",
+      "related",
+      "places",
+      "others",
+      "used_model",
+      "digests",
+      "total_ms"
+    ],
+    "title": "FindResult",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Ask the library: papers it can be in, and the nearest places"
+}

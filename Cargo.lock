@@ -1289,6 +1289,7 @@ dependencies = [
  "ep-document",
  "ep-document-contract",
  "ep-inference",
+ "ep-knowledge",
  "ep-os",
  "ep-os-windows",
  "ep-telemetry",
@@ -1456,6 +1457,46 @@ dependencies = [
 ]
 
 [[package]]
+name = "ep-knowledge"
+version = "0.1.0"
+dependencies = [
+ "ep-bus",
+ "ep-document",
+ "ep-document-contract",
+ "ep-inference",
+ "ep-inference-contract",
+ "ep-knowledge-contract",
+ "ep-knowledge-core",
+ "ep-os",
+ "ep-types",
+ "ep-workspace",
+ "ep-workspace-contract",
+ "parking_lot 0.13.0",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
+name = "ep-knowledge-contract"
+version = "0.1.0"
+dependencies = [
+ "ep-types",
+ "schemars 1.2.3",
+ "serde",
+]
+
+[[package]]
+name = "ep-knowledge-core"
+version = "0.1.0"
+dependencies = [
+ "ep-knowledge-contract",
+]
+
+[[package]]
 name = "ep-mcp"
 version = "0.1.0"
 dependencies = [
@@ -1517,6 +1558,7 @@ dependencies = [
  "ep-config",
  "ep-document",
  "ep-inference",
+ "ep-knowledge",
  "ep-os",
  "ep-os-windows",
  "ep-telemetry",

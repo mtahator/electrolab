@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 pub use ep_types::BlobRef;
 
 /// Contract version; experimental until a second host uses it (Draft 2.2 §8.3).
-pub const VERSION: &str = "0.2.0";
+pub const VERSION: &str = "0.3.0";
 
 /// Command names.
 pub mod commands {
@@ -125,8 +125,11 @@ pub struct SortPaper {
     pub id: String,
     /// Title or file name.
     pub title: String,
-    /// Its file (the first page is read).
+    /// Its file (the first page is read when nothing is said about it).
     pub file: BlobRef,
+    /// What it is about (its summary and topics), when that is known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub about: Option<String>,
 }
 
 /// A folder that is there.

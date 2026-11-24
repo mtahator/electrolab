@@ -1,0 +1,382 @@
+{
+  "command": "knowledge.digest_paper",
+  "input": {
+    "$defs": {
+      "PaperId": {
+        "description": "A paper (a PDF in the library or a project).\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input naming a paper.",
+    "properties": {
+      "force": {
+        "default": false,
+        "description": "Make it again.",
+        "type": "boolean"
+      },
+      "paper": {
+        "$ref": "#/$defs/PaperId",
+        "description": "Paper id."
+      }
+    },
+    "required": [
+      "paper"
+    ],
+    "title": "DigestRequest",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "DigestLevel": {
+        "description": "How much a digest holds.",
+        "oneOf": [
+          {
+            "const": "basic",
+            "description": "Headings, captions and telling words (no model).",
+            "type": "string"
+          },
+          {
+            "const": "full",
+            "description": "Written summaries too.",
+            "type": "string"
+          }
+        ]
+      },
+      "DigestObject": {
+        "description": "A labelled figure, table or equation.",
+        "properties": {
+          "caption": {
+            "default": "",
+            "description": "Caption or text of it.",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/$defs/PlaceKind",
+            "description": "Kind."
+          },
+          "label": {
+            "description": "Label as printed (`Figure 2.3`).",
+            "type": "string"
+          },
+          "object": {
+            "description": "Id in the Document engine.",
+            "type": "string"
+          },
+          "page": {
+            "description": "1-based page.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rect": {
+            "default": null,
+            "description": "Its area on the page in points (left, top, right, bottom).",
+            "items": {
+              "format": "float",
+              "type": "number"
+            },
+            "maxItems": 4,
+            "minItems": 4,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "y": {
+            "description": "Top on its page (points).",
+            "format": "float",
+            "type": "number"
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "page",
+          "y",
+          "object"
+        ],
+        "type": "object"
+      },
+      "PlaceKind": {
+        "description": "Kind of a labelled object or of a place.",
+        "oneOf": [
+          {
+            "const": "figure",
+            "description": "A figure or chart.",
+            "type": "string"
+          },
+          {
+            "const": "table",
+            "description": "A table.",
+            "type": "string"
+          },
+          {
+            "const": "equation",
+            "description": "An equation.",
+            "type": "string"
+          },
+          {
+            "const": "section",
+            "description": "A section.",
+            "type": "string"
+          },
+          {
+            "const": "text",
+            "description": "Running text.",
+            "type": "string"
+          }
+        ]
+      },
+      "Quote": {
+        "description": "A sentence of the paper.",
+        "properties": {
+          "page": {
+            "description": "1-based page.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "text": {
+            "description": "Word for word.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "page",
+          "text"
+        ],
+        "type": "object"
+      },
+      "SectionDigest": {
+        "description": "The digest of one section.",
+        "properties": {
+          "id": {
+            "description": "Stable within the digest (`s12`).",
+            "type": "string"
+          },
+          "level": {
+            "description": "Depth of the heading, from 1.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "pages": {
+            "description": "First and last page (1-based).",
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            ],
+            "type": "array"
+          },
+          "role": {
+            "$ref": "#/$defs/SectionRole",
+            "default": "other",
+            "description": "What it does."
+          },
+          "source": {
+            "$ref": "#/$defs/SummarySource",
+            "default": "none",
+            "description": "Where the summary comes from."
+          },
+          "summary": {
+            "default": "",
+            "description": "1–3 sentences (empty when there is none).",
+            "type": "string"
+          },
+          "support": {
+            "default": [],
+            "description": "Sentences that carry the summary.",
+            "items": {
+              "$ref": "#/$defs/Quote"
+            },
+            "type": "array"
+          },
+          "tags": {
+            "default": [],
+            "description": "Subjects, cleaned.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "terms": {
+            "default": [],
+            "description": "Important words, as they stand in the section.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": {
+            "description": "Heading, or the pages.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "level",
+          "pages"
+        ],
+        "type": "object"
+      },
+      "SectionRole": {
+        "description": "What a section does.",
+        "enum": [
+          "introduction",
+          "background",
+          "method",
+          "data",
+          "results",
+          "discussion",
+          "conclusion",
+          "instructions",
+          "legal",
+          "administrative",
+          "appendix",
+          "references",
+          "other"
+        ],
+        "type": "string"
+      },
+      "SummarySource": {
+        "description": "Where a section's summary comes from.",
+        "oneOf": [
+          {
+            "const": "written",
+            "description": "Written by the model and checked against the section.",
+            "type": "string"
+          },
+          {
+            "const": "quoted",
+            "description": "The section's own sentences.",
+            "type": "string"
+          },
+          {
+            "const": "none",
+            "description": "There is none.",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "The digest of a paper.",
+    "properties": {
+      "complete": {
+        "default": false,
+        "description": "Every section that can have a summary was looked at.",
+        "type": "boolean"
+      },
+      "kind": {
+        "default": "",
+        "description": "What the document is (`research paper`, `report`, …).",
+        "type": "string"
+      },
+      "level": {
+        "$ref": "#/$defs/DigestLevel",
+        "description": "How much it holds."
+      },
+      "made_ms": {
+        "description": "When, ms since the Unix epoch.",
+        "format": "int64",
+        "type": "integer"
+      },
+      "model": {
+        "default": null,
+        "description": "Model that wrote it.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "objects": {
+        "description": "Labelled objects in order.",
+        "items": {
+          "$ref": "#/$defs/DigestObject"
+        },
+        "type": "array"
+      },
+      "pages": {
+        "description": "Pages of the document.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "paper": {
+        "description": "Paper id.",
+        "type": "string"
+      },
+      "questions": {
+        "default": [],
+        "description": "Questions it can answer.",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "sections": {
+        "description": "Sections in order.",
+        "items": {
+          "$ref": "#/$defs/SectionDigest"
+        },
+        "type": "array"
+      },
+      "summary": {
+        "default": "",
+        "description": "3–5 sentences (empty when basic).",
+        "type": "string"
+      },
+      "title": {
+        "description": "Title.",
+        "type": "string"
+      },
+      "topics": {
+        "default": [],
+        "description": "Subjects, cleaned.",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "version": {
+        "description": "Format.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "version",
+      "paper",
+      "pages",
+      "level",
+      "title",
+      "sections",
+      "objects",
+      "made_ms"
+    ],
+    "title": "Digest",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "create"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Make the digest of a paper: summaries, tags and terms of every section"
+}

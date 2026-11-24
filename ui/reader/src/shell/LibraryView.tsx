@@ -3,18 +3,25 @@
 // or by dragging, remove with Undo, and suggested sorting (design language §17.10).
 
 import type { Paper, PaperSort } from "@electropaper/bindings";
-import { Button, EmptyState, IconButton, Segmented, openMenu, showToast, t } from "@electropaper/kit";
+import { Button, EmptyState, Icon, IconButton, Segmented, openMenu, showToast, t } from "@electropaper/kit";
 import { For, type JSX, Show, createEffect, createMemo, createSignal, onCleanup, onMount, untrack } from "solid-js";
 
 import { bus, renderUrl } from "../host";
 
 import { type FolderGroup, applyFolders, collections, filter, papers, pathOf, project, removePapers, renamePaper, setFilter, setPaperTags, tags, titleOf } from "../library";
+import { ask, askOpen, makeDigests, setAskOpen } from "../assistant/ask";
+import { canExplain, refreshLanguageModels } from "../assistant/explain";
+import { setSettingsOpen } from "../intel/state";
+import { AskView } from "./AskView";
 import { FolderPath, FolderTiles, FolderTree, dropOn, folderMenu, setDropOn } from "./LibraryFolders";
 import { Prompt } from "./Overlays";
 import { SortSheet } from "./SortSheet";
+import { SummarySheet } from "./SummarySheet";
 
 export interface LibraryViewProps {
   onOpen: (p: Paper) => void;
+  /** Open a paper at a place. */
+  onOpenAt: (p: Paper, page: number, y: number) => void;
   onAdd: () => void;
   confirm: (message: string) => Promise<boolean>;
   onError: (e: unknown) => void;
@@ -112,6 +119,17 @@ export function LibraryView(props: LibraryViewProps): JSX.Element {
       undoable(t("library.moved", { n: ids.length, to: name }), undo);
     });
   };
+  const [summaryOf, setSummaryOf] = createSignal<Paper | null>(null);
+  /** Summaries of the selected papers, in the background. */
+  const summarise = (): void =>
+    safe(async () => {
+      await refreshLanguageModels();
+      if (!canExplain()) return void showToast(t("explain.no_model"), { label: t("explain.open_settings"), run: () => setSettingsOpen(true) });
+      const ids = [...selected()];
+      await makeDigests({ full: false, papers: ids });
+      clear();
+      showToast(t("summary.started", { n: ids.length }), { label: t("summary.show"), run: () => setAskOpen(true) });
+    });
   const [sorting, setSorting] = createSignal<Paper[] | null>(null);
   const applySorting = (groups: FolderGroup[]): void => {
     setSorting(null);
@@ -156,6 +174,7 @@ export function LibraryView(props: LibraryViewProps): JSX.Element {
     };
     const onKey = (e: KeyboardEvent): void => {
       const el = e.target as HTMLElement;
+      if (askOpen()) return;
       if (el.closest("input:not(.paper-check), textarea, select, .ep-dialog, .ep-menu")) return;
       if (e.key === "Escape" && drag()) {
         press = null;
@@ -188,6 +207,7 @@ export function LibraryView(props: LibraryViewProps): JSX.Element {
       titleOf(p),
       [
         { label: t("library.open"), icon: "file-plus", run: () => props.onOpen(p) },
+        { label: t("summary.title"), icon: "list-tree", run: () => setSummaryOf(p) },
         { label: t("library.rename"), icon: "pen-line", shortcut: "F2", run: () => setRenaming(p.id) },
         { label: t("library.move_to"), icon: "folder", run: () => moveMenu(at, [p.id]) },
         { separator: true },
@@ -207,19 +227,28 @@ export function LibraryView(props: LibraryViewProps): JSX.Element {
   };
   const [editingTags, setEditingTags] = createSignal<string | null>(null);
   const recentSelected = (): boolean => filter().sort === "opened" && !filter().collection && !filter().tag && !filter().unfiled;
+  /** A filter of the list; it leaves asking. */
+  const show = (f: Parameters<typeof setFilter>[0]): void => {
+    setAskOpen(false);
+    setFilter(f);
+  };
   const homeSelected = (): boolean => filter().unfiled && !filter().collection && !filter().tag;
 
   return (
     <div class="library-view">
       <nav class="library-nav">
         <h2>{project()?.name ?? t("library.title")}</h2>
-        <button type="button" class="nav-item" data-folder="" classList={{ active: homeSelected(), drop: dropOn() === "" }} onClick={() => setFilter({ collection: null, unfiled: true, tag: null })}>
+        <button type="button" class="nav-item nav-ask" classList={{ active: askOpen() }} title={`${t("ask.title")} (Ctrl+Shift+L)`} onClick={() => setAskOpen(true)}>
+          <span class="nav-name">{t("ask.title")}</span>
+          <Icon name="sparkles" size={16} />
+        </button>
+        <button type="button" class="nav-item" data-folder="" classList={{ active: !askOpen() && homeSelected(), drop: dropOn() === "" }} onClick={() => show({ collection: null, unfiled: true, tag: null })}>
           {t("library.home")}
         </button>
-        <button type="button" class="nav-item" classList={{ active: !filter().collection && !filter().tag && !filter().unfiled && !recentSelected() }} onClick={() => setFilter({ collection: null, unfiled: false, tag: null, sort: "added" })}>
+        <button type="button" class="nav-item" classList={{ active: !askOpen() && !filter().collection && !filter().tag && !filter().unfiled && !recentSelected() }} onClick={() => show({ collection: null, unfiled: false, tag: null, sort: "added" })}>
           {t("library.all")}
         </button>
-        <button type="button" class="nav-item" classList={{ active: recentSelected() }} onClick={() => setFilter({ collection: null, unfiled: false, tag: null, sort: "opened" })}>
+        <button type="button" class="nav-item" classList={{ active: !askOpen() && recentSelected() }} onClick={() => show({ collection: null, unfiled: false, tag: null, sort: "opened" })}>
           {t("library.recent")}
         </button>
         <h3>{t("library.folders")}</h3>
@@ -229,7 +258,7 @@ export function LibraryView(props: LibraryViewProps): JSX.Element {
           <div class="tag-cloud">
             <For each={tags()}>
               {(tg) => (
-                <button type="button" class="tag" classList={{ active: filter().tag === tg.tag }} onClick={() => setFilter({ tag: filter().tag === tg.tag ? null : tg.tag, collection: null, unfiled: false })}>
+                <button type="button" class="tag" classList={{ active: !askOpen() && filter().tag === tg.tag }} onClick={() => show({ tag: filter().tag === tg.tag ? null : tg.tag, collection: null, unfiled: false })}>
                   {tg.tag} <span class="muted">{tg.papers}</span>
                 </button>
               )}
@@ -237,7 +266,10 @@ export function LibraryView(props: LibraryViewProps): JSX.Element {
           </div>
         </Show>
       </nav>
-      <section class="library-main">
+      <Show when={askOpen()}>
+        <AskView onOpenAt={props.onOpenAt} onError={props.onError} />
+      </Show>
+      <section class="library-main" classList={{ away: askOpen() }}>
         <Show when={selected().size > 0}>
           <div class="library-selection" role="toolbar" aria-label={t("library.selection")}>
             <strong>{t("library.selected", { n: selected().size })}</strong>
@@ -246,6 +278,9 @@ export function LibraryView(props: LibraryViewProps): JSX.Element {
             </Button>
             <Button icon="sparkles" onClick={() => setSorting(chosen())}>
               {t("sort.action")}
+            </Button>
+            <Button icon="list-tree" onClick={summarise}>
+              {t("summary.make_short")}
             </Button>
             <Button icon="trash" onClick={() => remove(chosen())}>
               {t("library.remove_short")}
@@ -384,6 +419,21 @@ export function LibraryView(props: LibraryViewProps): JSX.Element {
       </Show>
       <Show when={namingFor()}>
         <Prompt message={t("library.new_folder")} placeholder={t("library.folder_name")} action={t("library.make_and_move")} onAnswer={(name) => (name ? intoNew(name) : setNamingFor(null))} />
+      </Show>
+      <Show when={summaryOf()} keyed>
+        {(p) => (
+          <SummarySheet
+            paper={p}
+            onClose={() => setSummaryOf(null)}
+            onError={props.onError}
+            onOpenAt={(page, y) => props.onOpenAt(p, page, y)}
+            onAsk={(q) => {
+              setSummaryOf(null);
+              setAskOpen(true);
+              void ask(q);
+            }}
+          />
+        )}
       </Show>
       <Show when={sorting()}>{(list) => <SortSheet papers={list()} parent={filter().collection} onApply={applySorting} onClose={() => setSorting(null)} />}</Show>
     </div>

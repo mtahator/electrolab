@@ -42,10 +42,16 @@ export function SortSheet(props: {
     });
     onCleanup(stop);
     try {
+      // What the summaries say about the papers; a paper without one is read by the engine.
+      const known = await bus("knowledge.digests", { papers: props.papers.map((p) => p.id) }).catch(() => []);
+      const about = (id: string): string | null => {
+        const d = known.find((x) => x.paper === id);
+        return d?.level ? [d.kind, d.summary, d.topics.join(", ")].filter(Boolean).join(". ") || null : null;
+      };
       const r: FolderSuggestion = await bus(
         "understanding.suggest_folders",
         {
-          papers: props.papers.map((p) => ({ id: p.id, title: titleOf(p), file: p.file })),
+          papers: props.papers.map((p) => ({ id: p.id, title: titleOf(p), file: p.file, about: about(p.id) })),
           folders: collections().filter((c) => (c.parent ?? null) === props.parent).map((c) => ({ id: c.id, name: c.name })),
           stream: { id },
         },

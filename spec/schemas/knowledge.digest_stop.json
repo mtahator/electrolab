@@ -1,0 +1,90 @@
+{
+  "command": "knowledge.digest_stop",
+  "input": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "null",
+    "type": "null"
+  },
+  "output": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "State of making digests.",
+    "properties": {
+      "current": {
+        "default": null,
+        "description": "Title of the paper at work.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "done": {
+        "description": "Papers done.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "error": {
+        "default": null,
+        "description": "Why it stopped.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "full": {
+        "description": "Written summaries are being made.",
+        "type": "boolean"
+      },
+      "next": {
+        "default": [],
+        "description": "Papers waiting because they were asked for.",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "paper": {
+        "default": null,
+        "description": "Id of the paper at work.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "running": {
+        "description": "Working.",
+        "type": "boolean"
+      },
+      "step": {
+        "default": null,
+        "description": "Section at work (`12 / 30`).",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "total": {
+        "description": "Papers.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "running",
+      "full",
+      "done",
+      "total"
+    ],
+    "title": "DigestStatus",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Stop making digests"
+}

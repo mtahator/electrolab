@@ -54,6 +54,7 @@ import {
   setRightWidth,
   toggleMarginView,
 } from "./shell/frame";
+import { setAskOpen } from "./assistant/ask";
 import { LibraryView } from "./shell/LibraryView";
 import { KeymapSettings, Palette, Prompt } from "./shell/Overlays";
 import { activate, activeTab, closeTab, moveTab, openPapers, openTab, restore, session, setShowLibrary, toggleSplit, updatePaper } from "./shell/session";
@@ -287,6 +288,19 @@ export function App(): JSX.Element {
     });
   });
 
+  // A place of a paper that may not be open yet (asking the library).
+  const openAt = (p: Paper, page: number, y: number): void => {
+    openTab(p);
+    const end = Date.now() + 15000;
+    const go = (): void => {
+      const tab = activeTab();
+      const api = tab?.paper.id === p.id ? apis.get(tab.id) : undefined;
+      if (api) api.openAt(page, y);
+      else if (tab?.paper.id === p.id && Date.now() < end) window.setTimeout(go, 50);
+    };
+    queueMicrotask(go);
+  };
+
   const withPaper = (f: (p: Paper) => void) => (): void => {
     const p = current().paper;
     if (p) f(p);
@@ -301,6 +315,15 @@ export function App(): JSX.Element {
     { id: "file.add", title: () => t("library.add"), keys: "Ctrl+O", run: () => void addPdfs() },
     { id: "file.url", title: () => t("library.open_url"), keys: "Ctrl+Shift+O", run: () => setUrlPrompt(true) },
     { id: "view.library", title: () => t("library.title"), keys: "Ctrl+L", run: () => setShowLibrary(!session.showLibrary) },
+    {
+      id: "library.ask",
+      title: () => t("ask.title"),
+      keys: "Ctrl+Shift+L",
+      run: () => {
+        setAskOpen(true);
+        setShowLibrary(true);
+      },
+    },
     { id: "palette", title: () => t("palette.title"), keys: "Ctrl+K", run: () => setPalette(true) },
     { id: "keymap", title: () => t("keymap.title"), run: () => setKeymap(true) },
     { id: "settings", title: () => t("settings.title"), keys: "Ctrl+,", run: () => setSettings(true) },
@@ -581,6 +604,7 @@ export function App(): JSX.Element {
         when={!session.showLibrary}
         fallback={<LibraryView
             onOpen={openTab}
+            onOpenAt={openAt}
             onAdd={() => void addPdfs()}
             onError={report}
             confirm={(name) => ask(t("confirm.delete_collection", { name }))}

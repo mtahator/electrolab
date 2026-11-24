@@ -167,3 +167,25 @@ async fn cancelling_a_sorting_cancels_the_model() {
     assert!(b.cancel(id));
     assert!(matches!(h.await.unwrap(), Err(CommandError::Cancelled)));
 }
+
+#[tokio::test]
+async fn what_is_known_about_a_paper_is_used_for_sorting() {
+    let replay = Replay::new()
+        .on("sort.names", r#"{"folders":["Wind energy"]}"#)
+        .on("sort.assign", r#"{"1":"Wind energy","2":"Other"}"#);
+    let b = bus(replay.clone());
+    let mut list = papers(&["scan_0012", "scan_0013"]);
+    list[0]["about"] = json!("A report about wind farms. wind turbine, offshore");
+    suggest(&b, json!({ "papers": list, "folders": [] }))
+        .await
+        .unwrap();
+    // It is shown to the model, as data, with its title.
+    for p in replay.seen() {
+        assert!(
+            p.messages[1]
+                .content
+                .contains("scan_0012 | A report about wind farms.")
+        );
+        assert!(!p.messages[0].content.contains("wind farms"));
+    }
+}

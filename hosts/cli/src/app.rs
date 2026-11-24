@@ -84,6 +84,7 @@ impl App {
             None,
         )
         .register(&bus)?;
+        ep_knowledge::Knowledge::new().register(&bus)?;
         ep_understanding::Understanding::new().register(&bus)?;
         Ok(Self { bus })
     }

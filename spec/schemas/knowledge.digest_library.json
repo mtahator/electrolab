@@ -1,0 +1,121 @@
+{
+  "command": "knowledge.digest_library",
+  "input": {
+    "$defs": {
+      "PaperId": {
+        "description": "A paper (a PDF in the library or a project).\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `knowledge.digest_library`.",
+    "properties": {
+      "force": {
+        "default": false,
+        "description": "Make those of `papers` anew.",
+        "type": "boolean"
+      },
+      "full": {
+        "default": false,
+        "description": "Written summaries too (needs a model).",
+        "type": "boolean"
+      },
+      "papers": {
+        "default": null,
+        "description": "Written summaries of these papers, next in the row (also while it works).",
+        "items": {
+          "$ref": "#/$defs/PaperId"
+        },
+        "type": [
+          "array",
+          "null"
+        ]
+      }
+    },
+    "title": "DigestLibrary",
+    "type": "object"
+  },
+  "output": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "State of making digests.",
+    "properties": {
+      "current": {
+        "default": null,
+        "description": "Title of the paper at work.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "done": {
+        "description": "Papers done.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "error": {
+        "default": null,
+        "description": "Why it stopped.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "full": {
+        "description": "Written summaries are being made.",
+        "type": "boolean"
+      },
+      "next": {
+        "default": [],
+        "description": "Papers waiting because they were asked for.",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "paper": {
+        "default": null,
+        "description": "Id of the paper at work.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "running": {
+        "description": "Working.",
+        "type": "boolean"
+      },
+      "step": {
+        "default": null,
+        "description": "Section at work (`12 / 30`).",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "total": {
+        "description": "Papers.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "running",
+      "full",
+      "done",
+      "total"
+    ],
+    "title": "DigestStatus",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "create"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Make digests of the library in the background"
+}

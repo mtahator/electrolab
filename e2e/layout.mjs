@@ -43,7 +43,7 @@ const selectWords = () =>
     document.querySelector(".pane.focused .scroller").dispatchEvent(new MouseEvent("mouseup", { bubbles: true })); return true; })()`);
 
 // covers: App.tsx (menus, model question, address, confirm), shell/Settings.tsx, shell/LanguageModels.tsx, shell/Print.tsx, shell/Overlays.tsx (palette, shortcuts, address)
-// covers: shell/LibraryView.tsx, shell/LibraryFolders.tsx, shell/SortSheet.tsx, shell/SidePanel.tsx, assistant/ExplainCard.tsx, annotations/SelectionBar.tsx, annotations/ToolRail.tsx, annotations/Editor.tsx, annotations/AnnotationLayer.tsx
+// covers: shell/LibraryView.tsx, shell/LibraryFolders.tsx, shell/SortSheet.tsx, shell/AskView.tsx, shell/SummarySheet.tsx, shell/SidePanel.tsx, assistant/ExplainCard.tsx, annotations/SelectionBar.tsx, annotations/ToolRail.tsx, annotations/Editor.tsx, annotations/AnnotationLayer.tsx
 // covers: annotations/AnnotationsPanel.tsx, intel/Peek.tsx, intel/TableView.tsx, intel/PageLinks.tsx, notes/NotesPanel.tsx, viewer/Viewer.tsx, annotations/MarginNotes.tsx
 /** Parts of the interface: open it (true when it is there), close it. */
 const PARTS = {
@@ -89,6 +89,27 @@ const PARTS = {
   folder_menu: { open: async () => (await click(".library-nav .nav-item", "All papers"), await sleep(350), await click('.library-nav [aria-label^="Folder "]'), has(".ep-menu")), close: escape },
   move_menu: { open: async () => (await s.js(`document.querySelector(".paper-check").click()`), await click(".library-selection button", "Move to"), has(".ep-menu")), close: async () => (await escape(), s.js(`[...document.querySelectorAll(".library-selection button")].at(-1)?.click()`)) },
   suggested_folders: { open: async () => (await s.js(`document.querySelector(".paper-check").click()`), await click(".library-selection button", "Suggest"), has(".sort-sheet")), close: async () => (await escape(), s.js(`[...document.querySelectorAll(".library-selection button")].at(-1)?.click()`)) },
+  ask: { open: async () => (await click(".library-nav .nav-ask"), has(".ask-box")), keep: true },
+  ask_results: {
+    open: async () => {
+      await click(".library-nav .nav-ask");
+      await has(".ask-box textarea");
+      await s.js(`document.querySelector(".ask-box textarea").focus()`);
+      await key("a", "KeyA", 65, 2);
+      await s.send("Input.insertText", { text: "table with the recommended settings of the grinder, or a figure of the velocity near the wall" });
+      await key("Enter", "Enter", 13);
+      return has(".ask-results .ask-place", 8000);
+    },
+    keep: true,
+  },
+  paper_summary: {
+    open: async () => {
+      await has(".ask-paper-head button");
+      await click(".ask-paper-head button", "Summary");
+      return has(".summary-sheet .summary-section", 8000);
+    },
+    close: async () => (await escape(), click(".library-nav .nav-item", "All papers")),
+  },
   library_covers: { open: async () => (await click('.library-tools [aria-label="Covers"]'), has(".paper-covers")), close: () => bar("Library") },
 };
 
@@ -168,7 +189,7 @@ try {
         check("controls_do_not_touch", m.touching?.length === 0, { id, touching: m.touching });
         if (size !== "90" && (w === 800 || (w === 1400 && size === "100"))) await s.shot(`layout-${name}-${w}-${size}.png`);
         await part.close?.();
-        if (["settings", "shortcuts", "print", "model_question", "address", "suggested_folders"].includes(name)) await gone(".ep-dialog");
+        if (["settings", "shortcuts", "print", "model_question", "address", "suggested_folders", "paper_summary"].includes(name)) await gone(".ep-dialog");
         await sleep(120);
       }
     }

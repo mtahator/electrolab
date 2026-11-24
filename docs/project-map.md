@@ -24,7 +24,7 @@ practice: command engine bug
 - Order of work: docs first (plan, contract, ADR, design note), then code, then tests.
 - Layers: `foundation/` → `engines/<name>/{contract,core,adapters,facade}` → `hosts/` → `ui/`. Engines know each other only through contracts, over the bus (`cargo xtask arch-check`).
 - UI rules are binding: `docs/design/design-language.md`. Interface language is English only until Phase 3.
-- Done: M1, M2, M3, MD, M4 (open M4 items in the plan). Running: M5 (#inference, #explain).
+- Done: M1, M2, M3, MD, M4 (open M4 items in the plan). Running: M5 (#inference, #explain); from M6 already there: #knowledge (first slice).
 - best: layers are checked by a tool, not by review — `test:clean_graph_passes` `test:breaking_the_engine_order_fails`
 check: `cargo xtask arch-check`
 
@@ -228,7 +228,7 @@ check: `cargo test -p ep-workspace` · `node e2e/library.mjs <reader.exe> <scrat
 
 ## #folders Folders, selecting several papers, suggested sorting
 tags: folder, collection, sort, organise, select, multi, move, drag, remove several, undo, suggest
-connects: #library #inference #explain #layout
+connects: #library #inference #explain #layout #knowledge
 practice: page panel command data ai
 - Folders are collections with a parent (migration 7): `engines/workspace/facade/src/folders.rs`; every change of several papers is one transaction and has its undo.
 - Suggesting: `engines/understanding/facade/src/sorting.rs`; only names from its own list can be answered, so nothing is lost or doubled. Applying needs the person's approval: `ui/reader/src/shell/SortSheet.tsx`.
@@ -239,6 +239,24 @@ practice: page panel command data ai
 - best: every paper is in exactly one place — `test:every_paper_is_in_exactly_one_place`
 - best: what a model names is cleaned before it is used — `test:folder_names_are_clean_and_not_doubled`
 check: `cargo test -p ep-workspace -p ep-understanding` · `node e2e/folders.mjs <reader.exe> <scratch> <out>`
+
+## #knowledge Asking the library, summaries of papers
+tags: ask, question, search library, summary, digest, section, tags, related papers, nearest, figure, npv, topics
+connects: #library #folders #inference #search #labels #layout
+practice: page dialog longwork ai command engine data
+- Contract `engines/knowledge/CONTRACT.md`. Cutting a paper into sections, checks and ranking are pure (`engines/knowledge/core/src/split.rs`, `check.rs`, `rank.rs` beside it); making summaries `engines/knowledge/facade/src/digest.rs`; asking `engines/knowledge/facade/src/find.rs`.
+- It uses other engines over the bus: text, outline, captions, search and pictures from Document; storage from Workspace (`workspace.save_digest`, `engines/workspace/facade/src/digests.rs`); answers from Inference (tasks `digest` and `find`, `background` for summaries).
+- A question becomes 1–4 **things**, each with its other names; a place counts by how many things are named there, not by how many words. That, and the model's grade, order the places.
+- Page: `ui/reader/src/shell/AskView.tsx`, `ui/reader/src/shell/SummarySheet.tsx`; state outside the view: `ui/reader/src/assistant/ask.ts`.
+- best: a number in a summary stands in its section — `test:summaries_are_checked_against_their_section` `test:wrong_numbers_are_seen_and_dropped`
+- best: what the section does not carry is replaced by its own words — `test:a_made_up_summary_is_not_grounded`
+- best: what the words find is shown before any model answers — `test:words_find_at_once` `test:results_appear_at_once_and_grow`
+- best: things put together are taken apart; abbreviations are written out as the papers do — `test:things_put_together_are_taken_apart` `test:abbreviations_are_written_out_as_the_papers_do`
+- best: a summary is kept with its paper and goes with it — `test:a_digest_is_kept_with_its_paper_and_goes_with_it`
+- best: background work waits for people — `test:what_a_person_asks_goes_before_background_answers`
+- best: long work can be read while it grows, stopped and gone on with — `test:papers_asked_for_come_next_and_only_they_are_written` `test:the_library_is_digested_in_the_background_and_can_be_stopped` `test:a_summary_grows_while_it_is_made`
+- best: running heads and feet are no text — `test:running_heads_and_feet_are_left_out`
+check: `cargo test -p ep-knowledge-core -p ep-knowledge -p ep-workspace` · `node e2e/find.mjs <reader.exe> <scratch> <out>`
 
 ## #inference Language models (M5)
 tags: inference, llm, model folder, search models, suggestion, task, gguf, llama.cpp, sidecar, qwen, replay, schema, vulkan, cuda

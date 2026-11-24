@@ -1376,6 +1376,218 @@ body,
   cursor: pointer;
 }
 
+.library-main.away {
+  display: none;
+}
+
+.nav-ask {
+  align-items: center;
+  margin-bottom: var(--space-2);
+  color: var(--accent);
+}
+
+/* Asking the library (design language §17.11) ------------------------------------------------- */
+.ask-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-2);
+}
+
+.ask-box textarea {
+  flex: 1 1 240px;
+  min-width: 0;
+  resize: vertical;
+}
+
+.ask-summaries {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-4) var(--space-2);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-sm);
+}
+
+.ask-making {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ask-results {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  padding: var(--space-3) var(--space-4);
+  overflow: auto;
+}
+
+.ask-results > * {
+  flex: none;
+}
+
+.ask-results h3,
+.summary-sheet h4 {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.ask-results p,
+.summary-sheet p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ask-status,
+.ask-words,
+.summary-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.ask-near {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
+  gap: var(--space-3);
+}
+
+.ask-place,
+.ask-example {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  text-align: start;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.ask-place:hover,
+.ask-example:hover {
+  background: var(--bg-hover);
+}
+
+.ask-near .ask-place {
+  border-color: var(--accent);
+}
+
+.ask-near .jump-picture {
+  max-height: 220px;
+}
+
+.ask-near .jump-picture img {
+  object-position: center;
+}
+
+.ask-place-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.ask-quote {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: var(--text-sm);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.ask-quote mark {
+  border-radius: 2px;
+  background: var(--accent-soft);
+  color: inherit;
+}
+
+.ask-from {
+  margin-top: auto;
+}
+
+.ask-paper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ask-paper-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.ask-title {
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  text-align: start;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.ask-title:hover {
+  text-decoration: underline;
+}
+
+.ask-others {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ask-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.summary-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.summary-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.summary-section.inner {
+  margin-inline-start: var(--space-4);
+}
+
+.summary-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  overflow-wrap: anywhere;
+}
+
 /* Overlays ----------------------------------------------------------------------------------- */
 .palette {
   display: flex;

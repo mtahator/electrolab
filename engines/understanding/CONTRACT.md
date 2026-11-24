@@ -1,6 +1,6 @@
 # Understanding engine — contract
 
-Version: 0.2.0      Stability: experimental      Tier: T1
+Version: 0.3.0      Stability: experimental      Tier: T1
 Crates: `ep-understanding-contract` (types), `ep-understanding` (facade)
 
 ## Purpose
@@ -20,7 +20,7 @@ Explain and understand a paper (Draft 2.2 §14.5). Phase 1 builds the Reader com
 Error kinds: those of `inference.complete` (`no_model`, `no_runtime`, …), plus `empty_selection`.
 
 ### understanding.suggest_folders (founder request, 2026-11-24)
-`SuggestFolders { papers: [{ id, title, file }], folders: [{ id, name }], stream?: { id } }` → `FolderSuggestion { folders: [{ name, existing?, papers: [id] }], unsure: [id], model, total_ms }` (permission: read)
+`SuggestFolders { papers: [{ id, title, file, about? }], folders: [{ id, name }], stream?: { id } }` → `FolderSuggestion { folders: [{ name, existing?, papers: [id] }], unsure: [id], model, total_ms }` (permission: read)
 - **It only suggests.** Nothing is moved; the window applies what the person approved (`workspace.apply_folders`), with undo.
 - The model is asked twice, both with an enforced schema: which folders (short names, about one for every three papers and at most 8; existing ones where they fit), then which of them for each paper, or "Other". The second schema allows only those names, once per paper: **every paper is in exactly one folder or in `unsure`**.
 - It sees the title and the first 220 characters of the first page, in the data section. At most 300 papers, 25 per question.
@@ -53,5 +53,6 @@ Error kinds: those of `inference.complete` (`no_model`, `no_runtime`, …), plus
 - Golden Explain set (P0.C.2) with the real model when present: ≥ the S3 result (98% correct after the check with Qwen3-4B).
 
 ## Changelog
+- 0.3.0 (2026-11-24): `about` of a paper (its summary) is used instead of its first page.
 - 0.2.0 (2026-11-24): `suggest_folders`.
 - 0.1.0 (2026-11-21): `explain_span` (P1.M5.UND.1–2).

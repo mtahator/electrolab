@@ -1,0 +1,131 @@
+{
+  "command": "knowledge.digests",
+  "input": {
+    "$defs": {
+      "PaperId": {
+        "description": "A paper (a PDF in the library or a project).\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input naming papers (all of the library when missing).",
+    "properties": {
+      "papers": {
+        "default": null,
+        "description": "Paper ids.",
+        "items": {
+          "$ref": "#/$defs/PaperId"
+        },
+        "type": [
+          "array",
+          "null"
+        ]
+      }
+    },
+    "title": "DigestPapers",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "DigestInfo": {
+        "description": "What there is for a paper.",
+        "properties": {
+          "complete": {
+            "description": "Finished.",
+            "type": "boolean"
+          },
+          "kind": {
+            "description": "What the document is.",
+            "type": "string"
+          },
+          "level": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/DigestLevel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "How much; missing when there is none."
+          },
+          "made_ms": {
+            "description": "When.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "model": {
+            "default": null,
+            "description": "Model.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "paper": {
+            "description": "Paper id.",
+            "type": "string"
+          },
+          "sections": {
+            "description": "Number of sections.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "summary": {
+            "description": "Summary.",
+            "type": "string"
+          },
+          "topics": {
+            "description": "Subjects.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "paper",
+          "complete",
+          "summary",
+          "topics",
+          "kind",
+          "sections",
+          "made_ms"
+        ],
+        "type": "object"
+      },
+      "DigestLevel": {
+        "description": "How much a digest holds.",
+        "oneOf": [
+          {
+            "const": "basic",
+            "description": "Headings, captions and telling words (no model).",
+            "type": "string"
+          },
+          {
+            "const": "full",
+            "description": "Written summaries too.",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "items": {
+      "$ref": "#/$defs/DigestInfo"
+    },
+    "title": "Array_of_DigestInfo",
+    "type": "array"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "What digests there are"
+}

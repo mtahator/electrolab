@@ -31,7 +31,7 @@ use serde_json::json;
 
 /// Every kind of work a model can be chosen for.
 const DEFAULT: &str = "default";
-const TASKS: [&str; 4] = [DEFAULT, "explain", "check", "sort"];
+const TASKS: [&str; 6] = [DEFAULT, "explain", "check", "sort", "digest", "find"];
 
 /// The kind of work of a request's task.
 fn task_of(task: &str) -> &'static str {
@@ -39,6 +39,8 @@ fn task_of(task: &str) -> &'static str {
         "explain.draft" => "explain",
         "explain.check" => "check",
         "sort.names" | "sort.assign" => "sort",
+        "digest.section" | "digest.paper" => "digest",
+        "find.understand" | "find.papers" | "find.nearest" => "find",
         _ => DEFAULT,
     }
 }
@@ -54,6 +56,8 @@ pub struct Inference {
     problems: Mutex<HashMap<String, String>>,
     /// One answer at a time: another model may have to be loaded for the next one.
     turn: tokio::sync::Mutex<()>,
+    /// People waiting for an answer; background work lets them go first.
+    people: std::sync::atomic::AtomicUsize,
     runtime_dirs: Vec<PathBuf>,
     spawner: Option<Arc<dyn ProcessSpawner>>,
     log_file: Option<PathBuf>,
@@ -165,6 +169,7 @@ impl Inference {
             headers: Mutex::default(),
             problems: Mutex::default(),
             turn: tokio::sync::Mutex::new(()),
+            people: std::sync::atomic::AtomicUsize::new(0),
             runtime_dirs,
             spawner: Some(spawner),
             log_file,
@@ -193,6 +198,7 @@ impl Inference {
             headers: Mutex::default(),
             problems: Mutex::default(),
             turn: tokio::sync::Mutex::new(()),
+            people: std::sync::atomic::AtomicUsize::new(0),
             runtime_dirs: vec![],
             spawner: None,
             log_file: None,
@@ -606,6 +612,39 @@ impl Inference {
             .ok_or_else(|| failed(errors::START_FAILED, "the model runtime did not start"))
     }
 
+    /// One answer at a time; a background answer also waits until nobody is waiting.
+    async fn take_turn(
+        &self,
+        cx: &Cx,
+        background: bool,
+    ) -> Result<tokio::sync::MutexGuard<'_, ()>, CommandError> {
+        use std::sync::atomic::Ordering;
+        struct Waiting<'a>(&'a std::sync::atomic::AtomicUsize);
+        impl Drop for Waiting<'_> {
+            fn drop(&mut self) {
+                self.0.fetch_sub(1, Ordering::SeqCst);
+            }
+        }
+        let _person = (!background).then(|| {
+            self.people.fetch_add(1, Ordering::SeqCst);
+            Waiting(&self.people)
+        });
+        loop {
+            let turn = tokio::select! {
+                t = self.turn.lock() => t,
+                () = cx.cancel.cancelled() => return Err(CommandError::Cancelled),
+            };
+            if !background || self.people.load(Ordering::SeqCst) == 0 {
+                return Ok(turn);
+            }
+            drop(turn);
+            tokio::select! {
+                () = tokio::time::sleep(std::time::Duration::from_millis(40)) => {}
+                () = cx.cancel.cancelled() => return Err(CommandError::Cancelled),
+            }
+        }
+    }
+
     /// Generate an answer.
     ///
     /// # Errors
@@ -620,10 +659,7 @@ impl Inference {
                 message: "no messages".into(),
             });
         }
-        let _turn = tokio::select! {
-            t = self.turn.lock() => t,
-            () = cx.cancel.cancelled() => return Err(CommandError::Cancelled),
-        };
+        let _turn = self.take_turn(cx, req.background).await?;
         let (backend, why) = self.backend(cx, &req.task).await?;
         // Guarantee 4: local-only data never leaves the machine.
         if req.sensitivity == Sensitivity::LocalOnly && !backend.is_local() {

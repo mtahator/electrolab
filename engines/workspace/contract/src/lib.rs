@@ -9,15 +9,17 @@ use serde::{Deserialize, Serialize};
 
 pub use ep_types::{BlobRef, CollectionId, Hash, MediaType, PaperId, ProjectId};
 
+mod digests;
 mod folders;
 mod library;
 mod notes;
+pub use digests::*;
 pub use folders::*;
 pub use library::*;
 pub use notes::*;
 
 /// Contract version; experimental until a second host uses it (Draft 2.2 §8.3).
-pub const VERSION: &str = "0.5.0";
+pub const VERSION: &str = "0.6.0";
 
 /// Project folder format written by this version (ADR-010).
 pub const PROJECT_FORMAT: u32 = 1;
@@ -50,6 +52,10 @@ pub mod commands {
     pub const RESTORE_PAPER: &str = "workspace.restore_paper";
     /// Make a collection.
     pub const CREATE_COLLECTION: &str = "workspace.create_collection";
+    /// Keep the digest of a paper.
+    pub const SAVE_DIGEST: &str = "workspace.save_digest";
+    /// Digests kept.
+    pub const GET_DIGESTS: &str = "workspace.get_digests";
     /// Move a folder into another one.
     pub const MOVE_COLLECTION: &str = "workspace.move_collection";
     /// Put groups of papers into folders.

@@ -29,6 +29,9 @@ members = [
     "engines/inference/core",
     "engines/inference/adapters/llamacpp",
     "engines/inference/facade",
+    "engines/knowledge/contract",
+    "engines/knowledge/core",
+    "engines/knowledge/facade",
     "engines/understanding/contract",
     "engines/understanding/facade",
 ]

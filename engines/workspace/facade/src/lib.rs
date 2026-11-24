@@ -26,6 +26,7 @@ use ep_workspace_core::{
 };
 use parking_lot::RwLock;
 
+mod digests;
 mod folders;
 mod library;
 mod notes;
@@ -71,6 +72,29 @@ impl Opened {
                 Ok((gone, keep))
             })
             .map_err(sql_err)?;
+        // Their digests go too.
+        let known: std::collections::HashSet<String> = self
+            .db
+            .read(|c| {
+                c.prepare("SELECT id FROM paper")?
+                    .query_map([], |r| r.get(0))?
+                    .collect()
+            })
+            .map_err(sql_err)?;
+        for e in std::fs::read_dir(self.root.join("digests"))
+            .into_iter()
+            .flatten()
+            .flatten()
+        {
+            let path = e.path();
+            let gone = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .is_some_and(|id| !known.contains(id));
+            if gone {
+                let _ = std::fs::remove_file(path);
+            }
+        }
         let mut n = 0;
         for h in gone.iter().filter(|h| !keep.contains(*h)) {
             if let Ok(hash) = h.parse() {
@@ -477,6 +501,18 @@ impl Workspace {
             "Make a collection",
             Permission::create(),
             create_collection
+        );
+        reg!(
+            cmd::SAVE_DIGEST,
+            "Keep the digest of a paper with it",
+            Permission::create(),
+            save_digest
+        );
+        reg!(
+            cmd::GET_DIGESTS,
+            "Digests kept with the papers",
+            Permission::read(),
+            get_digests
         );
         reg!(
             cmd::MOVE_COLLECTION,

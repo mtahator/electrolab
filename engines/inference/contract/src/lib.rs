@@ -7,7 +7,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Contract version; experimental until a second host uses it (Draft 2.2 §8.3).
-pub const VERSION: &str = "0.2.0";
+pub const VERSION: &str = "0.3.0";
 
 /// Command names.
 pub mod commands {
@@ -167,6 +167,9 @@ pub struct LlmRequest {
     /// Generation limits.
     #[serde(default)]
     pub limits: Limits,
+    /// Nobody is waiting: what a person asked goes first.
+    #[serde(default)]
+    pub background: bool,
     /// Stream the answer as events.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stream: Option<Stream>,
@@ -184,6 +187,7 @@ impl LlmRequest {
             prefill: None,
             sensitivity: Sensitivity::LocalOnly,
             limits: Limits::default(),
+            background: false,
             stream: None,
         }
     }
@@ -298,7 +302,7 @@ pub struct Folder {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[schemars(rename = "LlmTask")]
 pub struct Task {
-    /// `default`, `explain`, `check`, `sort`.
+    /// `default`, `explain`, `check`, `sort`, `digest`, `find`.
     pub id: String,
     /// The user's choice; the suggestion answers without one.
     #[serde(default, skip_serializing_if = "Option::is_none")]

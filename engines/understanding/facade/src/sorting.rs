@@ -34,6 +34,8 @@ fn worth(papers: usize) -> usize {
 
 /// Text of the first page shown to the model.
 const START: usize = 220;
+/// Text of what is known about a paper, shown instead.
+const ABOUT: usize = 320;
 
 /// A folder name as it may be used: short, no control characters or path separators.
 fn clean_folder(name: &str) -> Option<String> {
@@ -82,6 +84,13 @@ impl Understanding {
     }
 
     async fn line(&self, cx: &Cx, n: usize, p: &SortPaper) -> Result<String, CommandError> {
+        if let Some(about) = p.about.as_deref().filter(|a| !a.trim().is_empty()) {
+            return Ok(format!(
+                "{n}. {} | {}",
+                head(&squash(&p.title), 120),
+                head(&squash(about), ABOUT)
+            ));
+        }
         let input = json!({ "file": p.file, "page": 1 });
         let start = match self.call::<PageText>(cx, "document.text", input).await {
             Ok(t) => squash(&t.text),
@@ -127,6 +136,7 @@ impl Understanding {
     ///
     /// # Errors
     /// No paper, too many, or the errors of `inference.complete`.
+    #[allow(clippy::too_many_lines)] // two questions and their checks
     pub async fn suggest_folders(
         &self,
         cx: &Cx,

@@ -70,9 +70,16 @@
       "SortPaper": {
         "description": "A paper to sort.",
         "properties": {
+          "about": {
+            "description": "What it is about (its summary and topics), when that is known.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "file": {
             "$ref": "#/$defs/BlobRef",
-            "description": "Its file (the first page is read)."
+            "description": "Its file (the first page is read when nothing is said about it)."
           },
           "id": {
             "description": "Id, returned in the suggestion.",

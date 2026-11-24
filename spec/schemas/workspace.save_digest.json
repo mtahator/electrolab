@@ -1,0 +1,42 @@
+{
+  "command": "workspace.save_digest",
+  "input": {
+    "$defs": {
+      "PaperId": {
+        "description": "A paper (a PDF in the library or a project).\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "A digest of a paper. Output of `workspace.get_digests`, input of `workspace.save_digest`.",
+    "properties": {
+      "data": {
+        "description": "The digest, as the engine that made it wrote it."
+      },
+      "paper": {
+        "$ref": "#/$defs/PaperId",
+        "description": "The paper."
+      }
+    },
+    "required": [
+      "paper",
+      "data"
+    ],
+    "title": "PaperDigest",
+    "type": "object"
+  },
+  "output": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "null",
+    "type": "null"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "create"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Keep the digest of a paper with it"
+}

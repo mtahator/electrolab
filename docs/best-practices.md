@@ -14,9 +14,10 @@ tags: page, screen, view, tab, library
 - do: build it from kit components; give it empty, loading, error and offline states; every text through `t()`
 - do: show something within 100 ms and fill it as results come; say what is happening when it takes longer
 - do: give every action a name, a tooltip, a key and a place in the command palette; Esc leads back
+- do: keep what was found or written when the person goes elsewhere and comes back (state outside the view)
 - do: add it to `e2e/layout.mjs` (name under PARTS, file under `covers:`)
 - never: a width or a colour on content; work on the interactive path that could be in the background
-- proof: `test:every_part_opens` `test:nothing_spills_out_of_its_box` `test:paper_keeps_room`
+- proof: `test:every_part_opens` `test:nothing_spills_out_of_its_box` `test:paper_keeps_room` `test:coming_back_keeps_what_was_found`
 - done: `node e2e/layout.mjs`, `node e2e/screens.mjs`, the page's own suite
 
 ## popup A pop-up: card, popover, menu or toolbar
@@ -106,8 +107,11 @@ tags: ai, llm, model, explain, prompt
 - read: design language §11; `engines/inference/CONTRACT.md`
 - do: on request only; paper text only in the data section; facts checked by code; status in words
 - do: Stop ends the model, not only the card; a Replay test for every path
+- do: where a model ranks or chooses, add what code can count (words, numbers, kinds); show what code alone finds first
+- do: work without a model as far as possible, and say so; background answers wait for people
+- do: look at real output with a real paper before the page is built, and again in the finished page
 - never: text from a paper in an instruction; local-only text to a remote backend; "checked" without a check
-- proof: `test:data_is_a_labelled_section_after_the_question` `test:local_only_never_goes_to_a_remote_backend` `test:a_wrong_draft_is_corrected_from_the_paper` `test:stop_ends_the_answer`
+- proof: `test:data_is_a_labelled_section_after_the_question` `test:local_only_never_goes_to_a_remote_backend` `test:a_wrong_draft_is_corrected_from_the_paper` `test:stop_ends_the_answer` `test:what_a_person_asks_goes_before_background_answers` `test:finding_works_without_a_model`
 - done: the engine's tests, `node e2e/explain.mjs` with and without a model
 
 ## file A file or program from outside

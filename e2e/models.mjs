@@ -60,7 +60,7 @@ try {
   const seen = await s.js(SEEN);
   await s.shot("models-settings.png");
   check("models_are_listed_and_suggested", seen.models?.length === 3 && seen.states.filter((x) => x === "Suggested").length === 1 && seen.states.includes("Picture part of another model") && /3 models found/.test(seen.folders) && /1 files in other formats/.test(seen.folders), seen);
-  check("a_model_can_be_chosen_per_task", seen.tasks?.length === 3 && seen.tasks[0].options.length === 3 && /^Suggested: /.test(seen.tasks[0].options[0]), { tasks: seen.tasks });
+  check("a_model_can_be_chosen_per_task", seen.tasks?.length === 6 && seen.tasks[0].options.length === 3 && /^Suggested: /.test(seen.tasks[0].options[0]), { tasks: seen.tasks });
   await s.js(`(() => { const e = document.querySelectorAll(".llm select")[2]; e.value = "second-model"; e.dispatchEvent(new Event("change", { bubbles: true })); })()`);
   await s.until(`document.querySelectorAll(".llm select")[2].value === "second-model" && !document.querySelector(".llm-searching") ? true : null`, 5000);
   await sleep(300);

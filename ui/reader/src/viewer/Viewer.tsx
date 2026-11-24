@@ -40,6 +40,8 @@ export interface ViewerApi {
   copyCitation: () => boolean;
   /** Briefly mark the line at page-space `y` (after going to a place from the notes). */
   flash: (page: number, y: number) => void;
+  /** Show a place and flash it, as soon as the pages are there (after the saved place). */
+  openAt: (page: number, y: number) => void;
 }
 
 /** What the viewer tells the shell. */
@@ -192,6 +194,19 @@ export function Viewer(props: ViewerProps): JSX.Element {
     queueMicrotask(() => goTo(p.page, p.y, false, true));
   });
 
+  // A place asked for while the paper is still opening comes after the saved one.
+  const [jumpTo, setJumpTo] = createSignal<Place | null>(null);
+  const [placed, setPlaced] = createSignal(false);
+  createEffect(() => {
+    const p = jumpTo();
+    if (!p || !placed() || restoreTo() || lay().slots.length === 0 || view().h < 50) return;
+    setJumpTo(null);
+    window.setTimeout(() => {
+      goTo(p.page, Math.max(0, p.y - 60));
+      api.flash(p.page, p.y);
+    }, 30);
+  });
+
   // Keep the reader's place when the page scale changes for another reason than zooming: the
   // window or a side panel changes size (fit width / fit page). Zooming keeps its own anchor.
   let place: Place | null = null;
@@ -286,6 +301,7 @@ export function Viewer(props: ViewerProps): JSX.Element {
 
   const api: ViewerApi = {
     goTo,
+    openAt: (page, y) => void setJumpTo({ page, y }),
     back: () => {
       const p = history.goBack(here());
       if (p) goTo(p.page, p.y, false, true);
@@ -445,6 +461,7 @@ export function Viewer(props: ViewerProps): JSX.Element {
       setRestoreTo(place);
     }
     restored = true;
+    setPlaced(true);
   };
 
   const save = async (): Promise<void> => {

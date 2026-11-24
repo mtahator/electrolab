@@ -351,6 +351,137 @@ export type DataClass = "public_paper" | "confidential_dataset" | "unpublished_i
 /** Where the data goes. */
 export type Destination = "device" | "our_server" | "external";
 
+/** The digest of a paper. */
+export type Digest = {
+  /** Every section that can have a summary was looked at. */
+  complete?: boolean;
+  /** What the document is (`research paper`, `report`, …). */
+  kind?: string;
+  /** How much it holds. */
+  level: DigestLevel;
+  /** When, ms since the Unix epoch. */
+  made_ms: number;
+  /** Model that wrote it. */
+  model?: string | null;
+  /** Labelled objects in order. */
+  objects: DigestObject[];
+  /** Pages of the document. */
+  pages: number;
+  /** Paper id. */
+  paper: string;
+  /** Questions it can answer. */
+  questions?: string[];
+  /** Sections in order. */
+  sections: SectionDigest[];
+  /** 3–5 sentences (empty when basic). */
+  summary?: string;
+  /** Title. */
+  title: string;
+  /** Subjects, cleaned. */
+  topics?: string[];
+  /** Format. */
+  version: number;
+};
+
+/** Which digests a search could use. */
+export interface DigestCount {
+  /** Basic. */
+  basic: number;
+  /** With written summaries. */
+  full: number;
+  /** Papers asked. */
+  total: number;
+}
+
+/** What there is for a paper. */
+export type DigestInfo = {
+  /** Finished. */
+  complete: boolean;
+  /** What the document is. */
+  kind: string;
+  /** How much; missing when there is none. */
+  level?: unknown & (DigestLevel | null);
+  /** When. */
+  made_ms: number;
+  /** Model. */
+  model?: string | null;
+  /** Paper id. */
+  paper: string;
+  /** Number of sections. */
+  sections: number;
+  /** Summary. */
+  summary: string;
+  /** Subjects. */
+  topics: string[];
+};
+
+/** How much a digest holds. */
+export type DigestLevel = "basic" | "full";
+
+/** Input of `knowledge.digest_library`. */
+export type DigestLibrary = {
+  /** Make those of `papers` anew. */
+  force?: boolean;
+  /** Written summaries too (needs a model). */
+  full?: boolean;
+  /** Written summaries of these papers, next in the row (also while it works). */
+  papers?: PaperId[] | null;
+};
+
+/** A labelled figure, table or equation. */
+export type DigestObject = {
+  /** Caption or text of it. */
+  caption?: string;
+  /** Kind. */
+  kind: PlaceKind;
+  /** Label as printed (`Figure 2.3`). */
+  label: string;
+  /** Id in the Document engine. */
+  object: string;
+  /** 1-based page. */
+  page: number;
+  /** Its area on the page in points (left, top, right, bottom). */
+  rect?: number[] | null;
+  /** Top on its page (points). */
+  y: number;
+};
+
+/** Input naming papers (all of the library when missing). */
+export type DigestPapers = {
+  /** Paper ids. */
+  papers?: PaperId[] | null;
+};
+
+/** Input naming a paper. */
+export interface DigestRequest {
+  /** Make it again. */
+  force?: boolean;
+  /** Paper id. */
+  paper: PaperId;
+}
+
+/** State of making digests. */
+export type DigestStatus = {
+  /** Title of the paper at work. */
+  current?: string | null;
+  /** Papers done. */
+  done: number;
+  /** Why it stopped. */
+  error?: string | null;
+  /** Written summaries are being made. */
+  full: boolean;
+  /** Papers waiting because they were asked for. */
+  next?: string[];
+  /** Id of the paper at work. */
+  paper?: string | null;
+  /** Working. */
+  running: boolean;
+  /** Section at work (`12 / 30`). */
+  step?: string | null;
+  /** Papers. */
+  total: number;
+};
+
 /** Output of `document.info`: everything the viewer needs before drawing anything. */
 export interface DocInfo {
   /** The file declares encryption. */
@@ -514,6 +645,46 @@ export interface FileRequest {
   file: BlobRef;
 }
 
+/** Input of `knowledge.find`. */
+export type FindRequest = {
+  /** Only in these papers. */
+  papers?: PaperId[] | null;
+  /** A question, or a description of what is looked for. */
+  question: string;
+  /** Send progress. */
+  stream?: unknown & (FindStream | null);
+};
+
+/** Output of `knowledge.find`. */
+export type FindResult = {
+  /** Digests used. */
+  digests: DigestCount;
+  /** What is looked for. */
+  looking_for: PlaceKind;
+  /** Which. */
+  model?: string | null;
+  /** Hits elsewhere. */
+  others: OtherHits[];
+  /** Places, nearest first. */
+  places: Place[];
+  /** The question. */
+  question: string;
+  /** Papers it can be in, best first. */
+  related: RelatedPaper[];
+  /** Words searched. */
+  terms: string[];
+  /** Time taken. */
+  total_ms: number;
+  /** A model helped. */
+  used_model: boolean;
+};
+
+/** Ask for progress as events. */
+export interface FindStream {
+  /** Id carried by every event. */
+  id: string;
+}
+
 /** Papers that go together into one folder. */
 export type FolderGroup = {
   /** An existing folder. */
@@ -535,6 +706,12 @@ export interface FolderSuggestion {
   /** Papers that fit nowhere (they stay where they are). */
   unsure: string[];
 }
+
+/** Input of `workspace.get_digests`. */
+export type GetDigests = {
+  /** Which papers; all of the library when missing. */
+  papers?: PaperId[] | null;
+};
 
 /** Input of `workspace.get_paper`. */
 export interface GetPaper {
@@ -731,6 +908,8 @@ export interface LlmModels {
 
 /** A request to a language model. */
 export type LlmRequest = {
+  /** Nobody is waiting: what a person asked goes first. */
+  background?: boolean;
   /** Source text (paper passages), sent in its own labelled data section, never as instructions. */
   data?: string | null;
   /** Generation limits. */
@@ -800,7 +979,7 @@ export interface LlmStream {
 
 /** A kind of work and the model chosen for it. */
 export type LlmTask = {
-  /** `default`, `explain`, `check`, `sort`. */
+  /** `default`, `explain`, `check`, `sort`, `digest`, `find`. */
   id: string;
   /** The user's choice; the suggestion answers without one. */
   model?: string | null;
@@ -984,6 +1163,14 @@ export interface OpenProject {
 /** What kind of operation (§16.4 permission levels). */
 export type Operation = "read" | "create" | "execute" | "remote_execute" | "external_api" | "destructive";
 
+/** Hits in a paper that is not among the related ones. */
+export interface OtherHits {
+  /** Hits. */
+  hits: number;
+  /** Paper id. */
+  paper: string;
+}
+
 /** One entry of the document's outline (bookmarks). */
 export type OutlineItem = {
   /** Sub-entries. */
@@ -1121,6 +1308,14 @@ export type Paper = {
   title?: string | null;
 };
 
+/** A digest of a paper. Output of `workspace.get_digests`, input of `workspace.save_digest`. */
+export interface PaperDigest {
+  /** The digest, as the engine that made it wrote it. */
+  data: unknown;
+  /** The paper. */
+  paper: PaperId;
+}
+
 /** Input naming a paper and its current managed copy. */
 export interface PaperFile {
   /** Its current file (annotations already in it are imported once). */
@@ -1198,6 +1393,37 @@ export interface Permission {
   operation: Operation;
 }
 
+/** A place where it may be. */
+export type Place = {
+  /** Kind. */
+  kind: PlaceKind;
+  /** Label as printed. */
+  label?: string | null;
+  /** Chosen as nearest. */
+  nearest?: boolean;
+  /** Id in the Document engine. */
+  object?: string | null;
+  /** 1-based page. */
+  page: number;
+  /** Paper id. */
+  paper: string;
+  /** Words of the paper. */
+  quote: string;
+  /** Area of the object on its page in points (left, top, right, bottom). */
+  rect?: number[] | null;
+  /** Score by words. */
+  score: number;
+  /** Section it is in. */
+  section?: string | null;
+  /** Which words met here. */
+  terms: string[];
+  /** Top on its page (points). */
+  y: number;
+};
+
+/** Kind of a labelled object or of a place. */
+export type PlaceKind = "figure" | "table" | "equation" | "section" | "text";
+
 /** The folders a paper was in. */
 export interface Placement {
   /** Its folders. */
@@ -1254,6 +1480,14 @@ export interface ProjectInfo {
 
 /** Library (the user's collection) or project (a focused piece of work). */
 export type ProjectKind = "library" | "project";
+
+/** A sentence of the paper. */
+export interface Quote {
+  /** 1-based page. */
+  page: number;
+  /** Word for word. */
+  text: string;
+}
 
 /** Where the reader was in a paper, and how it was shown. */
 export type ReadingState = {
@@ -1351,6 +1585,16 @@ export type RegionRequest = {
   rect?: unknown & (PageRect | null);
   /** Width of the cropped image in pixels (default 800). */
   width_px?: number | null;
+};
+
+/** A paper in which it may be. */
+export type RelatedPaper = {
+  /** Paper id. */
+  paper: string;
+  /** Score by words. */
+  score: number;
+  /** Why, in a few words (from the model). */
+  why?: string | null;
 };
 
 /** Input of `workspace.rename_collection`. */
@@ -1487,6 +1731,33 @@ export interface SearchStream {
   id: string;
 }
 
+/** The digest of one section. */
+export interface SectionDigest {
+  /** Stable within the digest (`s12`). */
+  id: string;
+  /** Depth of the heading, from 1. */
+  level: number;
+  /** First and last page (1-based). */
+  pages: [number, number];
+  /** What it does. */
+  role?: SectionRole;
+  /** Where the summary comes from. */
+  source?: SummarySource;
+  /** 1–3 sentences (empty when there is none). */
+  summary?: string;
+  /** Sentences that carry the summary. */
+  support?: Quote[];
+  /** Subjects, cleaned. */
+  tags?: string[];
+  /** Important words, as they stand in the section. */
+  terms?: string[];
+  /** Heading, or the pages. */
+  title: string;
+}
+
+/** What a section does. */
+export type SectionRole = "introduction" | "background" | "method" | "data" | "results" | "discussion" | "conclusion" | "instructions" | "legal" | "administrative" | "appendix" | "references" | "other";
+
 /**
  * Input of `workspace.set_paper_file`: a new version of the paper's managed copy, already in
  * the library's blob store (for example a PDF with annotations saved into it).
@@ -1534,14 +1805,16 @@ export interface SortFolder {
 }
 
 /** A paper to sort. */
-export interface SortPaper {
-  /** Its file (the first page is read). */
+export type SortPaper = {
+  /** What it is about (its summary and topics), when that is known. */
+  about?: string | null;
+  /** Its file (the first page is read when nothing is said about it). */
   file: BlobRef;
   /** Id, returned in the suggestion. */
   id: string;
   /** Title or file name. */
   title: string;
-}
+};
 
 /** How settled a command's contract is (Draft 2.2 §8.3). */
 export type Stability = "experimental" | "stable";
@@ -1585,6 +1858,9 @@ export type SuggestedFolder = {
   /** Papers (ids). */
   papers: string[];
 };
+
+/** Where a section's summary comes from. */
+export type SummarySource = "written" | "quoted" | "none";
 
 /** Output of `document.table`: cells in rows and columns, from the words inside the table box. */
 export type Table = {

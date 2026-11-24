@@ -230,6 +230,30 @@ async fn local_only_never_goes_to_a_remote_backend() {
 }
 
 #[tokio::test]
+async fn what_a_person_asks_goes_before_background_answers() {
+    let long = "word ".repeat(400);
+    let bus = bus_with(Replay::new().on("slow", &long).on("bg", "b").on("ask", "a"));
+    let ask = |task: &str, background: bool| {
+        let bus = bus.clone();
+        let input = json!({ "task": task, "messages": [{ "role": "user", "content": "q" }], "background": background });
+        tokio::spawn(async move {
+            bus.call(Envelope::new("inference.complete", input))
+                .await
+                .unwrap();
+            std::time::Instant::now()
+        })
+    };
+    let first = ask("slow", false);
+    tokio::task::yield_now().await;
+    let background = ask("bg", true);
+    tokio::task::yield_now().await;
+    let person = ask("ask", false);
+    first.await.unwrap();
+    let (b, p) = (background.await.unwrap(), person.await.unwrap());
+    assert!(p < b, "the background answer came first");
+}
+
+#[tokio::test]
 async fn models_and_status_answer_while_a_model_runs() {
     let bus = bus_with(Replay::new());
     let both = async {

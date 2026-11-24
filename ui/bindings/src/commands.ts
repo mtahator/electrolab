@@ -71,6 +71,20 @@ export interface Commands {
   "inference.status": { input: null; output: T.LlmStatus };
   /** Stop the language model runtime */
   "inference.unload": { input: null; output: T.LlmStatus };
+  /** Make digests of the library in the background */
+  "knowledge.digest_library": { input: T.DigestLibrary; output: T.DigestStatus };
+  /** Make the digest of a paper: summaries, tags and terms of every section */
+  "knowledge.digest_paper": { input: T.DigestRequest; output: T.Digest };
+  /** State of making digests */
+  "knowledge.digest_status": { input: null; output: T.DigestStatus };
+  /** Stop making digests */
+  "knowledge.digest_stop": { input: null; output: T.DigestStatus };
+  /** What digests there are */
+  "knowledge.digests": { input: T.DigestPapers; output: T.DigestInfo[] };
+  /** Ask the library: papers it can be in, and the nearest places */
+  "knowledge.find": { input: T.FindRequest; output: T.FindResult };
+  /** The digest of a paper */
+  "knowledge.get_digest": { input: T.DigestRequest; output: T.Digest | null };
   /** Explain a selection: a fast draft, then a version checked against the paper */
   "understanding.explain_span": { input: T.ExplainRequest; output: T.Explanation };
   /** Suggest folders for papers; nothing is moved */
@@ -93,6 +107,8 @@ export interface Commands {
   "workspace.current": { input: null; output: T.ProjectInfo | null };
   /** Delete a collection (its papers stay in the library) */
   "workspace.delete_collection": { input: T.CollectionRef; output: null };
+  /** Digests kept with the papers */
+  "workspace.get_digests": { input: T.GetDigests; output: T.PaperDigest[] };
   /** The notebook of a paper */
   "workspace.get_notes": { input: T.PaperInput; output: T.PaperNotes };
   /** One paper */
@@ -133,6 +149,8 @@ export interface Commands {
   "workspace.restore_paper": { input: T.GetPaper; output: T.Paper };
   /** Bring back several papers */
   "workspace.restore_papers": { input: T.PaperIds; output: null };
+  /** Keep the digest of a paper with it */
+  "workspace.save_digest": { input: T.PaperDigest; output: null };
   /** Save the notebook of a paper (a new version; earlier ones stay in the history) */
   "workspace.save_notes": { input: T.SaveNotes; output: T.PaperNotes };
   /** Remember where the reader is in a paper */
