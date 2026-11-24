@@ -291,7 +291,7 @@ mod tests {
                 // Coordinates as they come from a page.
                 let list: Vec<f32> = (0..50)
                     .map(|_| {
-                        x = (x * 1.618_034 + 0.577_215_7) % 842.0;
+                        x = (x * 1.734_071 + 0.593_127_4) % 842.0;
                         x
                     })
                     .collect();
