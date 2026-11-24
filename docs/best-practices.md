@@ -145,6 +145,7 @@ tags: test, e2e, check
 - do: see it fail once, on the version that has the bug; then see it pass
 - do: use real input (mouse, keys, wheel, touch) and the built app; measure what the user sees
 - do: check that the step happened (the zoom changed, the page was reached) before checking its result
+- do: begin clean: absolute folders of its own, cleared before the run; nothing is remembered from the last one
 - never: a timing taken while compiling; a longer wait instead of a cause; a test that cannot fail
 - proof: `test:words_fit_after_zoom` `test:project_map_is_current`
 - done: the checks of the changed topics (`cargo xtask topics --changed`)

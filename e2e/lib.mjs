@@ -3,14 +3,15 @@
 
 import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** Start the app. `consoleLog` collects page errors and warnings. */
 export async function launch({ exe, args, data, webview, port, out, consoleLog }) {
   const app = spawn(exe, args, {
-    env: { ...process.env, EP_DATA_DIR: data, WEBVIEW2_USER_DATA_FOLDER: webview, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port}` },
+    // Absolute: the web view takes a relative folder from the program's place, where no test clears it.
+    env: { ...process.env, EP_DATA_DIR: resolve(data), WEBVIEW2_USER_DATA_FOLDER: resolve(webview), WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port}` },
     stdio: "ignore",
   });
   let target;
