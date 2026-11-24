@@ -255,7 +255,18 @@ fn open_folder(root: &Path) -> Result<Opened, CommandError> {
         ep_store::StoreError::TooNew { .. } => CommandError::failed(errors::BAD_FORMAT, e),
         other => io_err(other),
     })?;
-    let events = Arc::new(EventLog::open(root.join(EVENTS_DIR)).map_err(io_err)?);
+    let now = i64::try_from(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis(),
+    )
+    .unwrap_or(i64::MAX);
+    let (events, aside) = EventLog::open_or_restart(root.join(EVENTS_DIR), now).map_err(io_err)?;
+    if let Some(aside) = aside {
+        tracing::error!(kept = %aside.display(), "the event log was damaged; a new one was begun");
+    }
+    let events = Arc::new(events);
     Ok(Opened {
         root: root.to_path_buf(),
         manifest,

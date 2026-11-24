@@ -12,7 +12,7 @@ use ep_bus::{
 use ep_events::EventLog;
 use ep_policy::{DataClass, Destination, Operation};
 use parking_lot::Mutex;
-use serde_json::json;
+use serde_json::{Value, json};
 
 fn bus() -> Bus {
     Bus::new(Arc::new(FakeClock::at(1_000)), Arc::new(SeqIds::default()))
@@ -95,6 +95,27 @@ async fn policy_runs_before_handler_and_provenance_after() {
         kinds,
         [("command.completed".to_string(), json!("t.send"), 1_000)]
     );
+}
+
+#[tokio::test]
+async fn large_inputs_are_recorded_by_size_and_hash() {
+    let d = tempfile::tempdir().expect("tmp");
+    let log = Arc::new(EventLog::open(d.path()).expect("log"));
+    let b = bus();
+    b.set_provenance_log(Some(log.clone()));
+    b.register(
+        spec("t.keep", Permission::create()),
+        |_cx, _i: Value| async { Ok::<_, CommandError>(()) },
+    )
+    .expect("register");
+    let input = json!({ "paper": "p1", "data": "x".repeat(200_000) });
+    b.call(Envelope::new("t.keep", input)).await.expect("call");
+    let mut seen = vec![];
+    log.replay(1, |r| seen.push(r.event.data["input"].clone()))
+        .expect("replay");
+    assert_eq!(seen[0]["paper"], "p1");
+    assert_eq!(seen[0]["data"]["bytes"], 200_002);
+    assert!(seen[0].to_string().len() < 300);
 }
 
 #[tokio::test]

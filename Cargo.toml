@@ -46,7 +46,9 @@ publish = false
 anyhow = "1"
 cargo_metadata = "0.19"
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.154"
+# float_roundtrip: a number read from a file is the number that was written (the event log is checked
+# by hashes of its records).
+serde_json = { version = "1.0.154", features = ["float_roundtrip"] }
 unicode-normalization = "0.1.26"
 sha2 = "0.10"
 toml = "0.8"

@@ -173,6 +173,33 @@ impl EventLog {
         })
     }
 
+    /// Open the log in `dir`; when its chain is broken, keep it aside and begin a new one. A damaged
+    /// log never locks a person out of their library. Returns where the old one is kept.
+    ///
+    /// # Errors
+    /// Disk error.
+    pub fn open_or_restart(
+        dir: impl Into<PathBuf>,
+        now_ms: i64,
+    ) -> Result<(Self, Option<PathBuf>)> {
+        let dir = dir.into();
+        let broken = match Self::open(&dir) {
+            Err(EventError::Broken(n)) => n,
+            r => return r.map(|l| (l, None)),
+        };
+        let name = dir.file_name().unwrap_or_default().to_string_lossy();
+        let aside = dir.with_file_name(format!("{name}-broken-{now_ms}"));
+        fs::rename(&dir, &aside)?;
+        let log = Self::open(&dir)?;
+        log.append(Event {
+            at_ms: now_ms,
+            actor: Actor::System,
+            kind: "log.restarted".into(),
+            data: serde_json::json!({ "broken_at": broken, "kept": aside.file_name().map(|n| n.to_string_lossy()) }),
+        })?;
+        Ok((log, Some(aside)))
+    }
+
     /// Append one event and flush it to disk. Returns its sequence number.
     ///
     /// # Errors
@@ -252,6 +279,65 @@ mod tests {
             kind: "test.happened".into(),
             data: serde_json::json!({ "i": i }),
         }
+    }
+
+    #[test]
+    fn any_number_survives_being_written_and_read() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut x = 0.123_456_7_f32;
+        {
+            let log = EventLog::open(dir.path()).unwrap();
+            for i in 0..400 {
+                // Coordinates as they come from a page.
+                let list: Vec<f32> = (0..50)
+                    .map(|_| {
+                        x = (x * 1.618_034 + 0.577_215_7) % 842.0;
+                        x
+                    })
+                    .collect();
+                log.append(Event {
+                    data: serde_json::json!({ "rects": list }),
+                    ..ev(i)
+                })
+                .unwrap();
+            }
+        }
+        let log = EventLog::open(dir.path()).unwrap();
+        assert_eq!(log.last_seq(), 400);
+        log.replay(1, |_| {}).unwrap();
+    }
+
+    #[test]
+    fn a_broken_log_is_kept_aside_and_work_goes_on() {
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join("events");
+        {
+            let log = EventLog::open(&dir).unwrap();
+            for i in 0..5 {
+                log.append(ev(i)).unwrap();
+            }
+        }
+        let file = segment_path(&dir, 1);
+        let text = fs::read_to_string(&file)
+            .unwrap()
+            .replacen("\"i\":1", "\"i\":9", 1);
+        fs::write(&file, &text).unwrap();
+        assert!(matches!(EventLog::open(&dir), Err(EventError::Broken(2))));
+        let (log, aside) = EventLog::open_or_restart(&dir, 77).unwrap();
+        let aside = aside.unwrap();
+        assert!(aside.ends_with("events-broken-77"));
+        assert_eq!(
+            fs::read_to_string(segment_path(&aside, 1)).unwrap(),
+            text,
+            "nothing is lost"
+        );
+        log.append(ev(6)).unwrap();
+        drop(log);
+        let (log, aside) = EventLog::open_or_restart(&dir, 78).unwrap();
+        assert!(aside.is_none());
+        let mut kinds = vec![];
+        log.replay(1, |r| kinds.push(r.event.kind.clone())).unwrap();
+        assert_eq!(kinds, ["log.restarted", "test.happened"]);
     }
 
     #[test]

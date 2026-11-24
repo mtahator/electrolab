@@ -53,13 +53,14 @@ practice: release
 check: `cargo deny check` · `cargo xtask practices`
 
 ## #bus Commands, events, streaming
-tags: bus, command, event, hub, cancel, progress, allowed-commands
+tags: event log, chain broken, hash, bus, command, event, hub, cancel, progress, allowed-commands
 connects: #inference #explain #search
 practice: command
 - A command is a typed handler (`foundation/bus/src/bus.rs`); partial results are hub events with the caller's id (`document.searching`, `inference.token`, `understanding.explaining`).
 - The window may call only what `hosts/reader/src-tauri/allowed-commands.json` lists. Forgetting it is the usual "works in tests, fails in the app".
 - A call can carry its own id so the window can cancel it (`bus_cancel`).
 - best: a cancelled call ends and says so — `test:cancel_stops_the_answer`
+- best: the event log survives any number and any damage; large inputs are kept by size and hash — `test:any_number_survives_being_written_and_read` `test:a_broken_log_is_kept_aside_and_work_goes_on` `test:large_inputs_are_recorded_by_size_and_hash`
 check: `cargo test -p ep-bus`
 
 ## #pdfium PDF engine and lanes

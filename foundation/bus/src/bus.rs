@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 
 use ep_events::{Event, EventLog};
 use ep_policy::{Decision, Operation, Request, Settings};
+use ep_types::Hash;
 use futures::future::BoxFuture;
 use parking_lot::{Mutex, RwLock};
 use schemars::JsonSchema;
@@ -61,6 +62,9 @@ pub struct Spec {
     /// Policy declaration.
     pub permission: Permission,
 }
+
+/// Largest part of an input that is kept in the log as it is.
+const LOGGED: usize = 8192;
 
 fn valid_name(n: &str) -> bool {
     let mut parts = n.split('.');
@@ -365,7 +369,7 @@ impl Bus {
                     at_ms: self.clock.now_ms(),
                     actor: env.actor.clone(),
                     kind: "command.completed".into(),
-                    data: json!({ "command": env.command, "id": env.id, "input": env.input, "outcome": outcome, "elapsed_ms": elapsed_ms }),
+                    data: json!({ "command": env.command, "id": env.id, "input": logged(&env.input), "outcome": outcome, "elapsed_ms": elapsed_ms }),
                 };
                 // fsync happens on a blocking thread so the runtime keeps going.
                 let appended = tokio::task::spawn_blocking(move || log.append(event)).await;
@@ -378,6 +382,21 @@ impl Bus {
         self.hub.publish("command.finished", json!({ "command": env.command, "id": env.id, "outcome": outcome, "elapsed_ms": elapsed_ms }), self.clock.now_ms());
         result
     }
+}
+
+/// The input of a command as it is kept in the log: large parts by size and hash only.
+fn logged(input: &Value) -> Value {
+    let Value::Object(fields) = input else {
+        return input.clone();
+    };
+    let short = |v: &Value| -> Value {
+        let text = v.to_string();
+        if text.len() <= LOGGED {
+            return v.clone();
+        }
+        json!({ "bytes": text.len(), "hash": Hash::of(text.as_bytes()).to_string() })
+    };
+    Value::Object(fields.iter().map(|(k, v)| (k.clone(), short(v))).collect())
 }
 
 async fn sleep_opt(d: Option<Duration>) {

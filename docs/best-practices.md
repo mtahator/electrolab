@@ -133,8 +133,10 @@ tags: migration, storage, library, settings file
 - read: ADR-010; `engines/workspace/CONTRACT.md`
 - do: write to a new file and rename; numbered migrations; take over what an older version wrote
 - do: undo instead of asking; delete for good only later
+- do: what is hashed is read back exactly as it was written (numbers too); a large input is logged by size and hash
+- do: damage of a log or a cache never locks a person out: keep it aside, begin a new one, say so in the app's log
 - never: change the user's own files or folders without being asked
-- proof: `test:remove_restore_and_purge_on_next_open` `test:the_order_is_kept_and_can_be_automatic_again` `test:forgetting_a_folder_touches_nothing_on_disk`
+- proof: `test:any_number_survives_being_written_and_read` `test:a_broken_log_is_kept_aside_and_work_goes_on` `test:large_inputs_are_recorded_by_size_and_hash` `test:remove_restore_and_purge_on_next_open` `test:the_order_is_kept_and_can_be_automatic_again` `test:forgetting_a_folder_touches_nothing_on_disk`
 - done: the engine's tests, restart in the end-to-end suite
 
 ## test A test
