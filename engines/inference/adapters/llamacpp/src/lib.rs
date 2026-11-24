@@ -89,6 +89,18 @@ impl LlamaCppSidecar {
         }
     }
 
+    /// Whether the child has ended. A broken connection can be seen a moment before the end of
+    /// the process, so it is given a moment.
+    async fn has_ended(&self) -> bool {
+        for _ in 0..10 {
+            if !self.is_running().await {
+                return true;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        false
+    }
+
     /// Whether the child is alive.
     pub async fn is_running(&self) -> bool {
         let mut g = self.running.lock().await;
@@ -322,7 +334,7 @@ impl InferenceBackend for LlamaCppSidecar {
         Box::pin(async move {
             match self.generate(req, on_token, cancelled).await {
                 // Restart once when it stopped answering (contract: sidecar rule 3).
-                Err(BackendError::Failed(e)) if !self.is_running().await => {
+                Err(BackendError::Failed(e)) if self.has_ended().await => {
                     tracing::warn!(%e, "llama-server stopped; restarting once");
                     self.generate(req, on_token, cancelled).await
                 }
@@ -388,6 +400,26 @@ mod tests {
             Ok(())
         }
     }
+    /// A whole request, body included: closing with unread bytes would reset the connection.
+    fn read_request(s: &mut std::net::TcpStream) -> String {
+        let (mut all, mut buf) = (Vec::new(), [0u8; 4096]);
+        loop {
+            let n = s.read(&mut buf).unwrap();
+            all.extend_from_slice(&buf[..n]);
+            let text = String::from_utf8_lossy(&all).into_owned();
+            let Some((head, body)) = text.split_once("\r\n\r\n") else {
+                assert_ne!(n, 0, "closed before the headers");
+                continue;
+            };
+            let length = head
+                .lines()
+                .find_map(|l| l.strip_prefix("Content-Length: "))
+                .map_or(0, |v| v.parse().unwrap());
+            if body.len() >= length || n == 0 {
+                return text;
+            }
+        }
+    }
     fn arg(spec: &ProcessSpec, name: &str) -> String {
         let i = spec.args.iter().position(|a| a == name).unwrap();
         spec.args[i + 1].to_string_lossy().into_owned()
@@ -408,14 +440,14 @@ mod tests {
             std::thread::spawn(move || {
                 for s in listener.incoming() {
                     let mut s = s.unwrap();
-                    let mut buf = [0u8; 8192];
-                    let n = s.read(&mut buf).unwrap();
-                    let head = String::from_utf8_lossy(&buf[..n]).into_owned();
+                    let head = read_request(&mut s);
                     if !head.contains(&key) {
                         let _ = s.write_all(b"HTTP/1.1 401 No\r\nContent-Length: 0\r\n\r\n");
                     } else if head.starts_with("GET /health") {
                         let _ = s.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok");
                     } else if die {
+                        drop(s);
+                        std::thread::sleep(Duration::from_millis(120));
                         stop.store(true, Ordering::SeqCst);
                         return;
                     } else {
