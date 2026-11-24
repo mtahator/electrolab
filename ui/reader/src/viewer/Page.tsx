@@ -13,7 +13,7 @@ import { t } from "@electropaper/kit";
 import { clean, selectionRows } from "../annotations/geometry";
 import { type CharRange, selectionRanges } from "../annotations/selection";
 import { fitX } from "./textfit";
-import { For, type JSX, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js";
+import { For, type JSX, Show, createEffect, createMemo, createSignal, onCleanup, untrack } from "solid-js";
 
 import { AnnotationLayer } from "../annotations/AnnotationLayer";
 import { bus, renderUrl } from "../host";
@@ -77,7 +77,8 @@ export function Page(props: PageProps): JSX.Element {
     const pageNo = props.page;
     if (!colors) {
       const ratio = window.devicePixelRatio || 1;
-      const want = (props.width / props.layoutScale) * scale * ratio;
+      // The page's own width: the same at every zoom (only the settled scale draws anew).
+      const want = untrack(() => props.width / props.layoutScale) * scale * ratio;
       const have = drawnOf(props.file.hash, pageNo);
       if (have && have.width >= Math.min(want, 8192) * 0.95) {
         setImage(have.url);

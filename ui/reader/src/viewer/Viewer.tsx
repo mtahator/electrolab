@@ -22,7 +22,7 @@ import { prepare } from "../intel/state";
 import { quoteToNotes } from "../notes/state";
 import { marginView } from "../shell/frame";
 import { History, type Place } from "./history";
-import { type Layout, type ViewMode, type Zoom, clamp, layout, pageAt, scaleFor, toPage, toScreen, visible } from "./layout";
+import { type Layout, type Slot, type ViewMode, type Zoom, clamp, layout, pageAt, scaleFor, toPage, toScreen, visible } from "./layout";
 import { Page, selectedText } from "./Page";
 import { type PDFDocumentProxy, acquire, release } from "./pdf";
 import { loadPreviews, previewKey, previewsDone, previewsNear } from "./previews";
@@ -154,13 +154,22 @@ export function Viewer(props: ViewerProps): JSX.Element {
   let saveTimer: number | undefined;
 
   const sizes = (): DocInfo["sizes"] => info()?.sizes ?? [];
-  const scale = createMemo(() => scaleFor(zoom(), sizes(), mode(), view().w - margin(), view().h));
+  // Only the size of the view, not where it is scrolled to: a layout makes new pages (a selection in
+  // the old ones would be lost), so it may only change when a size does.
+  const viewW = createMemo(() => view().w);
+  const viewH = createMemo(() => view().h);
+  const scale = createMemo(() => scaleFor(zoom(), sizes(), mode(), viewW() - margin(), viewH()));
   // Only the single-page layout depends on the current page; in the other layouts a page change
   // must not rebuild (and redraw) every page.
   const layoutPage = createMemo(() => (mode() === "single" ? current() : 1));
-  const lay = createMemo<Layout>(() => layout(sizes(), scale(), mode(), view().w - margin(), layoutPage()));
+  const lay = createMemo<Layout>(() => layout(sizes(), scale(), mode(), viewW() - margin(), layoutPage()));
   // Pages mounted around the view: more ahead than behind, so pages are drawn before they arrive.
   const shown = createMemo(() => visible(lay(), view().top - view().h, view().top + 3 * view().h));
+  // Pages are kept by their number: a new size (zoom, window, panel) moves and scales them, it does
+  // not make them anew, so what is selected in them stays.
+  const shownPages = createMemo(() => shown().map((s) => s.page));
+  const slots = createMemo(() => new Map(lay().slots.map((s) => [s.page, s])));
+  const slotOf = (page: number, old: Slot | undefined): Slot => slots().get(page) ?? old ?? { page, left: 0, top: 0, width: 0, height: 0 };
   // Page colours follow the paper setting (independent of the app theme).
   const colors = createMemo(() => {
     paper();
@@ -772,39 +781,42 @@ export function Viewer(props: ViewerProps): JSX.Element {
       >
         <Show when={info()} fallback={<p class="muted center">{t("viewer.loading")}</p>}>
           <div class="canvas-area" style={{ width: `${Math.max(lay().width + margin(), view().w)}px`, height: `${lay().height}px` }}>
-            <For each={shown()}>
-              {(s) => (
-                <div class="slot" classList={{ raised: (picked()?.paper === props.paper.id && find(props.paper.id, picked()?.id ?? "")?.page === s.page) || pending()?.annotation.page === s.page }} style={{ left: `${s.left}px`, top: `${s.top}px` }}>
+            <For each={shownPages()}>
+              {(p) => {
+                const s = createMemo<Slot>((old) => slotOf(p, old));
+                return (
+                <div class="slot" classList={{ raised: (picked()?.paper === props.paper.id && find(props.paper.id, picked()?.id ?? "")?.page === p) || pending()?.annotation.page === p }} style={{ left: `${s().left}px`, top: `${s().top}px` }}>
                   <Page
                     paper={props.paper.id}
                     file={props.paper.file}
                     doc={getDoc}
-                    page={s.page}
-                    width={s.width}
-                    height={s.height}
+                    page={p}
+                    width={s().width}
+                    height={s().height}
                     layoutScale={lay().scale}
                     renderScale={renderScale()}
                     priority={() => {
                       const mid = view().top + view().h / 2;
-                      const d = Math.abs(s.top + s.height / 2 - mid);
-                      return s.top + s.height >= view().top && s.top <= view().top + view().h ? 0 : d;
+                      const d = Math.abs(s().top + s().height / 2 - mid);
+                      return s().top + s().height >= view().top && s().top <= view().top + view().h ? 0 : d;
                     }}
                     colors={colors()}
-                    text={texts[s.page]}
-                    links={links[s.page]}
-                    highlights={hitsOn(s.page)}
-                    activeHighlight={activeRect(s.page)}
+                    text={texts[p]}
+                    links={links[p]}
+                    highlights={hitsOn(p)}
+                    activeHighlight={activeRect(p)}
                     onInternalLink={(page, top) => goTo(page, top)}
                     onLinkHover={(target, at) => setPreview(target && at ? { ...target, at } : null)}
                     onExternalLink={(url) => void openExternal(url).catch((e: unknown) => setError(String(e)))}
-                    selection={selected().find((r) => r.page === s.page) ?? null}
-                    flash={flashAt()?.page === s.page ? (flashAt()?.y ?? null) : null}
+                    selection={selected().find((r) => r.page === p) ?? null}
+                    flash={flashAt()?.page === p ? (flashAt()?.y ?? null) : null}
                   />
                   <Show when={margin() > 0}>
-                    <MarginNotes paper={props.paper.id} page={s.page} scale={lay().scale} pageWidth={s.width} />
+                    <MarginNotes paper={props.paper.id} page={p} scale={lay().scale} pageWidth={s().width} />
                   </Show>
                 </div>
-              )}
+                );
+              }}
             </For>
           </div>
         </Show>

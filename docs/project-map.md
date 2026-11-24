@@ -170,6 +170,7 @@ practice: page longwork fact
 - best: zoom keeps the point under the pointer — `test:wheel_zoom_at_pointer` `test:pinch_zoom_touchpad` `test:pinch_zoom_touch_screen`
 - best: blur only in flight — `test:motion_blur_only_in_flight`
 - best: nothing covers the text — `test:text_not_covered`
+- best: pages are kept by their number; scrolling, zooming and a new window size never make them anew — `test:a_selection_survives_scrolling`
 check: `node e2e/large.mjs <reader.exe> <scratch> <out>` · `npm run lint` · `node e2e/reader.mjs <reader.exe> <scratch> <out>` · `node e2e/perf.mjs <reader.exe> <scratch> <out>`
 
 ## #selection Selecting and copying text
@@ -182,6 +183,7 @@ practice: fact test
 - best: what is blue is what is copied, letter for letter — `test:blue_is_what_is_copied`
 - best: words are fitted to print at every zoom — `test:words_fit_the_print` `test:words_fit_after_zoom`
 - best: the pointer finds the printed letter — `test:pointer_finds_the_letter`
+- best: pages are kept by their number; scrolling, zooming and a new window size never make them anew — `test:a_selection_survives_scrolling`
 check: `node e2e/selection.mjs <reader.exe> <scratch> <out>`
 
 ## #annotations Highlights, notes, selection bar

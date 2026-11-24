@@ -49,7 +49,7 @@ tags: panel, sidebar, list, thumbnails, contents
 - do: start anew when another document is shown: state, pictures and observers are keyed by the document
 - do: draw only what is near the view; keep the shape of what will come (no jumps)
 - do: remember width and choice; leave the paper its 320 px
-- never: state of one document shown for another
+- never: state of one document shown for another; a list keyed by objects that are made anew (key by number or id)
 - proof: `test:thumbnails_keep_the_shape` `test:paper_keeps_room`
 - done: `node e2e/layout.mjs`, `node e2e/pages.mjs`
 

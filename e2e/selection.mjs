@@ -100,6 +100,20 @@ for (const [name, path] of Object.entries(papers)) {
     const wide = Math.abs(row[0] - from.x) < 12 * at.k && Math.abs(row[2] - to.x) < 12 * at.k;
     check("blue_is_what_is_copied", got.rows.length === 1 && wide && squash(got.copied).replace(/ /g, "") === under, { [`${name}_selection`]: { copied: got.copied, under, rows: got.rows.length, wide } });
 
+    // Scrolling (and a window that gets a little smaller) keeps the pages, and so what is selected.
+    const before = await s.js(`(window.__page = document.querySelector('.pane.focused .page[data-page="1"]'), getSelection().toString())`);
+    await s.send("Input.dispatchMouseEvent", { type: "mouseWheel", x: from.x, y: from.y + 60, deltaX: 0, deltaY: 90 });
+    await sleep(500);
+    const moved = await s.js(`document.querySelector(".pane.focused .scroller").scrollTop`);
+    const size = await s.js(`({ w: innerWidth, h: innerHeight })`);
+    await s.send("Emulation.setDeviceMetricsOverride", { width: size.w - 60, height: size.h - 40, deviceScaleFactor: 0, mobile: false });
+    await sleep(500);
+    const kept = await s.js(`({ same: window.__page.isConnected, selected: getSelection().toString() })`);
+    check("a_selection_survives_scrolling", moved > 20 && before.length > 3 && kept.same === true && kept.selected === before, { [`${name}_scrolled`]: { moved, before, ...kept } });
+    await s.send("Emulation.clearDeviceMetricsOverride", {});
+    await s.send("Input.dispatchMouseEvent", { type: "mouseWheel", x: from.x, y: from.y + 60, deltaX: 0, deltaY: -400 });
+    await sleep(500);
+
     // After zooming twice the words still fit (heights were once left behind).
     for (let i = 0; i < 2; i++) await s.js(`document.querySelector('.topbar [aria-label^="Zoom in"]').click()`);
     await sleep(900);

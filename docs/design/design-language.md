@@ -335,6 +335,8 @@ Prefer undo. Confirm only what cannot be undone (deleting a collection's content
 - **What is blue is what is copied.** The selection is drawn from the engine's character boxes, one even band per line with the spaces included, never from the browser's own selection of invisible text; copying, marking and Explain use the same characters.
 - **The pointer finds the printed letter.** Invisible words are fitted to the printed word's width and height, at every zoom, whatever the font.
 
+- What is selected stays selected while scrolling, zooming or resizing: the pages in view are moved and scaled, never made anew (they are kept by their number; a layout depends on sizes, not on the scroll position).
+
 ### 9.11 Pages of different sizes
 - **Every page keeps its own size and direction.** At one zoom all pages are drawn to the same scale, so a landscape table is wide and an A3 plan is large, as in the paper; they are centred in the column. Fit width fits the widest page and fit page the largest.
 - A page is never stretched: its box, drawing, thumbnail, text and marks always have the same shape.
