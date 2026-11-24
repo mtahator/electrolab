@@ -89,6 +89,24 @@ pub fn run_steps(steps: &[Step], mut run: impl FnMut(&Step) -> bool) -> (String,
     (report, true)
 }
 
+/// The command of a step, without the variables cargo sets for this tool itself: a tool that finds
+/// them thinks it was started by `cargo run` and reads its arguments differently.
+fn command(s: &Step) -> Command {
+    let mut c = Command::new(s.program);
+    c.args(&s.args);
+    for (k, _) in std::env::vars_os() {
+        let own = k.to_str().is_some_and(|k| {
+            k.starts_with("CARGO_PKG_")
+                || k.starts_with("CARGO_MANIFEST_")
+                || k == "CARGO_CRATE_NAME"
+        });
+        if own {
+            c.env_remove(k);
+        }
+    }
+    c
+}
+
 fn git(root: &Path, args: &[&str]) -> anyhow::Result<String> {
     let out = Command::new("git").args(args).current_dir(root).output()?;
     Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
@@ -113,8 +131,7 @@ pub fn run(root: &Path, args: &[String]) -> anyhow::Result<()> {
         steps.drain(..i);
     }
     let (table, ok) = run_steps(&steps, |s| {
-        Command::new(s.program)
-            .args(&s.args)
+        command(s)
             .current_dir(root)
             .status()
             .is_ok_and(|x| x.success())
@@ -135,6 +152,15 @@ pub fn run(root: &Path, args: &[String]) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn steps_do_not_see_the_variables_of_this_tool() {
+        // Cargo sets them for a test as well.
+        assert!(std::env::var_os("CARGO_PKG_NAME").is_some());
+        let c = command(&step("a", "cargo", "machete"));
+        let removed = |name: &str| c.get_envs().any(|(k, v)| k == name && v.is_none());
+        assert!(removed("CARGO_PKG_NAME") && removed("CARGO_MANIFEST_DIR"));
+    }
 
     #[test]
     fn a_release_stops_at_the_first_failure() {
