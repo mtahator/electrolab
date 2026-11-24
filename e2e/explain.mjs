@@ -78,6 +78,7 @@ delete process.env.EP_LLM_DIR;
 
 // ---- with a model -----------------------------------------------------------------------------
 if (llm) {
+  let llmPid = 0;
   process.env.EP_LLM_DIR = llm;
   const s = await open("explain-model", 9351);
   try {
@@ -113,14 +114,23 @@ if (llm) {
     await sleep(700);
     const b = await s.js(`document.querySelector(".explain-text").textContent`);
     check("stop_ends_the_answer", stopped === true && a === b, { warmMs });
+    llmPid = Number(execSync(`powershell -NoProfile -c "(Get-CimInstance Win32_Process -Filter \\"Name='llama-server.exe' AND ParentProcessId=${s.app.pid}\\").ProcessId"`).toString().trim());
     const st = await s.call("inference.status", null);
     check("runtime_ready", st?.state === "ready", { status: st });
   } finally {
     s.app.kill();
   }
-  await sleep(1500);
-  const left = execSync('tasklist /FI "IMAGENAME eq llama-server.exe"').toString();
-  check("model_process_ends_with_the_app", !/llama-server\.exe/i.test(left));
+  // Asked of the process itself: listing processes can be slow while the GPU memory is given back.
+  const alive = () => {
+    try {
+      return process.kill(llmPid, 0);
+    } catch {
+      return false;
+    }
+  };
+  const ended = Date.now();
+  while (alive() && Date.now() - ended < 3000) await sleep(50);
+  check("model_process_ends_with_the_app", llmPid > 0 && !alive(), { endedMs: Date.now() - ended });
 }
 
 writeFileSync(join(out, "explain.json"), JSON.stringify(report, null, 2));
