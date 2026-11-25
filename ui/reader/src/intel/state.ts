@@ -159,9 +159,28 @@ export function linksOf(file: BlobRef, page: number): Promise<{ mentions: Mentio
   return p;
 }
 
-/** Objects already found change as preparation runs: forget a file's cached links then. */
+/** The figures, tables, equations and paragraphs of a page, found once per file and page. */
+const pageObjects = new Map<string, Promise<DocObject[]>>();
+
+export function objectsOf(file: BlobRef, page: number): Promise<DocObject[]> {
+  const key = `${file.hash}:${page}`;
+  let p = pageObjects.get(key);
+  if (!p) {
+    p = bus("document.objects", { file, page }).then((o) => o.objects);
+    pageObjects.set(key, p);
+    // An error is not kept: the next question asks again.
+    p.catch(() => pageObjects.delete(key));
+    if (pageObjects.size > 200) pageObjects.delete(pageObjects.keys().next().value as string);
+  }
+  return p;
+}
+
+/** A table shown as cells (one at a time); `ask`: the question box has the focus. */
+export const [tableOpen, setTableOpen] = createSignal<{ file: BlobRef; object: DocObject; ask: boolean } | null>(null);
+
+/** Objects already found change as preparation runs: forget what was kept of a file then. */
 export function forgetLinks(hash: string): void {
-  for (const k of [...pageLinks.keys()]) if (k.startsWith(`${hash}:`)) pageLinks.delete(k);
+  for (const m of [pageLinks, pageObjects]) for (const k of [...m.keys()]) if (k.startsWith(`${hash}:`)) m.delete(k);
 }
 
 void onBusEvent("document.prepared", (e) => {

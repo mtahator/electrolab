@@ -3,11 +3,12 @@
 //! See `engines/inference/CONTRACT.md` (Draft 2.2 §14.1, ADR-005).
 #![deny(missing_docs)]
 
+use ep_types::BlobRef;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Contract version; experimental until a second host uses it (Draft 2.2 §8.3).
-pub const VERSION: &str = "0.4.0";
+pub const VERSION: &str = "0.5.0";
 
 /// Command names.
 pub mod commands {
@@ -23,6 +24,8 @@ pub mod commands {
     pub const REMOVE_FOLDER: &str = "inference.remove_folder";
     /// Choose the order of the models, and whether one is kept ready.
     pub const CHOOSE: &str = "inference.choose";
+    /// Read pictures with a model on this computer.
+    pub const VISION_READ: &str = "inference.vision_read";
     /// State of the runtime.
     pub const STATUS: &str = "inference.status";
     /// Start the runtime with a model.
@@ -47,6 +50,8 @@ pub mod events {
     pub const MODEL_UNLOADED: &str = "model.unloaded";
     /// Folders, choices or models changed: `{}`.
     pub const MODELS_CHANGED: &str = "inference.models_changed";
+    /// A picture was read: `{ id, done, total, text }`.
+    pub const VISION: &str = "inference.vision";
     /// Where a request went and why: `{ task, backend, model, reason }`.
     pub const ROUTE_DECIDED: &str = "route.decided";
 }
@@ -67,6 +72,10 @@ pub mod errors {
     pub const RUNTIME_FAILED: &str = "runtime_failed";
     /// The answer did not meet the schema after one retry.
     pub const BAD_OUTPUT: &str = "bad_output";
+    /// Pictures are only looked at with consent.
+    pub const CONSENT_NEEDED: &str = "consent_needed";
+    /// No model that looks at pictures was found.
+    pub const NO_VISION_MODEL: &str = "no_vision_model";
     /// Local-only data and no local backend.
     pub const REMOTE_NOT_ALLOWED: &str = "remote_not_allowed";
 }
@@ -396,6 +405,58 @@ pub struct Models {
     pub memory: Option<Memory>,
     /// The runtime.
     pub runtime: Runtime,
+    /// The model that looks at pictures, when there is one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vision: Option<VisionModel>,
+}
+
+/// The model that looks at pictures.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[schemars(rename = "LlmVisionModel")]
+pub struct VisionModel {
+    /// Stable id.
+    pub id: String,
+    /// Name for people.
+    pub name: String,
+}
+
+/// A picture and what is asked about it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[schemars(rename = "LlmPicture")]
+pub struct Picture {
+    /// The picture (PNG or JPEG).
+    pub image: BlobRef,
+    /// What is asked.
+    pub question: String,
+    /// Words of the paper about it (its caption), sent as data.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data: Option<String>,
+}
+
+/// Input of `inference.vision_read`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct VisionRead {
+    /// The pictures, in the order they are read.
+    pub pictures: Vec<Picture>,
+    /// The user agreed to these pictures being read.
+    pub consent: bool,
+    /// Nobody is waiting: what a person asked goes first.
+    #[serde(default)]
+    pub background: bool,
+    /// Stream the texts, and say what is done, with this id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stream: Option<Stream>,
+}
+
+/// What was read in the pictures.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct VisionAnswer {
+    /// One text per picture.
+    pub texts: Vec<String>,
+    /// Model that read them.
+    pub model: String,
+    /// Time for all of them.
+    pub total_ms: u64,
 }
 
 /// Runtime state.

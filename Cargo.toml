@@ -33,6 +33,7 @@ members = [
     "engines/knowledge/core",
     "engines/knowledge/facade",
     "engines/understanding/contract",
+    "engines/understanding/core",
     "engines/understanding/facade",
 ]
 
@@ -72,6 +73,7 @@ lopdf = { version = "=0.46.0", default-features = false }
 clap = { version = "4.6.7", features = ["derive"] }
 # Milestone 4 (versions ≥ 2 weeks old on 2026-11-14)
 regex = "1.13.1"
+base64 = "0.23.1"
 ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "load-dynamic", "api-31"] }
 # tests
 tempfile = "3.27.0"

@@ -71,6 +71,8 @@ export interface Commands {
   "inference.status": { input: null; output: T.LlmStatus };
   /** Stop the language model runtime */
   "inference.unload": { input: null; output: T.LlmStatus };
+  /** Read pictures with a model on this computer, when the user agrees */
+  "inference.vision_read": { input: T.VisionRead; output: T.VisionAnswer };
   /** Make a model ready, when the user wants one kept ready */
   "inference.warm": { input: null; output: T.LlmStatus };
   /** Make digests of the library in the background */
@@ -87,10 +89,22 @@ export interface Commands {
   "knowledge.find": { input: T.FindRequest; output: T.FindResult };
   /** The digest of a paper */
   "knowledge.get_digest": { input: T.DigestRequest; output: T.Digest | null };
+  /** Explain an equation: meaning, symbols, units */
+  "understanding.explain_equation": { input: T.ExplainRegion; output: T.ObjectExplanation };
+  /** Explain a figure from what the paper says about it */
+  "understanding.explain_figure": { input: T.ExplainRegion; output: T.ObjectExplanation };
+  /** Explain what is at a place: a paragraph, an equation, a figure or a table */
+  "understanding.explain_region": { input: T.ExplainRegion; output: T.ObjectExplanation };
   /** Explain a selection: a fast draft, then a version checked against the paper */
   "understanding.explain_span": { input: T.ExplainRequest; output: T.Explanation };
+  /** What was seen in a paper's pictures */
+  "understanding.figures_seen": { input: T.FiguresSeenRequest; output: T.FiguresSeen };
+  /** Look at the pictures of a paper, when the user agrees, and keep what was seen */
+  "understanding.look_at_figures": { input: T.LookAtFigures; output: T.FiguresSeen };
   /** Suggest folders for papers; nothing is moved */
   "understanding.suggest_folders": { input: T.SuggestFolders; output: T.FolderSuggestion };
+  /** Answer a question from a table's cells; the number is computed */
+  "understanding.table_answer": { input: T.TableQuestion; output: T.TableAnswer };
   /** Add a named place in a paper */
   "workspace.add_bookmark": { input: T.AddBookmark; output: T.Bookmark };
   /** Add a PDF as a managed copy (the original is never changed) */
@@ -111,6 +125,8 @@ export interface Commands {
   "workspace.delete_collection": { input: T.CollectionRef; output: null };
   /** Digests kept with the papers */
   "workspace.get_digests": { input: T.GetDigests; output: T.PaperDigest[] };
+  /** What was seen in the figures of papers */
+  "workspace.get_figures": { input: T.GetDigests; output: T.PaperDigest[] };
   /** The notebook of a paper */
   "workspace.get_notes": { input: T.PaperInput; output: T.PaperNotes };
   /** One paper */
@@ -153,6 +169,8 @@ export interface Commands {
   "workspace.restore_papers": { input: T.PaperIds; output: null };
   /** Keep the digest of a paper with it */
   "workspace.save_digest": { input: T.PaperDigest; output: null };
+  /** Keep what was seen in a paper's figures with it */
+  "workspace.save_figures": { input: T.PaperDigest; output: null };
   /** Save the notebook of a paper (a new version; earlier ones stay in the history) */
   "workspace.save_notes": { input: T.SaveNotes; output: T.PaperNotes };
   /** Remember where the reader is in a paper */

@@ -277,6 +277,43 @@ pub fn suggested(models: &[Found], backend: Backend) -> Option<&Found> {
         .or_else(|| chat().min_by_key(|m| m.size))
 }
 
+/// The model that looks at pictures: the smallest chat model with its picture part beside it.
+pub fn vision(models: &[Found]) -> Option<(&Found, &Found)> {
+    let beside = |a: &Found, b: &Found| a.path.parent() == b.path.parent();
+    models
+        .iter()
+        .filter(|m| m.kind == ModelKind::Chat)
+        .filter_map(|m| {
+            let parts = models
+                .iter()
+                .filter(|p| p.kind == ModelKind::VisionPart && beside(m, p));
+            let alone = models
+                .iter()
+                .filter(|o| o.kind == ModelKind::Chat && beside(m, o))
+                .count()
+                == 1;
+            parts
+                .filter(|p| alone || same_family(&stem(&m.path), &stem(&p.path)))
+                .min_by_key(|p| p.size)
+                .map(|p| (m, p))
+        })
+        .min_by_key(|(m, p)| m.size + p.size)
+}
+
+/// `Qwen2.5-VL-3B-Instruct-Q4_K_M` and `mmproj-Qwen2.5-VL-3B-Instruct-f16` are one model.
+fn same_family(model: &str, part: &str) -> bool {
+    let words = |s: &str| {
+        s.to_lowercase()
+            .split(['-', '_', '.', ' '])
+            .filter(|w| !w.is_empty() && *w != "mmproj" && *w != "model")
+            .map(str::to_string)
+            .collect::<Vec<_>>()
+    };
+    let (m, p) = (words(model), words(part));
+    let same = m.iter().zip(&p).take_while(|(a, b)| a == b).count();
+    same >= 2 && same + 2 >= p.len()
+}
+
 /// What the user chose, kept between starts.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Choices {
@@ -343,6 +380,33 @@ mod tests {
             context: CONTEXT,
             cache_per_token: None,
         }
+    }
+
+    #[test]
+    fn the_model_that_looks_at_pictures_has_its_part_beside_it() {
+        let at = |path: &str, size, kind| Found {
+            path: PathBuf::from(path),
+            ..model(path, size, kind)
+        };
+        let (chat, part) = (ModelKind::Chat, ModelKind::VisionPart);
+        let ids = |v: &[Found]| vision(v).map(|(m, p)| (m.id.clone(), p.id.clone()));
+        let alone = [
+            at("a/plain.gguf", 9, chat),
+            at("b/mmproj-f16.gguf", 1, part),
+        ];
+        assert_eq!(ids(&alone), None, "in another folder");
+        let pair = [
+            at("v/See-VL-3B-Q4_K_M.gguf", 9, chat),
+            at("v/mmproj-See-VL-3B-Q8_0.gguf", 2, part),
+            at("v/plain-4B-Q4.gguf", 3, chat),
+        ];
+        assert_eq!(
+            ids(&pair),
+            Some((pair[0].id.clone(), pair[1].id.clone())),
+            "not the model without a part, though it is smaller"
+        );
+        let only = [at("v/x.gguf", 9, chat), at("v/mmproj.gguf", 2, part)];
+        assert!(ids(&only).is_some(), "the only pair of its folder");
     }
 
     #[test]

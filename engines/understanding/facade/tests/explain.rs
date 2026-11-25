@@ -78,7 +78,7 @@ async fn explain(bus: &Bus, file: &BlobRef, selection: &str, page: u32) -> Expla
 #[tokio::test]
 async fn a_wrong_draft_is_corrected_from_the_paper() {
     let replay = Replay::new()
-        .on("explain.draft", "stands for Model-Driven Planning, a way to plan with models.")
+        .on("explain.draft", ", a way to plan with models.")
         .on_containing(
             "explain.check",
             "Markov Decision Process",
@@ -124,10 +124,7 @@ async fn a_wrong_draft_is_corrected_from_the_paper() {
 #[tokio::test]
 async fn an_agreeing_check_marks_the_draft_checked() {
     let replay = Replay::new()
-        .on(
-            "explain.draft",
-            "stands for Markov Decision Process, the model of sequential decisions.",
-        )
+        .on("explain.draft", ", the model of sequential decisions.")
         .on("explain.check", "OK");
     let Some((bus, file)) = setup(replay) else {
         return;
@@ -156,7 +153,7 @@ async fn no_passages_leaves_it_unchecked() {
 #[tokio::test]
 async fn a_vague_check_leaves_it_unchecked() {
     let replay = Replay::new()
-        .on("explain.draft", "stands for Markov Decision Process.")
+        .on("explain.draft", ".")
         .on("explain.check", "I am not sure.");
     let Some((bus, file)) = setup(replay) else {
         return;
@@ -167,6 +164,44 @@ async fn a_vague_check_leaves_it_unchecked() {
         r.text, "MDP stands for Markov Decision Process.",
         "the draft is kept"
     );
+}
+
+/// An abbreviation stands for what the paper says: the draft begins with the paper's own words,
+/// and a check that gives other words is not believed.
+#[tokio::test]
+async fn an_abbreviation_is_spelled_as_the_paper_does() {
+    let replay = Replay::new()
+        .on("explain.draft", ", a model of decisions.")
+        .on(
+            "explain.check",
+            "MDP stands for Model-Driven Planning, a way to plan with a model of the building.",
+        );
+    let Some((bus, file)) = setup(replay.clone()) else {
+        return;
+    };
+    let r = explain(&bus, &file, "MDPs", 5).await;
+    assert_eq!(r.status, ExplainStatus::Unchecked, "{r:?}");
+    assert_eq!(
+        r.text,
+        "MDP stands for Markov Decision Process, a model of decisions."
+    );
+    let draft = replay
+        .seen()
+        .into_iter()
+        .find(|p| p.task == "explain.draft")
+        .unwrap();
+    assert_eq!(
+        draft.messages.last().unwrap().content,
+        "MDP stands for Markov Decision Process"
+    );
+    // A word that is no abbreviation begins as before.
+    explain(&bus, &file, "policy", 12).await;
+    let draft = replay
+        .seen()
+        .into_iter()
+        .rfind(|p| p.task == "explain.draft")
+        .unwrap();
+    assert_eq!(draft.messages.last().unwrap().content, "policy ");
 }
 
 #[tokio::test]

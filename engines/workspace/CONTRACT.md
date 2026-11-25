@@ -29,6 +29,8 @@ All experimental. Errors are `CommandError::Failed { kind }` with the kinds belo
 | `workspace.restore_paper` | `{ id }` → `Paper`: undo of `remove_paper` | create |
 | `workspace.save_digest` | `{ paper, data }` → `null`: kept as `digests/<paper id>.json` in the library folder, next to the managed copy (at most 4 MB; made and read by the Knowledge engine; goes when the paper is purged) | create |
 | `workspace.get_digests` | `{ papers? }` → `[PaperDigest { paper, data }]` | read |
+| `workspace.save_figures` | `{ paper, data }` → `null`: what was seen in the paper's figures, kept as `figures/<paper id>.json` (as `save_digest`; made and read by the Understanding engine) | create |
+| `workspace.get_figures` | `{ papers? }` → `[PaperDigest { paper, data }]` | read |
 | `workspace.create_collection` / `rename_collection` | `{ name, parent? }` / `{ id, name }` → `Collection` (a folder; names are unique in one place) | create |
 | `workspace.move_collection` | `{ id, parent? }` → `Collection` (never into itself or its own folders; at most 12 deep) | create |
 | `workspace.apply_folders` | `{ groups: [{ papers, collection? \| new?: { name, parent? } }] }` → `AppliedFolders { created, before }`: each group goes into an existing or a new folder, or out of all folders; **all of it or nothing**; a paper is then in that folder only | create (undoable) |
@@ -71,6 +73,7 @@ The same facts are appended to the project's event log; opening a project also m
 - Conformance suite: `engines/workspace/facade/tests/conformance.rs` (through the bus).
 
 ## Changelog
+- 0.7.0 (2026-11-25): `save_figures`, `get_figures`.
 - 0.6.0 (2026-11-24): `save_digest`, `get_digests`.
 - 0.5.0 (2026-11-24): folders inside folders, several papers at once, migration 7.
 - 0.4.0 (2026-11-14): paper notes — `get_notes`, `save_notes`, `notes_history`, `restore_notes`; migration 5 (P1.MD.NOTE.1).

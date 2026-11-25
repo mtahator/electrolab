@@ -1956,6 +1956,58 @@ body,
   overflow: auto;
 }
 
+.table-view:focus-visible {
+  outline: none;
+}
+
+.table-view > header {
+  flex-wrap: wrap;
+}
+
+/* Asking a table (§17.13): the answer under the question; the cells used are outlined, the
+   answer's cell is filled. */
+.table-ask {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.table-ask .ep-input {
+  flex: 1;
+}
+
+.table-said {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h);
+}
+
+.table-answer {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--fg);
+  font: inherit;
+  text-align: start;
+  user-select: text;
+  cursor: pointer;
+}
+
+.table-answer:hover {
+  text-decoration: underline;
+}
+
+.data-table [data-role] {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.data-table [data-role="answer"] {
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
 .data-table {
   border-collapse: collapse;
   font-size: var(--text-sm);
@@ -2417,6 +2469,58 @@ body,
   gap: var(--space-2);
   margin: var(--space-2) 0 0;
   font-size: var(--text-xs);
+}
+
+.explain .ep-card {
+  max-height: var(--room, 70vh);
+}
+
+/* Symbols of an equation: there at once, above the text (§17.13). */
+.explain-symbols {
+  width: 100%;
+  margin-bottom: var(--space-2);
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.explain-symbols th {
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+
+.explain-symbols th,
+.explain-symbols td {
+  padding: 2px var(--space-2) 2px 0;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+  user-select: text;
+}
+
+.explain-symbols td:first-child {
+  white-space: nowrap;
+  font-style: italic;
+}
+
+.explain-seen {
+  margin-top: var(--space-2);
+  padding: var(--space-2);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+.explain-seen strong {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+}
+
+.explain-seen p {
+  margin: var(--space-1) 0 0;
+  line-height: 1.5;
+  user-select: text;
 }
 
 .explain-evidence,

@@ -110,7 +110,7 @@ impl Understanding {
     }
 
     #[allow(clippy::too_many_arguments)] // one question: who, what, with which data and schema
-    async fn ask(
+    pub(crate) async fn ask(
         &self,
         cx: &Cx,
         task: &str,

@@ -1,0 +1,165 @@
+{
+  "command": "understanding.figures_seen",
+  "input": {
+    "$defs": {
+      "BlobRef": {
+        "description": "A file in the content-addressed store: messages carry these, never large bytes (§9.4).",
+        "properties": {
+          "hash": {
+            "$ref": "#/$defs/Hash",
+            "description": "Content hash."
+          },
+          "media_type": {
+            "$ref": "#/$defs/MediaType",
+            "description": "What the bytes are."
+          },
+          "size": {
+            "description": "Size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "Hash": {
+        "description": "BLAKE3 content hash (hex)",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "MediaType": {
+        "description": "A media type such as `application/pdf`.",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `understanding.figures_seen`.",
+    "properties": {
+      "file": {
+        "$ref": "#/$defs/BlobRef",
+        "description": "Its file."
+      },
+      "paper": {
+        "description": "The paper in the library.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "paper",
+      "file"
+    ],
+    "title": "FiguresSeenRequest",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "FigureSeen": {
+        "description": "What was seen in one figure.",
+        "properties": {
+          "at_ms": {
+            "description": "When (ms since 1970).",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "label": {
+            "description": "Its printed label.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "model": {
+            "description": "Model that looked.",
+            "type": "string"
+          },
+          "object": {
+            "$ref": "#/$defs/ObjectRef",
+            "description": "The figure."
+          },
+          "text": {
+            "description": "What was seen.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "object",
+          "text",
+          "model",
+          "at_ms"
+        ],
+        "type": "object"
+      },
+      "ObjectRef": {
+        "description": "A reference to an object in the same file.",
+        "properties": {
+          "id": {
+            "description": "The object's id.",
+            "type": "string"
+          },
+          "page": {
+            "description": "1-based page.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "id"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Output of `understanding.look_at_figures` and `figures_seen`: what is kept for this file.",
+    "properties": {
+      "figures": {
+        "description": "Figures in the order of the paper.",
+        "items": {
+          "$ref": "#/$defs/FigureSeen"
+        },
+        "type": "array"
+      },
+      "model": {
+        "description": "Model that looked now.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "total": {
+        "description": "Figures of the paper.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "total_ms": {
+        "description": "Time taken.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "figures",
+      "total",
+      "total_ms"
+    ],
+    "title": "FiguresSeen",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "What was seen in a paper's pictures"
+}

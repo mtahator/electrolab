@@ -3,22 +3,23 @@
 // from the Document engine; reading position and reading time saved per paper; annotations
 // (P1.M3): the selection bar, text-mark tools and the annotation keys.
 
-import type { DocInfo, Link, PageRect, PageText, Paper, ReadingState } from "@electropaper/bindings";
-import { paper, t } from "@electropaper/kit";
+import type { DocInfo, DocObject, Link, PageRect, PageText, Paper, ReadingState } from "@electropaper/bindings";
+import { type MenuItem, openMenu, paper, showToast, t } from "@electropaper/kit";
 import { For, type JSX, Show, createEffect, createMemo, createSignal, on, onCleanup, onMount, untrack } from "solid-js";
 import { createStore, produce } from "solid-js/store";
 
 import { citation } from "../annotations/geometry";
 import { MARGIN_W, MarginNotes } from "../annotations/MarginNotes";
 import { ExplainHost } from "../assistant/ExplainCard";
-import { canExplain, explain } from "../assistant/explain";
+import { canExplain, canLook, explain, type ExplainSelection, type ExplainThing, lookAt } from "../assistant/explain";
 import { SelectionBar } from "../annotations/SelectionBar";
 import { type CharRange, marksFor, selectionBox, selectionRanges } from "../annotations/selection";
 import { transformed } from "../annotations/AnnotationLayer";
 import { add, change, find, isMarkup, load as loadAnnotations, pending, picked, remove, setPending, setPicked, setTool, tool, typing } from "../annotations/state";
 import { bus, openExternal } from "../host";
+import { copyPart, kindOf, nameOf, objectAt } from "../intel/objects";
 import { PeekHost } from "../intel/Peek";
-import { prepare } from "../intel/state";
+import { modelReady, objectsOf, prepare, setPeek, setTableOpen } from "../intel/state";
 import { quoteToNotes } from "../notes/state";
 import { marginView } from "../shell/frame";
 import { History, type Place } from "./history";
@@ -38,6 +39,8 @@ export interface ViewerApi {
   focus: () => void;
   /** Copy the selected text with its citation and page; false when nothing is selected. */
   copyCitation: () => boolean;
+  /** Explain the selected text. */
+  explainSelection: () => void;
   /** Briefly mark the line at page-space `y` (after going to a place from the notes). */
   flash: (page: number, y: number) => void;
   /** Show a place and flash it, as soon as the pages are there (after the saved place). */
@@ -71,6 +74,8 @@ export interface ViewerProps {
 
 const RECORD_EVERY_S = 15;
 const reducedMotion = (): boolean => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+/** How long a right-click waits for what is on the page before it offers the general menu. */
+const MENU_WAIT = 300;
 /** Pages around the view whose text and links stay loaded. */
 const KEEP_NEAR = 10;
 
@@ -337,6 +342,7 @@ export function Viewer(props: ViewerProps): JSX.Element {
       void navigator.clipboard.writeText(citation(text, props.paper, ranges[0]?.page ?? current())).catch(() => {});
       return true;
     },
+    explainSelection: () => explainSelection(),
     flash: (page, y) => {
       const n = (flashAt()?.n ?? 0) + 1;
       setFlashAt({ page, y, n });
@@ -362,14 +368,14 @@ export function Viewer(props: ViewerProps): JSX.Element {
     setPending({ paper: props.paper.id, annotation: first });
   };
   // Explain the selection (P1.M5.UI.1): the words, what stands around them, where they are.
-  const explainSelection = (): void => {
+  const selectionSubject = (): ExplainSelection | null => {
     const box = selectionBox();
     const r = selectionRanges((p) => texts[p])[0];
     const pt = r && texts[r.page];
     const text = selectedText((p) => texts[p])?.trim();
-    if (!box || !r || !pt || !text) return;
+    if (!box || !r || !pt || !text) return null;
     const chars = Array.from(pt.text);
-    void explain({
+    return {
       paper: props.paper.id,
       file: props.paper.file,
       page: r.page,
@@ -378,14 +384,150 @@ export function Viewer(props: ViewerProps): JSX.Element {
       before: chars.slice(Math.max(0, r.start - 500), r.start).join(""),
       after: chars.slice(r.end, r.end + 500).join(""),
       at: box,
-    });
+    };
   };
+  const explainSelection = (): void => {
+    const s = selectionSubject();
+    if (s) void explain(s);
+  };
+  const copySelection = (): void => {
+    const text = selectedText((p) => texts[p]);
+    if (text) void navigator.clipboard.writeText(text).catch(() => {});
+    setSelBar(null);
+  };
+  const citeSelection = (): void => {
+    api.copyCitation();
+    setSelBar(null);
+  };
+  const noteSelection = (): void => {
+    const first = selectionRanges((p) => texts[p])[0];
+    const text = selectedText((p) => texts[p]);
+    const mark = first ? marksFor("highlight", [first], (p) => texts[p])[0]?.rect : undefined;
+    window.getSelection()?.removeAllRanges();
+    setSelBar(null);
+    if (first && text) void quoteToNotes(props.paper.id, { text, page: first.page, y: mark?.y0 ?? 0 });
+  };
+
+  // ---- the right-click menu (P1.M5.UI.2; design language §17.13) ------------------------------
+  const selectionMenu = (): MenuItem[] => [
+    ...(canExplain() ? [{ label: t("explain.action"), icon: "sparkles" as const, shortcut: "Ctrl+E", run: explainSelection }, { separator: true as const }] : []),
+    { label: t("annot.copy"), icon: "copy", shortcut: "Ctrl+C", run: copySelection },
+    { label: t("annot.copy_cite"), icon: "quote", shortcut: "Ctrl+Shift+C", run: citeSelection },
+    { separator: true },
+    { label: t("annot.kind.highlight"), icon: "highlighter", run: () => markSelection("highlight") },
+    { label: t("annot.comment"), icon: "message-circle-plus", run: commentSelection },
+    { label: t("notes.add_to_notes"), icon: "notebook-pen", run: noteSelection },
+  ];
+  const copied = (what: Promise<unknown>, said: string): void => void what.then(() => said && showToast(said)).catch(() => showToast(t("intel.copy_failed")));
+  const copyText = (text: string): void => copied(navigator.clipboard.writeText(text), t("intel.copied_text"));
+  /** Text of an object: its own, or what is printed inside it. */
+  const textOf = async (rect: PageRect, own?: string | null): Promise<string> => own || (await bus("document.region", { file: props.paper.file, page: rect.page, rect, exact: true, width_px: 100 })).text;
+  const objectMenu = (o: DocObject, thing: ExplainThing): MenuItem[] => {
+    const name = nameOf(o);
+    const file = props.paper.file;
+    const ref = { page: o.rect.page, id: o.id };
+    const kind = kindOf(o);
+    const ai: MenuItem[] = [];
+    if (canExplain()) {
+      ai.push({ label: t(`explain.what.${kind}`, { name }), icon: "sparkles", run: () => void explain(thing) });
+      if (kind === "table") ai.push({ label: t("table.ask_about", { name }), icon: "message-circle", run: () => void setTableOpen({ file, object: o, ask: true }) });
+    }
+    if (kind === "figure" && canLook()) ai.push({ label: t("look.action"), icon: "eye", run: () => void lookAt(thing) });
+    const own = kind === "paragraph" ? null : o.text;
+    const picture: MenuItem = { label: t("intel.copy_image"), icon: "image", run: () => copied(copyPart(file, o.rect), "") };
+    const text: MenuItem = { label: t("intel.copy_text"), icon: "copy", run: () => void textOf(o.rect, own).then(copyText).catch(() => showToast(t("intel.copy_failed"))) };
+    const copy: MenuItem[] = [];
+    if (kind === "figure") {
+      copy.push(picture);
+      if (o.text) copy.push({ label: t("intel.copy_caption"), icon: "copy", run: () => copyText(o.text ?? "") });
+    } else if (kind === "table") {
+      copy.push({ label: t("intel.open_table"), icon: "table", run: () => void setTableOpen({ file, object: o, ask: false }) });
+      copy.push({ label: t("intel.copy_csv"), icon: "copy", run: () => copied(bus("document.table", { file, object: ref }).then((tb) => navigator.clipboard.writeText(tb.csv)), t("intel.copied_csv")) });
+      copy.push(picture);
+    } else if (kind === "equation") {
+      const latex = async (): Promise<void> => {
+        const e = await bus("document.equation", { file, object: ref });
+        if (!e.latex) throw new Error("no LaTeX");
+        await navigator.clipboard.writeText(e.latex);
+      };
+      if (modelReady("latex-ocr")) copy.push({ label: t("intel.copy_latex"), icon: "sigma", run: () => copied(latex(), t("intel.copied_latex")) });
+      copy.push(text, picture);
+    } else {
+      copy.push(text);
+    }
+    const toNotes = async (): Promise<void> => {
+      const x = await textOf(o.rect, own);
+      await quoteToNotes(props.paper.id, { text: x || name, page: o.rect.page, y: o.rect.y0 });
+    };
+    const notes: MenuItem = { label: t("notes.add_to_notes"), icon: "notebook-pen", run: () => void toNotes().catch(() => {}) };
+    return [...ai, ...(ai.length > 0 ? [{ separator: true as const }] : []), ...copy, { separator: true }, notes];
+  };
+  /** Where a part of a page is on screen. */
+  const onScreen = (page: Element, r: { x0: number; y0: number; x1: number; y1: number }): DOMRect => {
+    const box = page.getBoundingClientRect();
+    const s = lay().scale;
+    return new DOMRect(box.left + r.x0 * s, box.top + r.y0 * s, (r.x1 - r.x0) * s, (r.y1 - r.y0) * s);
+  };
+  const onContextMenu = async (e: MouseEvent): Promise<void> => {
+    const el = e.target as HTMLElement;
+    // Text boxes keep their own menu.
+    if (el.closest("input, textarea, [contenteditable]")) return;
+    e.preventDefault();
+    const at = { x: e.clientX, y: e.clientY };
+    const page = el.closest<HTMLElement>(".page[data-page]");
+    const n = Number(page?.dataset.page ?? 0);
+    // With a selection under the pointer (or the menu key) the menu is about the selection.
+    const sel = window.getSelection();
+    const ranges = sel && !sel.isCollapsed ? selectionRanges((p) => texts[p]) : [];
+    if (sel && ranges.length > 0) {
+      const boxes = Array.from(sel.getRangeAt(0).getClientRects());
+      const over = boxes.some((b) => at.x >= b.left - 2 && at.x <= b.right + 2 && at.y >= b.top - 2 && at.y <= b.bottom + 2);
+      if (over || !page) {
+        const b = selectionBox();
+        return openMenu(t("annot.selection_bar"), selectionMenu(), over || !b ? at : { x: b.left, y: b.bottom });
+      }
+    }
+    if (!page || !n) return;
+    const s = lay().scale;
+    const box = page.getBoundingClientRect();
+    const x = (at.x - box.left) / s;
+    const y = (at.y - box.top) / s;
+    setPeek(null);
+    const late = new Promise<DocObject[]>((done) => window.setTimeout(() => done([]), MENU_WAIT));
+    const objects = await Promise.race([objectsOf(props.paper.file, n).catch(() => []), late]);
+    const o = objectAt(objects, x, y);
+    const base = { paper: props.paper.id, file: props.paper.file, page: n };
+    if (o) {
+      const name = kindOf(o) === "paragraph" ? t("explain.this_paragraph") : nameOf(o);
+      return openMenu(name, objectMenu(o, { ...base, y: o.rect.y0, at: onScreen(page, o.rect), title: name, kind: kindOf(o), object: o.id }), at);
+    }
+    // Nothing is known here (yet): the words at this place.
+    const size = sizes()[n - 1];
+    const rect = { x0: Math.max(0, x - 60), y0: Math.max(0, y - 8), x1: Math.min(size?.width ?? x + 60, x + 60), y1: Math.min(size?.height ?? y + 8, y + 8) };
+    const items: MenuItem[] = [];
+    if (canExplain()) {
+      const thing: ExplainThing = { ...base, y: rect.y0, at: onScreen(page, rect), title: t("explain.here"), kind: "here", rect };
+      items.push({ label: t("explain.what.here"), icon: "sparkles", run: () => void explain(thing) }, { separator: true });
+    }
+    items.push({ label: t("intel.copy_text"), icon: "copy", run: () => void textOf({ page: n, ...rect }).then(copyText).catch(() => showToast(t("intel.copy_failed"))) });
+    items.push({ label: t("intel.copy_page"), icon: "image", run: () => copied(copyPart(props.paper.file, { page: n, x0: 0, y0: 0, x1: size?.width ?? 1, y1: size?.height ?? 1 }), "") });
+    openMenu(t("intel.page_menu"), items, at);
+  };
+  // What is on the page being read is found a little ahead, so the menu comes at once.
+  createEffect(() => {
+    const p = current();
+    if (!info() || !props.active) return;
+    const id = window.setTimeout(() => void objectsOf(props.paper.file, p).catch(() => {}), 1200);
+    onCleanup(() => window.clearTimeout(id));
+  });
   // Double-click explains a word — only when it can be answered (design language §11).
   const onDblClick = (e: MouseEvent): void => {
     if (tool() !== "select" || !canExplain() || !(e.target as HTMLElement).closest(".text-layer")) return;
     window.setTimeout(explainSelection, 0);
   };
-  const onMouseUp = (): void => {
+  const onMouseUp = (e: MouseEvent): void => {
+    // Only the main button marks text; the other one opens the menu.
+    if (e.button !== 0) return;
     // Let the browser finish the selection first.
     window.setTimeout(() => {
       const box = selectionBox();
@@ -774,6 +916,7 @@ export function Viewer(props: ViewerProps): JSX.Element {
         onCopy={onCopy}
         onMouseUp={onMouseUp}
         onDblClick={onDblClick}
+        onContextMenu={(e) => void onContextMenu(e)}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerEnd}
@@ -829,24 +972,9 @@ export function Viewer(props: ViewerProps): JSX.Element {
             onMark={(k) => markSelection(k)}
             onComment={commentSelection}
             onExplain={explainSelection}
-            onCopy={() => {
-              const text = selectedText((p) => texts[p]);
-              if (text) void navigator.clipboard.writeText(text).catch(() => {});
-              setSelBar(null);
-            }}
-            onCite={() => {
-              api.copyCitation();
-              setSelBar(null);
-            }}
-            onAddToNotes={() => {
-              const ranges = selectionRanges((p) => texts[p]);
-              const text = selectedText((p) => texts[p]);
-              const first = ranges[0];
-              const quads = first ? marksFor("highlight", [first], (p) => texts[p])[0]?.rect : undefined;
-              window.getSelection()?.removeAllRanges();
-              setSelBar(null);
-              if (first && text) void quoteToNotes(props.paper.id, { text, page: first.page, y: quads?.y0 ?? 0 });
-            }}
+            onCopy={copySelection}
+            onCite={citeSelection}
+            onAddToNotes={noteSelection}
           />
         )}
       </Show>

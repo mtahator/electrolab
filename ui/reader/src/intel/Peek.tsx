@@ -6,11 +6,12 @@ import type { BlobRef, DocObject, Reference, RegionHit } from "@electropaper/bin
 import { Button, Card, IconButton, type IconName, Skeleton, showToast, t } from "@electropaper/kit";
 import { For, type JSX, Show, createResource, onCleanup, onMount } from "solid-js";
 
+import { canExplain, explain } from "../assistant/explain";
 import { bus, openExternal, renderUrl } from "../host";
 import { quoteToNotes } from "../notes/state";
-import { hoverLeave, hoverStay, type Peek, peek, setPeek, setSettingsOpen } from "./state";
+import { copyImage, kindOf, nameOf } from "./objects";
+import { hoverLeave, hoverStay, type Peek, peek, setPeek, setSettingsOpen, setTableOpen, tableOpen } from "./state";
 import { TableView } from "./TableView";
-import { createSignal } from "solid-js";
 
 const W = 420;
 
@@ -29,12 +30,6 @@ function place(at: DOMRect, h = 360): JSX.CSSProperties {
   return { left: `${left}px`, top: `${top}px`, width: `${W}px` };
 }
 
-async function copyImage(hash: string): Promise<void> {
-  const blob = await (await fetch(renderUrl(hash))).blob();
-  await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-  showToast(t("intel.copied_image"));
-}
-
 const refsCache = new Map<string, Promise<Reference[]>>();
 function referencesOf(file: BlobRef): Promise<Reference[]> {
   let p = refsCache.get(file.hash);
@@ -49,10 +44,11 @@ export function PeekHost(props: { paper: string; goTo: (page: number, y: number)
   let box: HTMLDivElement | undefined;
   onMount(() => {
     const down = (e: PointerEvent): void => {
+      if (tableOpen()) return;
       if (peek() && box && !box.contains(e.target as Node) && !(e.target as HTMLElement).closest(".mention")) setPeek(null);
     };
     const key = (e: KeyboardEvent): void => {
-      if (e.key === "Escape" && peek()) {
+      if (e.key === "Escape" && peek() && !tableOpen()) {
         e.stopPropagation();
         setPeek(null);
       }
@@ -75,6 +71,10 @@ export function PeekHost(props: { paper: string; goTo: (page: number, y: number)
     });
   });
   return (
+    <>
+    <Show when={tableOpen()} keyed>
+      {(o) => <TableView file={o.file} object={o.object} ask={o.ask} onClose={() => setTableOpen(null)} />}
+    </Show>
     <Show when={peek()} keyed>
       {(p) => (
         <div class="peek" ref={box} style={place(p.at)} onPointerEnter={hoverStay} onPointerLeave={() => p.hover && hoverLeave()}>
@@ -90,6 +90,7 @@ export function PeekHost(props: { paper: string; goTo: (page: number, y: number)
         </div>
       )}
     </Show>
+    </>
   );
 }
 
@@ -122,7 +123,7 @@ function CitationPeek(props: { p: Extract<Peek, { kind: "citation" }>; goTo: (pa
 }
 
 function RegionPeek(props: { p: Exclude<Peek, { kind: "citation" } | { kind: "loading" }>; paper: string; goTo: (page: number, y: number) => void }): JSX.Element {
-  const [table, setTable] = createSignal(false);
+  let image: HTMLImageElement | undefined;
   const request = (): { page: number; rect?: unknown; point?: unknown } => {
     const p = props.p;
     if (p.kind === "object") return { page: p.object.rect.page, rect: p.object.rect };
@@ -146,13 +147,25 @@ function RegionPeek(props: { p: Exclude<Peek, { kind: "citation" } | { kind: "lo
     () => (object()?.kind === "equation" ? object() : null),
     (o) => bus("document.equation", { file: props.p.file, object: { page: o.rect.page, id: o.id } }).catch(() => null),
   );
-  // "Figure 3" and "Table 2" are printed labels; sections and equations need their word.
   const title = (): string => {
     const o = object();
-    if (!o?.label) return kind().label();
-    if (o.kind === "heading") return `${t("intel.section")} ${o.label}`;
-    if (o.kind === "equation") return `${t("intel.equation")} ${o.label}`;
-    return o.label;
+    return o ? nameOf(o) : kind().label();
+  };
+  // Explain what is shown: the object, or the region that was picked.
+  const explainIt = (h: RegionHit): void => {
+    const o = object();
+    const at = props.p.kind === "object" ? props.p.at : (image?.getBoundingClientRect() ?? props.p.at);
+    setPeek(null);
+    void explain({
+      paper: props.paper,
+      file: props.p.file,
+      page: h.rect.page,
+      y: h.rect.y0,
+      at,
+      title: title(),
+      kind: o ? kindOf(o) : "here",
+      ...(o ? { object: o.id } : { rect: h.rect }),
+    });
   };
   return (
     <Card
@@ -171,8 +184,11 @@ function RegionPeek(props: { p: Exclude<Peek, { kind: "citation" } | { kind: "lo
                 </Button>
               </Show>
               <span class="ep-spacer" />
-              <Show when={object()?.kind === "table"}>
-                <IconButton icon="table" size="sm" label={t("intel.open_table")} onClick={() => setTable(true)} />
+              <Show when={canExplain()}>
+                <IconButton icon="sparkles" size="sm" label={t("explain.action")} onClick={() => explainIt(h())} />
+              </Show>
+              <Show when={object()?.kind === "table" ? object() : null}>
+                {(o) => <IconButton icon="table" size="sm" label={t("intel.open_table")} onClick={() => setTableOpen({ file: props.p.file, object: o(), ask: false })} />}
               </Show>
               <Show when={object()?.kind === "equation"}>
                 <IconButton
@@ -204,7 +220,7 @@ function RegionPeek(props: { p: Exclude<Peek, { kind: "citation" } | { kind: "lo
           <Show when={"rect" in h() ? (h() as RegionHit) : null} fallback={<p class="muted">{t("intel.nothing_here")}</p>}>
             {(r) => (
               <>
-                <img class="peek-image" src={renderUrl(r().image.hash)} alt={title()} />
+                <img class="peek-image" ref={image} src={renderUrl(r().image.hash)} alt={title()} />
                 <Show when={object()?.kind === "equation"}>
                   <Show
                     when={!eq.loading}
@@ -234,7 +250,6 @@ function RegionPeek(props: { p: Exclude<Peek, { kind: "citation" } | { kind: "lo
           </Show>
         )}
       </Show>
-      <Show when={table() && object()}>{(o) => <TableView file={props.p.file} object={o()} onClose={() => setTable(false)} />}</Show>
     </Card>
   );
 }

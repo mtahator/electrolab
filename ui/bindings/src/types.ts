@@ -147,6 +147,9 @@ export interface ApplyFolders {
   groups: FolderGroup[];
 }
 
+/** What an explanation was made from. */
+export type Basis = "caption" | "text" | "mentions" | "words" | "cells" | "formula" | "picture";
+
 /** A file in the content-addressed store: messages carry these, never large bytes (§9.4). */
 export interface BlobRef {
   /** Content hash. */
@@ -187,6 +190,23 @@ export type Cell = {
   /** The number in it, when the cell is numeric ("1.2e-3", "45 %", "−0.7 ± 0.1" → −0.7). */
   value?: number | null;
 };
+
+/** A cell of the table that was used. */
+export interface CellRef {
+  /** Column, 0-based. */
+  col: number;
+  /** Its box on the page. */
+  rect: PageRect;
+  /** Answer or used. */
+  role: CellRole;
+  /** Row, 0-based, headings counted (as in `document.table`). */
+  row: number;
+  /** What stands in it. */
+  text: string;
+}
+
+/** Whether a cell is the answer or was used for it. */
+export type CellRole = "answer" | "used";
 
 /** An in-text citation marker ("[12]", "[3–5, 9]", "(Smith et al., 2020)"). */
 export interface CitationMarker {
@@ -581,12 +601,35 @@ export interface Evidence {
   y: number;
 }
 
+/** How deep an explanation goes. */
+export type ExplainDepth = "simpler" | "normal" | "deeper";
+
+/** Input of `understanding.explain_region`, `explain_equation` and `explain_figure`. */
+export type ExplainRegion = {
+  /** How deep. */
+  depth?: ExplainDepth;
+  /** The paper's file. */
+  file: BlobRef;
+  /** The object, as returned by `document.objects`. */
+  object?: string | null;
+  /** 1-based page. */
+  page: number;
+  /** The paper in the library (what was seen in its figures is kept with it). */
+  paper?: string | null;
+  /** Or a place: the object it covers best, or the text in it. */
+  rect?: PageRect | null;
+  /** Stream the answer. */
+  stream?: ExplainStream | null;
+};
+
 /** Input of `understanding.explain_span`. */
 export type ExplainRequest = {
   /** Up to 500 characters after the selection (read from the page when missing). */
   after?: string | null;
   /** Up to 500 characters before the selection (read from the page when missing). */
   before?: string | null;
+  /** How deep. */
+  depth?: ExplainDepth;
   /** The paper's file. */
   file: BlobRef;
   /** 1-based page of the selection. */
@@ -618,6 +661,9 @@ export interface ExplainTimings {
   total_ms: number;
 }
 
+/** What was explained. */
+export type ExplainedKind = "paragraph" | "equation" | "figure" | "table";
+
 /** Output of `understanding.explain_span`. */
 export interface Explanation {
   /** Passages the check used. */
@@ -632,6 +678,40 @@ export interface Explanation {
   text: string;
   /** Times. */
   timings: ExplainTimings;
+}
+
+/** What was seen in one figure. */
+export type FigureSeen = {
+  /** When (ms since 1970). */
+  at_ms: number;
+  /** Its printed label. */
+  label?: string | null;
+  /** Model that looked. */
+  model: string;
+  /** The figure. */
+  object: ObjectRef;
+  /** What was seen. */
+  text: string;
+};
+
+/** Output of `understanding.look_at_figures` and `figures_seen`: what is kept for this file. */
+export type FiguresSeen = {
+  /** Figures in the order of the paper. */
+  figures: FigureSeen[];
+  /** Model that looked now. */
+  model?: string | null;
+  /** Figures of the paper. */
+  total: number;
+  /** Time taken. */
+  total_ms: number;
+};
+
+/** Input of `understanding.figures_seen`. */
+export interface FiguresSeenRequest {
+  /** Its file. */
+  file: BlobRef;
+  /** The paper in the library. */
+  paper: string;
 }
 
 /** What a file is. */
@@ -722,7 +802,7 @@ export interface FolderSuggestion {
   unsure: string[];
 }
 
-/** Input of `workspace.get_digests`. */
+/** Input of `workspace.get_digests` and `workspace.get_figures`. */
 export type GetDigests = {
   /** Which papers; all of the library when missing. */
   papers?: PaperId[] | null;
@@ -940,6 +1020,18 @@ export type LlmModels = {
   own_order: boolean;
   /** The runtime. */
   runtime: LlmRuntime;
+  /** The model that looks at pictures, when there is one. */
+  vision?: LlmVisionModel | null;
+};
+
+/** A picture and what is asked about it. */
+export type LlmPicture = {
+  /** Words of the paper about it (its caption), sent as data. */
+  data?: string | null;
+  /** The picture (PNG or JPEG). */
+  image: BlobRef;
+  /** What is asked. */
+  question: string;
 };
 
 /** A request to a language model. */
@@ -1029,6 +1121,14 @@ export interface LlmUsage {
   total_ms: number;
 }
 
+/** The model that looks at pictures. */
+export interface LlmVisionModel {
+  /** Stable id. */
+  id: string;
+  /** Name for people. */
+  name: string;
+}
+
 /**
  * "Go there": the single way to point at a place in a paper (links, history, search hits,
  * citations in answers, bookmarks).
@@ -1042,6 +1142,20 @@ export type Location = {
   target?: unknown & (PageRect | null);
   /** Zoom to apply, if any. */
   zoom?: unknown & (ZoomSpec | null);
+};
+
+/** Input of `understanding.look_at_figures`. */
+export type LookAtFigures = {
+  /** The person agreed. */
+  consent?: boolean;
+  /** Its file. */
+  file: BlobRef;
+  /** Which figures; without them every one that was not looked at yet. */
+  objects?: ObjectRef[] | null;
+  /** The paper in the library. */
+  paper: string;
+  /** Send progress. */
+  stream?: ExplainStream | null;
 };
 
 /** How a hit matched its term. */
@@ -1149,6 +1263,40 @@ export interface NotesVersion {
   /** Version number. */
   version: number;
 }
+
+/** Output of `understanding.explain_region`, `explain_equation` and `explain_figure`. */
+export type ObjectExplanation = {
+  /** What the explanation was made from. */
+  based_on: Basis[];
+  /** Places of the paper that were used. */
+  evidence: Evidence[];
+  /** What it is. */
+  kind: ExplainedKind;
+  /** Its printed label. */
+  label?: string | null;
+  /** Equations: the LaTeX, when the formula model read it. */
+  latex?: string | null;
+  /** Sentences left out because they named numbers that stand nowhere. */
+  left_out: number;
+  /** Model that answered. */
+  model: string;
+  /** The object, when it is one. */
+  object?: string | null;
+  /** 1-based page. */
+  page: number;
+  /** Figures: what was seen in the picture. */
+  seen?: FigureSeen | null;
+  /** How far it was checked. */
+  status: ExplainStatus;
+  /** Equations: the symbols. */
+  symbols?: Symbol[];
+  /** The explanation. */
+  text: string;
+  /** Times. */
+  timings: ExplainTimings;
+  /** Equations: the units check. */
+  units?: UnitsCheck | null;
+};
 
 /**
  * A research object of any kind.
@@ -1342,7 +1490,10 @@ export type Paper = {
   title?: string | null;
 };
 
-/** A digest of a paper. Output of `workspace.get_digests`, input of `workspace.save_digest`. */
+/**
+ * A digest of a paper. Output of `workspace.get_digests`, input of `workspace.save_digest`
+ * (and, for what was seen in its figures, of `get_figures` and `save_figures`).
+ */
 export interface PaperDigest {
   /** The digest, as the engine that made it wrote it. */
   data: unknown;
@@ -1896,6 +2047,24 @@ export type SuggestedFolder = {
 /** Where a section's summary comes from. */
 export type SummarySource = "written" | "quoted" | "none";
 
+/** A symbol of an equation and what the paper says it means. */
+export type Symbol = {
+  /** Its meaning, word for word from the paper; missing when the paper does not say it. */
+  meaning?: string | null;
+  /** 1-based page where the meaning stands. */
+  page?: number | null;
+  /** The sentence it stands in. */
+  quote?: string | null;
+  /** As plain text ("`T_in`"). */
+  shown: string;
+  /** LaTeX of the symbol, or the characters printed. */
+  symbol: string;
+  /** Its unit, when the paper prints one with the meaning. */
+  unit?: string | null;
+  /** Top of that place (points). */
+  y?: number | null;
+};
+
 /** Output of `document.table`: cells in rows and columns, from the words inside the table box. */
 export type Table = {
   /** The table as CSV (RFC 4180). */
@@ -1912,6 +2081,46 @@ export type Table = {
   units: (string | null)[];
 };
 
+/** Output of `understanding.table_answer`. */
+export type TableAnswer = {
+  /** The cells. */
+  cells: CellRef[];
+  /** Model that understood the question. */
+  model: string;
+  /**
+   * What was done: value, list, largest, smallest, average, sum, count, difference, ratio,
+   * change or none.
+   */
+  op: string;
+  /** The question. */
+  question: string;
+  /** Why not. */
+  reason?: TableReason | null;
+  /** Whether there is an answer. */
+  status: TableStatus;
+  /** The answer, written by code; empty when there is none. */
+  text: string;
+  /** Time taken. */
+  total_ms: number;
+  /** Its unit. */
+  unit?: string | null;
+  /** The number, when the answer is one. */
+  value?: number | null;
+};
+
+/** Input of `understanding.table_answer`. */
+export interface TableQuestion {
+  /** The paper's file. */
+  file: BlobRef;
+  /** The table. */
+  object: ObjectRef;
+  /** The question. */
+  question: string;
+}
+
+/** Why a table does not answer. */
+export type TableReason = "not_in_table" | "not_numbers" | "different_units" | "not_two";
+
 /** Input of `document.table`. */
 export interface TableRequest {
   /** The file. */
@@ -1919,6 +2128,9 @@ export interface TableRequest {
   /** The table object. */
   object: ObjectRef;
 }
+
+/** Whether a table answered. */
+export type TableStatus = "computed" | "not_in_table";
 
 /** A tag and how many papers carry it. */
 export interface TagCount {
@@ -1968,8 +2180,45 @@ export interface ThumbnailsRequest {
   width_px: number;
 }
 
+/** The units check of an equation. */
+export interface UnitsCheck {
+  /** Symbols whose unit is not known. */
+  missing: string[];
+  /** The result. */
+  result: UnitsResult;
+  /** Units of the parts compared, in base units, in the order they stand (unknown ones left out). */
+  sides: string[];
+  /** The formula could not be read. */
+  unread: boolean;
+}
+
+/** Whether the units of a formula agree. */
+export type UnitsResult = "consistent" | "inconsistent" | "unknown";
+
 /** How pages are laid out. */
 export type ViewMode = "continuous" | "single" | "two_page";
+
+/** What was read in the pictures. */
+export interface VisionAnswer {
+  /** Model that read them. */
+  model: string;
+  /** One text per picture. */
+  texts: string[];
+  /** Time for all of them. */
+  total_ms: number;
+}
+
+/** Input of `inference.vision_read`. */
+export type VisionRead = {
+  /** Nobody is waiting: what a person asked goes first. */
+  background?: boolean;
+  /** The user agreed to these pictures being read. */
+  consent: boolean;
+  /** The pictures, in the order they are read. */
+  pictures: LlmPicture[];
+  /** Stream the texts, and say what is done, with this id. */
+  stream?: LlmStream | null;
+};
 
 /** How far to zoom when going to a location. */
 export type ZoomSpec = {

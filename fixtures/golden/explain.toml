@@ -1,0 +1,909 @@
+# Golden Explain set (P0.C.2): selections in the fixture papers with what a right answer holds.
+# Run by engines/understanding/facade/tests/golden.rs (ignored: it needs the real models).
+#
+# kind    span, paragraph, figure, table, equation, or ask (a question about a table)
+# at      the selected words, or the printed label, number or id of the object
+# expect  each must be in the answer, whatever the case and punctuation; "a|b" is one or the other
+#
+# Spans are abbreviations selected away from the page that defines them; the expected words are the
+# paper's own long form. The rest is written by hand from the papers.
+
+# Least share of each kind that must be right. Measured (Qwen3-4B-Instruct-2507 Q4_K_M, 2026-11-25):
+# every case, 3 to 6 seconds each; the rest is room for another model or another run.
+[least]
+span = 0.95
+figure = 0.9
+table = 0.9
+equation = 0.9
+ask = 0.9
+
+[[case]]
+kind = "span"
+paper = "arxiv-2106.03711v2.pdf"
+page = 15
+at = "LES"
+expect = ["large eddy simulation"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2106.03711v2.pdf"
+page = 10
+at = "PDE"
+expect = ["partial differential equation"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2106.03711v2.pdf"
+page = 17
+at = "DNS"
+expect = ["direct numerical simulation"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2106.03711v2.pdf"
+page = 23
+at = "PDF"
+expect = ["probability density function"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2111.07691v2.pdf"
+page = 8
+at = "FEM"
+expect = ["finite element method"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2111.07691v2.pdf"
+page = 3
+at = "SG-FEM"
+expect = ["stochastic galerkin finite element method"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2111.07691v2.pdf"
+page = 10
+at = "BVP"
+expect = ["boundary value problem"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2111.07691v2.pdf"
+page = 13
+at = "GP"
+expect = ["gaussian proces"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2111.12066v2.pdf"
+page = 3
+at = "MPC"
+expect = ["model predictive control"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2111.12066v2.pdf"
+page = 4
+at = "RL"
+expect = ["reinforcement learning"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2111.12066v2.pdf"
+page = 7
+at = "MDP"
+expect = ["markov decision proces"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2111.12066v2.pdf"
+page = 9
+at = "Tm"
+expect = ["thermal mas"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2111.12066v2.pdf"
+page = 11
+at = "MAE"
+expect = ["mean absolute error"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2203.12634v2.pdf"
+page = 8
+at = "FNO"
+expect = ["fourier neural operator"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2203.12634v2.pdf"
+page = 10
+at = "MSE"
+expect = ["mean squared error"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2207.11567v1.pdf"
+page = 5
+at = "LBM"
+expect = ["lattice boltzmann method"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2207.11567v1.pdf"
+page = 6
+at = "LES"
+expect = ["large eddy simulation"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2207.11567v1.pdf"
+page = 6
+at = "LDA"
+expect = ["laser doppler anemometry"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2207.11567v1.pdf"
+page = 7
+at = "PVC"
+expect = ["precessing vortex core"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2211.08985v1.pdf"
+page = 11
+at = "SCPINN"
+expect = ["strongly constrained physics informed neural network"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2211.08985v1.pdf"
+page = 12
+at = "PINN"
+expect = ["physics informed neural network"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2211.08985v1.pdf"
+page = 8
+at = "GVD"
+expect = ["group velocity dispersion"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2211.08985v1.pdf"
+page = 8
+at = "SPM"
+expect = ["self phase modulation"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2211.08985v1.pdf"
+page = 11
+at = "TOD"
+expect = ["third order dispersion"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2211.08985v1.pdf"
+page = 12
+at = "SFS"
+expect = ["self frequency shift"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2211.08985v1.pdf"
+page = 12
+at = "SS"
+expect = ["self steepening"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2304.11247v3.pdf"
+page = 9
+at = "CFD"
+expect = ["computational fluid dynamic"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2304.11247v3.pdf"
+page = 3
+at = "NS"
+expect = ["navier stoke"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2304.11247v3.pdf"
+page = 4
+at = "MSE"
+expect = ["mean squared error"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2305.08757v3.pdf"
+page = 27
+at = "PITT"
+expect = ["physics informed token transformer"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2305.08757v3.pdf"
+page = 27
+at = "FNO"
+expect = ["fourier neural operator"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2305.08757v3.pdf"
+page = 15
+at = "MAE"
+expect = ["mean absolute error"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2310.09367v1.pdf"
+page = 7
+at = "LES"
+expect = ["large eddy simulation"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2310.09367v1.pdf"
+page = 9
+at = "DES"
+expect = ["detached eddy simulation"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2310.09367v1.pdf"
+page = 7
+at = "DNS"
+expect = ["direct numerical simulation"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2310.09367v1.pdf"
+page = 7
+at = "RANS"
+expect = ["reynolds averaged navier stoke"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2310.09367v1.pdf"
+page = 2
+at = "CRM"
+expect = ["common research model"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2310.09367v1.pdf"
+page = 6
+at = "BFS"
+expect = ["backward facing step"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2402.12652v3.pdf"
+page = 10
+at = "INR"
+expect = ["implicit neural representation"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2402.12652v3.pdf"
+page = 13
+at = "FNO"
+expect = ["fourier neural operator"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2402.12652v3.pdf"
+page = 9
+at = "SC"
+expect = ["scalar coefficient"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2402.12652v3.pdf"
+page = 9
+at = "IC"
+expect = ["initial condition"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2402.12652v3.pdf"
+page = 10
+at = "DAG"
+expect = ["directed acyclic graph"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2402.12652v3.pdf"
+page = 13
+at = "MLP"
+expect = ["multi layer perceptron"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2402.12652v3.pdf"
+page = 18
+at = "FD"
+expect = ["finite difference"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2406.19831v2.pdf"
+page = 22
+at = "DGM"
+expect = ["deep galerkin method"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2406.19831v2.pdf"
+page = 13
+at = "VPINN"
+expect = ["variational physics informed neural network"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2406.19831v2.pdf"
+page = 4
+at = "PINN"
+expect = ["physics informed neural network"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2407.06664v2.pdf"
+page = 6
+at = "INR"
+expect = ["implicit neural representation"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2407.06664v2.pdf"
+page = 3
+at = "NLP"
+expect = ["natural language processing"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2407.06664v2.pdf"
+page = 17
+at = "DGM"
+expect = ["deep galerkin method"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2407.06664v2.pdf"
+page = 20
+at = "SC"
+expect = ["scalar coefficient"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2407.06664v2.pdf"
+page = 19
+at = "IC"
+expect = ["initial condition"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2407.06664v2.pdf"
+page = 18
+at = "DAG"
+expect = ["directed acyclic graph"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2407.06664v2.pdf"
+page = 8
+at = "FD"
+expect = ["finite difference"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2407.06664v2.pdf"
+page = 12
+at = "PSO"
+expect = ["particle swarm optimization"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2407.06664v2.pdf"
+page = 24
+at = "MLP"
+expect = ["multi layer perceptron"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2511.21915v1.pdf"
+page = 275
+at = "PMLR"
+expect = ["proceedings of machine learning research"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2511.21915v1.pdf"
+page = 52
+at = "LD"
+expect = ["low discrepancy"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2511.21915v1.pdf"
+page = 74
+at = "NA"
+expect = ["not applicable"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2511.21915v1.pdf"
+page = 123
+at = "SI"
+expect = ["shift invariant"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2511.21915v1.pdf"
+page = 134
+at = "DSI"
+expect = ["digitally shift invariant"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2511.21915v1.pdf"
+page = 188
+at = "GP"
+expect = ["gaussian proces"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2511.21915v1.pdf"
+page = 248
+at = "FV"
+expect = ["finite volume"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2511.21915v1.pdf"
+page = 187
+at = "SE"
+expect = ["squared exponential"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2511.21915v1.pdf"
+page = 187
+at = "MLL"
+expect = ["marginal log likelihood"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2601.05155v2.pdf"
+page = 95
+at = "MLP"
+expect = ["multi layer perceptron"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2601.05155v2.pdf"
+page = 143
+at = "PDE"
+expect = ["partial differential equation"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2601.05155v2.pdf"
+page = 198
+at = "ICF"
+expect = ["inertial confinement fusion"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2601.05155v2.pdf"
+page = 28
+at = "FLD"
+expect = ["flux limited diffusion"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2601.05155v2.pdf"
+page = 28
+at = "VTEF"
+expect = ["variable tensor eddington factor"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2601.05155v2.pdf"
+page = 90
+at = "AI"
+expect = ["artificial intelligence"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2601.05155v2.pdf"
+page = 21
+at = "SKA"
+expect = ["square kilometer array"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2601.05155v2.pdf"
+page = 145
+at = "PINN"
+expect = ["physics informed neural network"]
+
+[[case]]
+kind = "span"
+paper = "arxiv-2601.05155v2.pdf"
+page = 43
+at = "LTE"
+expect = ["local thermodynamic equilibrium"]
+
+[[case]]
+kind = "span"
+paper = "plos-pone-0232683.pdf"
+page = 17
+at = "Nhl"
+expect = ["number of hidden layer"]
+
+[[case]]
+kind = "span"
+paper = "plos-pone-0232683.pdf"
+page = 17
+at = "Nn"
+expect = ["number of neuron"]
+
+[[case]]
+kind = "span"
+paper = "plos-pone-0232683.pdf"
+page = 15
+at = "PINN"
+expect = ["physics informed neural network"]
+
+[[case]]
+kind = "figure"
+paper = "arxiv-2111.07691v2.pdf"
+page = 16
+at = "Figure 2"
+expect = ["Wasserstein"]
+
+[[case]]
+kind = "figure"
+paper = "arxiv-2207.11567v1.pdf"
+page = 4
+at = "Figure 3"
+expect = ["flame"]
+
+[[case]]
+kind = "figure"
+paper = "arxiv-2207.11567v1.pdf"
+page = 4
+at = "Figure 5"
+expect = ["veloc"]
+
+[[case]]
+kind = "figure"
+paper = "arxiv-2211.08985v1.pdf"
+page = 5
+at = "Figure 1"
+expect = ["soliton"]
+
+[[case]]
+kind = "figure"
+paper = "arxiv-2305.08757v3.pdf"
+page = 12
+at = "Figure 3"
+expect = ["FNO", "heat"]
+
+[[case]]
+kind = "figure"
+paper = "arxiv-2305.08757v3.pdf"
+page = 36
+at = "Figure 13"
+expect = ["DeepONet"]
+
+[[case]]
+kind = "figure"
+paper = "arxiv-2310.09367v1.pdf"
+page = 4
+at = "Figure 4"
+expect = ["velocity"]
+
+[[case]]
+kind = "figure"
+paper = "arxiv-2402.12652v3.pdf"
+page = 16
+at = "Figure 8"
+expect = ["error", "fine-tun"]
+
+[[case]]
+kind = "figure"
+paper = "arxiv-2407.06664v2.pdf"
+page = 4
+at = "Figure 1"
+expect = ["PDEformer", "architecture|transformer"]
+
+[[case]]
+kind = "figure"
+paper = "arxiv-2407.06664v2.pdf"
+page = 19
+at = "Figure 14"
+expect = ["wave"]
+
+[[case]]
+kind = "figure"
+paper = "arxiv-2511.21915v1.pdf"
+page = 155
+at = "Figure 6.1"
+expect = ["squared exponential|SE", "Gaussian process|GP"]
+
+[[case]]
+kind = "figure"
+paper = "arxiv-2601.05155v2.pdf"
+page = 78
+at = "Figure 3.2"
+expect = ["perceptron"]
+
+[[case]]
+kind = "figure"
+paper = "arxiv-2601.05155v2.pdf"
+page = 128
+at = "Figure 4.9"
+expect = ["precursor"]
+
+[[case]]
+kind = "figure"
+paper = "plos-pone-0232683.pdf"
+page = 21
+at = "Figure 9"
+expect = ["Biot", "error"]
+
+[[case]]
+kind = "table"
+paper = "arxiv-2111.12066v2.pdf"
+page = 9
+at = "Table 2"
+expect = ["PhysNet|PhysReg", "temperature"]
+
+[[case]]
+kind = "table"
+paper = "arxiv-2111.12066v2.pdf"
+page = 12
+at = "Table A.3"
+expect = ["hyperparameter|learning rate|Adam"]
+
+[[case]]
+kind = "table"
+paper = "arxiv-2111.07691v2.pdf"
+page = 16
+at = "Table 1"
+expect = ["slope", "noise"]
+
+[[case]]
+kind = "table"
+paper = "arxiv-2305.08757v3.pdf"
+page = 11
+at = "Table 2"
+expect = ["error|MAE"]
+
+[[case]]
+kind = "table"
+paper = "arxiv-2310.09367v1.pdf"
+page = 6
+at = "Table 1"
+expect = ["grid"]
+
+[[case]]
+kind = "table"
+paper = "arxiv-2211.08985v1.pdf"
+page = 14
+at = "Table 1"
+expect = ["error", "layer"]
+
+[[case]]
+kind = "table"
+paper = "arxiv-2203.12634v2.pdf"
+page = 7
+at = "Table I"
+expect = ["PINO|MSE|equation"]
+
+[[case]]
+kind = "table"
+paper = "arxiv-2402.12652v3.pdf"
+page = 18
+at = "Table 5"
+expect = ["parameter", "time"]
+
+[[case]]
+kind = "equation"
+paper = "arxiv-2601.05155v2.pdf"
+page = 39
+at = "(2.9)"
+expect = ["number density", "Boltzmann", "temperature"]
+
+[[case]]
+kind = "equation"
+paper = "arxiv-2601.05155v2.pdf"
+page = 40
+at = "(2.12)"
+expect = ["mean atomic weight"]
+
+[[case]]
+kind = "equation"
+paper = "arxiv-2601.05155v2.pdf"
+page = 39
+at = "(2.10)"
+expect = ["pressure|equation of state", "hydrogen"]
+
+[[case]]
+kind = "equation"
+paper = "arxiv-2601.05155v2.pdf"
+page = 114
+at = "(4.1)"
+expect = ["Mach", "velocity|speed"]
+
+[[case]]
+kind = "equation"
+paper = "arxiv-2601.05155v2.pdf"
+page = 115
+at = "(4.5)"
+expect = ["opacity", "length"]
+
+[[case]]
+kind = "equation"
+paper = "arxiv-2304.11247v3.pdf"
+page = 2
+at = "(2)"
+expect = ["loss", "boundary"]
+
+[[case]]
+kind = "equation"
+paper = "arxiv-2111.12066v2.pdf"
+page = 4
+at = "(1)"
+expect = ["state", "action"]
+
+[[case]]
+kind = "equation"
+paper = "arxiv-2203.12634v2.pdf"
+page = 5
+at = "(4)"
+expect = ["wave"]
+
+[[case]]
+kind = "equation"
+paper = "arxiv-2310.09367v1.pdf"
+page = 3
+at = "(1)"
+expect = ["velocity"]
+
+[[case]]
+kind = "ask"
+paper = "arxiv-2111.12066v2.pdf"
+page = 9
+at = "Table 2"
+question = "Which model has the lowest error for Tm?"
+expect = ["PhysReg MLP"]
+
+[[case]]
+kind = "ask"
+paper = "arxiv-2111.12066v2.pdf"
+page = 9
+at = "Table 2"
+question = "What is the value of Tr for PhysNet?"
+expect = ["0.226"]
+
+[[case]]
+kind = "ask"
+paper = "arxiv-2111.12066v2.pdf"
+page = 12
+at = "Table A.3"
+question = "What is the batch size?"
+expect = ["2048"]
+
+[[case]]
+kind = "ask"
+paper = "arxiv-2111.12066v2.pdf"
+page = 12
+at = "Table A.3"
+question = "How many neurons per layer?"
+expect = ["64"]
+
+[[case]]
+kind = "ask"
+paper = "arxiv-2111.07691v2.pdf"
+page = 16
+at = "Table 1"
+question = "What is the largest slope?"
+expect = ["2.0162"]
+
+[[case]]
+kind = "ask"
+paper = "arxiv-2111.07691v2.pdf"
+page = 16
+at = "Table 1"
+question = "What is the mean slope?"
+expect = ["2.0029"]
+
+[[case]]
+kind = "ask"
+paper = "arxiv-2305.08757v3.pdf"
+page = 11
+at = "Table 2"
+question = "Which model has the lowest Heat error?"
+expect = ["PITT DeepONet"]
+
+[[case]]
+kind = "ask"
+paper = "arxiv-2305.08757v3.pdf"
+page = 11
+at = "Table 2"
+question = "What is the KdV error of FNO?"
+expect = ["11.28"]
+
+[[case]]
+kind = "ask"
+paper = "arxiv-2310.09367v1.pdf"
+page = 6
+at = "Table 1"
+question = "Which case has the most cells nc?"
+expect = ["BFS-L"]
+
+[[case]]
+kind = "ask"
+paper = "arxiv-2310.09367v1.pdf"
+page = 6
+at = "Table 1"
+question = "How many cells does PH-R have?"
+expect = ["2301"]
+
+[[case]]
+kind = "ask"
+paper = "arxiv-2310.09367v1.pdf"
+page = 6
+at = "Table 1"
+question = "How many cells more has PH-L than PH-LR?"
+expect = ["14918"]
+
+[[case]]
+kind = "ask"
+paper = "arxiv-2211.08985v1.pdf"
+page = 14
+at = "Table 1"
+question = "Which layer has the smallest L2 error?"
+expect = ["0.58|5"]
+
+[[case]]
+kind = "ask"
+paper = "arxiv-2203.12634v2.pdf"
+page = 7
+at = "Table I"
+question = "Which model has the smallest MSE?"
+expect = ["Wave Equation 1D"]
+
+[[case]]
+kind = "ask"
+paper = "arxiv-2402.12652v3.pdf"
+page = 18
+at = "Table 5"
+question = "What is the inference time of FNO?"
+expect = ["3.61"]
+
+[[case]]
+kind = "ask"
+paper = "arxiv-2402.12652v3.pdf"
+page = 18
+at = "Table 5"
+question = "Which model has the smallest relative L2 error?"
+expect = ["PDEformer"]
+
+[[case]]
+kind = "ask"
+paper = "arxiv-2304.11247v3.pdf"
+page = 4
+at = "Table I"
+question = "What is the colour of the pipe?"
+expect = ["none"]

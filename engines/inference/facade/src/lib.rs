@@ -6,6 +6,9 @@
 
 mod catalog;
 mod select;
+mod vision;
+
+pub use vision::Pictures;
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -19,7 +22,7 @@ pub use ep_inference_contract as contract;
 use ep_inference_contract::{
     Backend, Choose, Fallback, Folder, FolderPath, LlmRequest, LlmResponse, LoadRequest, Memory,
     ModelInfo, ModelKind, ModelState, Models, RunState, Runtime, Sensitivity, Status, Usage,
-    commands as cmd, errors, events,
+    VisionRead, commands as cmd, errors, events,
 };
 pub use ep_inference_core::Replay;
 pub use ep_inference_core::{
@@ -56,6 +59,9 @@ pub struct Inference {
     turn: tokio::sync::Mutex<()>,
     /// People waiting for an answer; background work lets them go first.
     people: std::sync::atomic::AtomicUsize,
+    /// Batches of pictures under way; other background work waits for them.
+    looking: std::sync::atomic::AtomicUsize,
+    pictures: RwLock<Option<Pictures>>,
     runtime_dirs: Vec<PathBuf>,
     spawner: Option<Arc<dyn ProcessSpawner>>,
     log_file: Option<PathBuf>,
@@ -174,6 +180,8 @@ impl Inference {
             memory: Mutex::new(None),
             turn: tokio::sync::Mutex::new(()),
             people: std::sync::atomic::AtomicUsize::new(0),
+            looking: std::sync::atomic::AtomicUsize::new(0),
+            pictures: RwLock::new(None),
             runtime_dirs,
             spawner: Some(spawner),
             log_file,
@@ -210,6 +218,8 @@ impl Inference {
             memory: Mutex::new(None),
             turn: tokio::sync::Mutex::new(()),
             people: std::sync::atomic::AtomicUsize::new(0),
+            looking: std::sync::atomic::AtomicUsize::new(0),
+            pictures: RwLock::new(None),
             runtime_dirs: vec![],
             spawner: None,
             log_file: None,
@@ -394,6 +404,7 @@ impl Inference {
                 backend,
                 build: build.and_then(|b| b.parent().map(|p| p.display().to_string())),
             },
+            vision: self.vision_model(c),
         }
     }
 
@@ -510,6 +521,7 @@ impl Inference {
         };
         if let Some(s) = &current
             && s.config().model == first.path
+            && s.config().mmproj.is_none()
         {
             return Ok(self.status.lock().clone());
         }
@@ -521,6 +533,7 @@ impl Inference {
         // A second choice that runs is only given up when the first one fits in its place.
         if let Some(s) = &current
             && model.is_none()
+            && s.config().mmproj.is_none()
             && let Some(at) = order.iter().position(|m| m.path == s.config().model)
         {
             let free = self.measure(&exe).await.map(|(m, _)| m.free);
@@ -538,20 +551,28 @@ impl Inference {
         let mut last = None;
         let mut fallback = self.out.lock().get(&first.id).copied();
         loop {
+            // The memory of the model that was just ended comes free a moment later.
+            let late = current.is_some() && !skip.contains(&first.id);
             let measured = if backend == Backend::Cpu {
                 None
             } else {
-                self.measure(&exe).await
+                select::settled(
+                    || self.measure(&exe),
+                    |(m, _)| {
+                        !late
+                            || select::need(&first, select::SHORT_CONTEXT.min(first.context))
+                                <= m.free
+                    },
+                )
+                .await
             };
             let free = measured.as_ref().map(|(m, _)| m.free);
-            let Some(mut pick) = select::pick(&order, free, &skip) else {
+            let Some(pick) = select::pick(&order, free, &skip) else {
                 break;
             };
-            // The memory of the model that was just ended may come free a moment later.
-            if current.is_some() && pick.model.id != first.id && !skip.contains(&first.id) {
-                tokio::time::sleep(Duration::from_millis(1200)).await;
-                let free = self.measure(&exe).await.map(|(m, _)| m.free);
-                pick = select::pick(&order, free, &skip).unwrap_or(pick);
+            if pick.model.id != first.id {
+                let need = select::need(&first, select::SHORT_CONTEXT.min(first.context)) >> 20;
+                tracing::info!(first = %first.id, used = %pick.model.id, free = ?free.map(|f| f >> 20), need, "not the first choice");
             }
             if pick.model.id != first.id && fallback.is_none() {
                 fallback = Some(Fallback::NotEnoughMemory);
@@ -632,6 +653,8 @@ impl Inference {
                 Config {
                     exe: exe.clone(),
                     model: m.path.clone(),
+                    mmproj: None,
+                    mmproj_on_cpu: false,
                     model_id: m.id.clone(),
                     context: pick.context,
                     gpu_layers: match backend {
@@ -737,7 +760,8 @@ impl Inference {
         let order = self.order(&c, self.runtime().0);
         let running = self.sidecar.read().clone();
         let at = match &running {
-            Some(s) if s.is_running().await => {
+            // The one that looks at pictures does not answer questions.
+            Some(s) if s.config().mmproj.is_none() && s.is_running().await => {
                 order.iter().position(|m| m.path == s.config().model)
             }
             _ => None,
@@ -841,6 +865,12 @@ impl Inference {
         }
         // A background answer gives way when a person asks, and is begun again afterwards.
         loop {
+            while req.background && self.looking.load(std::sync::atomic::Ordering::SeqCst) > 0 {
+                tokio::select! {
+                    () = tokio::time::sleep(Duration::from_millis(200)) => {}
+                    () = cx.cancel.cancelled() => return Err(CommandError::Cancelled),
+                }
+            }
             let turn = self.take_turn(cx, req.background).await?;
             let r = self.answer(cx, &req).await;
             drop(turn);
@@ -1045,6 +1075,17 @@ impl Inference {
                     me.publish(events::MODELS_CHANGED, json!({}), &cx);
                     Ok(m)
                 }
+            },
+        )?;
+        let me = self.clone();
+        bus.register(
+            make(
+                cmd::VISION_READ,
+                "Read pictures with a model on this computer, when the user agrees",
+            ),
+            move |cx, i: VisionRead| {
+                let me = me.clone();
+                async move { me.vision_read(&cx, i).await }
             },
         )?;
         let me = self.clone();

@@ -61,7 +61,7 @@ import { LibraryView } from "./shell/LibraryView";
 import { KeymapSettings, Palette, Prompt } from "./shell/Overlays";
 import { activate, activeTab, closeTab, moveTab, openPapers, openTab, restore, session, setShowLibrary, toggleSplit, updatePaper } from "./shell/session";
 import { PrintSheet } from "./shell/Print";
-import { canExplain, explainCard, refreshLanguageModels } from "./assistant/explain";
+import { canExplain, explainCard, lookingAtAll, refreshLanguageModels, stopLookingAtAll } from "./assistant/explain";
 import { Settings } from "./shell/Settings";
 import { SidePanel } from "./shell/SidePanel";
 import type { Marks, ViewerApi, ViewerStatus } from "./viewer/Viewer";
@@ -400,6 +400,7 @@ export function App(): JSX.Element {
         if (p) void remove(p.paper, p.id);
       },
     },
+    { id: "explain.selection", title: () => t("explain.selection"), keys: "Ctrl+E", enabled: () => !!current().api && canExplain(), run: () => void current().api?.explainSelection() },
     { id: "annot.copy_cite", title: () => t("annot.copy_cite"), keys: "Ctrl+Shift+C", enabled: () => !!current().api, run: () => void current().api?.copyCitation() },
     ...TOOL_KEYS.map(([tl, key]) => ({
       id: `tool.${tl}`,
@@ -801,6 +802,14 @@ export function App(): JSX.Element {
             </Show>
             <Show when={explainCard()?.phase === "starting"}>
               <StatusItem icon="sparkles">{t("explain.starting")}</StatusItem>
+            </Show>
+            <Show when={lookingAtAll()}>
+              {(a) => (
+                <button type="button" class="ep-status-item" data-tone="muted" onClick={(e) => openMenu(t("look.progress_start"), [{ label: t("look.stop"), icon: "x", run: stopLookingAtAll }], e.currentTarget.getBoundingClientRect())}>
+                  <Icon name="eye" size={14} />
+                  <span>{a().total > 0 ? t("look.progress", { n: Math.min(a().done + 1, a().total), total: a().total }) : t("look.progress_start")}</span>
+                </button>
+              )}
             </Show>
             <Show when={addingText()}>
               <StatusItem icon="scan-text">{t("intel.adding_text_layer")}</StatusItem>

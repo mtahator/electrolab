@@ -16,7 +16,9 @@ use std::time::Duration;
 
 use ep_bus::{Bus, CommandError, Envelope};
 use ep_inference::Inference;
-use ep_inference::contract::{Backend, Fallback, LlmResponse, Models, RunState, Status};
+use ep_inference::contract::{
+    Backend, Fallback, LlmResponse, Models, RunState, Status, VisionAnswer,
+};
 use ep_os::{ChildProcess, ProcessSpawner, ProcessSpec};
 use serde_json::{Value, json};
 
@@ -152,7 +154,14 @@ fn gguf(path: &Path, mib: u32) {
     b.extend(0u64.to_le_bytes());
     b.extend(6u64.to_le_bytes());
     for (k, v) in [
-        ("general.architecture", "llama"),
+        (
+            "general.architecture",
+            if path.to_string_lossy().contains("mmproj") {
+                "clip"
+            } else {
+                "llama"
+            },
+        ),
         ("tokenizer.chat_template", "x"),
     ] {
         b.extend(text(k));
@@ -422,4 +431,120 @@ async fn a_background_answer_gives_way_to_a_person_and_is_begun_again() {
     assert!(background.await.unwrap().is_ok(), "and nothing was lost");
     // Warm, the person, the background: the one that was stopped did not end.
     assert_eq!(a.servers.answers.load(Ordering::SeqCst), 3);
+}
+
+/// A picture in a folder of the test, and how the engine finds it.
+fn picture(a: &App) -> Value {
+    let (file, bytes) = (a.dir.path().join("p.png"), b"not really a picture");
+    std::fs::write(&file, bytes).unwrap();
+    a.engine.use_pictures(Arc::new(move |_| Some(file.clone())));
+    json!({
+        "image": { "hash": "00".repeat(32), "size": bytes.len(), "media_type": "image/png" },
+        "question": "What is it?"
+    })
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn pictures_are_read_with_consent_by_the_model_that_can() {
+    let a = app(&[("first", 900)]);
+    a.order(&["first"]).await;
+    let p = picture(&a);
+    let read = async |pictures: Value, consent| {
+        a.call::<VisionAnswer>(
+            "inference.vision_read",
+            json!({ "pictures": pictures, "consent": consent }),
+        )
+        .await
+    };
+    let kind = |r: Result<VisionAnswer, CommandError>| match r.unwrap_err() {
+        CommandError::Failed { kind, .. } => kind,
+        e => e.to_string(),
+    };
+    assert_eq!(kind(read(json!([p]), false).await), "consent_needed");
+    assert_eq!(kind(read(json!([p]), true).await), "no_vision_model");
+    assert!(matches!(
+        read(json!([]), true).await,
+        Err(CommandError::InvalidInput { .. })
+    ));
+    assert_eq!(a.started().len(), 0);
+
+    let a = app(&[
+        ("first", 900),
+        ("v/see-vl-q4", 300),
+        ("v/mmproj-see-vl", 100),
+    ]);
+    a.order(&["first", "see-vl-q4"]).await;
+    let m: Models = a.call("inference.models", Value::Null).await.unwrap();
+    assert_eq!(m.vision.unwrap().id, "see-vl-q4");
+    a.ask("explain.draft").await;
+    let mut sub = a.bus.events().subscribe("inference.vision");
+    let r: VisionAnswer = a
+        .call(
+            "inference.vision_read",
+            json!({ "pictures": [picture(&a), picture(&a)], "consent": true,
+                "background": true, "stream": { "id": "f" } }),
+        )
+        .await
+        .unwrap();
+    assert_eq!((r.texts.len(), r.model.as_str()), (2, "see-vl-q4"));
+    for done in 1..=2 {
+        let Ok(ep_bus::Recv::Event(e)) =
+            tokio::time::timeout(Duration::from_secs(1), sub.recv()).await
+        else {
+            panic!("nothing was said")
+        };
+        assert_eq!(
+            (&e.data["done"], &e.data["text"]),
+            (&json!(done), &json!("hi"))
+        );
+    }
+    // Afterwards questions are answered by the answering model, though the other is in the order.
+    a.call::<Models>("inference.choose", json!({ "keep_ready": true }))
+        .await
+        .unwrap();
+    assert_eq!(a.ask("explain.draft").await.model, "first");
+    assert_eq!(a.started(), ["first", "see-vl-q4", "first"]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_person_goes_before_the_pictures_and_digests_after_them() {
+    let a = app(&[
+        ("first", 900),
+        ("v/see-vl-q4", 300),
+        ("v/mmproj-see-vl", 100),
+    ]);
+    a.order(&["first"]).await;
+    a.servers.slow_ms.store(700, Ordering::SeqCst);
+    let p = picture(&a);
+    let (bus, pictures) = (a.bus.clone(), json!([p, p]));
+    let batch = tokio::spawn(async move {
+        bus.call(Envelope::new(
+            "inference.vision_read",
+            json!({ "pictures": pictures, "consent": true, "background": true }),
+        ))
+        .await
+        .unwrap();
+        std::time::Instant::now()
+    });
+    while a.started().is_empty() {
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let bus = a.bus.clone();
+    let digest = tokio::spawn(async move {
+        bus.call(Envelope::new(
+            "inference.complete",
+            json!({ "task": "digest.section", "background": true,
+                "messages": [{ "role": "user", "content": "q" }] }),
+        ))
+        .await
+        .unwrap();
+        std::time::Instant::now()
+    });
+    assert_eq!(a.ask("explain.draft").await.model, "first");
+    let asked = std::time::Instant::now();
+    let (batch, digest) = (batch.await.unwrap(), digest.await.unwrap());
+    assert!(asked < batch, "the person did not wait for the pictures");
+    assert!(batch < digest, "the digest waited for them");
+    assert_eq!(a.started(), ["see-vl-q4", "first", "see-vl-q4", "first"]);
 }

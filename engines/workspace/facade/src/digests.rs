@@ -1,5 +1,6 @@
-//! Digests kept with the papers: one JSON file per paper in `digests/` of the library folder, so they
-//! travel with it and can be read by other programs.
+//! What other engines keep with the papers (digests, what was seen in figures): one JSON file per paper
+//! in `digests/` and `figures/` of the library folder, so they travel with it and can be read by other
+//! programs.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -11,10 +12,30 @@ use ep_workspace_contract::{GetDigests, MAX_DIGEST, PaperDigest, errors};
 
 use super::{Workspace, sql_err};
 
+/// Where they are kept.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum Kept {
+    Digests,
+    Figures,
+}
+
+impl Kept {
+    /// Both, for what is done to all of them.
+    pub(crate) const ALL: [Self; 2] = [Self::Digests, Self::Figures];
+
+    /// Folder in the library.
+    pub(crate) fn folder(self) -> &'static str {
+        match self {
+            Self::Digests => "digests",
+            Self::Figures => "figures",
+        }
+    }
+}
+
 impl Workspace {
-    fn digest_dir(&self) -> Result<PathBuf, CommandError> {
+    fn kept_dir(&self, kept: Kept) -> Result<PathBuf, CommandError> {
         self.project_folder()
-            .map(|(_, dir)| dir.join("digests"))
+            .map(|(_, dir)| dir.join(kept.folder()))
             .ok_or_else(|| CommandError::failed(errors::NO_PROJECT, "open a library first"))
     }
 
@@ -23,6 +44,34 @@ impl Workspace {
         _cx: Cx,
         i: PaperDigest,
     ) -> Result<(), CommandError> {
+        self.keep(Kept::Digests, i).await
+    }
+
+    pub(crate) async fn save_figures(
+        self: Arc<Self>,
+        _cx: Cx,
+        i: PaperDigest,
+    ) -> Result<(), CommandError> {
+        self.keep(Kept::Figures, i).await
+    }
+
+    pub(crate) async fn get_digests(
+        self: Arc<Self>,
+        _cx: Cx,
+        i: GetDigests,
+    ) -> Result<Vec<PaperDigest>, CommandError> {
+        self.kept(Kept::Digests, i).await
+    }
+
+    pub(crate) async fn get_figures(
+        self: Arc<Self>,
+        _cx: Cx,
+        i: GetDigests,
+    ) -> Result<Vec<PaperDigest>, CommandError> {
+        self.kept(Kept::Figures, i).await
+    }
+
+    async fn keep(&self, kept: Kept, i: PaperDigest) -> Result<(), CommandError> {
         let o = self.require()?;
         let known =
             o.db.read(|c| {
@@ -48,7 +97,7 @@ impl Workspace {
                 message: format!("a digest has at most {MAX_DIGEST} bytes"),
             });
         }
-        let dir = self.digest_dir()?;
+        let dir = self.kept_dir(kept)?;
         tokio::task::spawn_blocking(move || {
             std::fs::create_dir_all(&dir)?;
             let (part, file) = (
@@ -63,13 +112,9 @@ impl Workspace {
         .map_err(|e| CommandError::failed(errors::IO, e))
     }
 
-    pub(crate) async fn get_digests(
-        self: Arc<Self>,
-        _cx: Cx,
-        i: GetDigests,
-    ) -> Result<Vec<PaperDigest>, CommandError> {
+    async fn kept(&self, kept: Kept, i: GetDigests) -> Result<Vec<PaperDigest>, CommandError> {
         self.require()?;
-        let dir = self.digest_dir()?;
+        let dir = self.kept_dir(kept)?;
         tokio::task::spawn_blocking(move || {
             let read = |paper: PaperId| -> Option<PaperDigest> {
                 let text = std::fs::read(dir.join(format!("{paper}.json"))).ok()?;

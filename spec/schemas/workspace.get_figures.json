@@ -1,0 +1,69 @@
+{
+  "command": "workspace.get_figures",
+  "input": {
+    "$defs": {
+      "PaperId": {
+        "description": "A paper (a PDF in the library or a project).\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `workspace.get_digests` and `workspace.get_figures`.",
+    "properties": {
+      "papers": {
+        "default": null,
+        "description": "Which papers; all of the library when missing.",
+        "items": {
+          "$ref": "#/$defs/PaperId"
+        },
+        "type": [
+          "array",
+          "null"
+        ]
+      }
+    },
+    "title": "GetDigests",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "PaperDigest": {
+        "description": "A digest of a paper. Output of `workspace.get_digests`, input of `workspace.save_digest`\n(and, for what was seen in its figures, of `get_figures` and `save_figures`).",
+        "properties": {
+          "data": {
+            "description": "The digest, as the engine that made it wrote it."
+          },
+          "paper": {
+            "$ref": "#/$defs/PaperId",
+            "description": "The paper."
+          }
+        },
+        "required": [
+          "paper",
+          "data"
+        ],
+        "type": "object"
+      },
+      "PaperId": {
+        "description": "A paper (a PDF in the library or a project).\n\nSerialised as the UUID's canonical hyphenated string.",
+        "format": "uuid",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "items": {
+      "$ref": "#/$defs/PaperDigest"
+    },
+    "title": "Array_of_PaperDigest",
+    "type": "array"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "What was seen in the figures of papers"
+}

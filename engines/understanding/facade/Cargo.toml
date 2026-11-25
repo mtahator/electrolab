@@ -8,6 +8,7 @@ description = "Understanding engine facade: explain commands on the bus (see CON
 
 [dependencies]
 ep-understanding-contract = { path = "../contract" }
+ep-understanding-core = { path = "../core" }
 ep-document-contract = { path = "../../document/contract" }
 ep-inference-contract = { path = "../../inference/contract" }
 ep-bus = { path = "../../../foundation/bus" }
@@ -17,10 +18,13 @@ serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
 tokio.workspace = true
+toml.workspace = true
 
 [dev-dependencies]
 ep-inference = { path = "../../inference/facade" }
 ep-document = { path = "../../document/facade" }
+ep-os = { path = "../../../foundation/os" }
+tempfile.workspace = true
 
 [lints]
 workspace = true

@@ -288,7 +288,7 @@ All components live in `ui/kit` and are the only way to build UI. Each has: stat
 ## 9. Interaction patterns
 
 ### 9.1 Selection → action
-Selecting text shows the **selection bar** above it (below when near the top): highlight colours first, then underline/strike/squiggly, comment, copy, cite, and (from M5) Explain. Icon buttons with tooltips; at most 10 items; it disappears when the selection is cleared or the user scrolls it away. Right-click on a selection opens a context menu with the same actions plus less frequent ones.
+Selecting text shows the **selection bar** above it (below when near the top): highlight colours first, then underline/strike/squiggly, comment, copy, cite, and (from M5) Explain. Icon buttons with tooltips; at most 10 items; it disappears when the selection is cleared or the user scrolls it away. Right-click on a selection opens a context menu with the same actions plus less frequent ones (§17.13).
 
 ### 9.2 Tools are modes with a way out
 A tool stays chosen until the user picks another or presses **Esc** (back to Select). The pointer shows the tool (crosshair to draw, text cursor to mark). One-shot tools (sticky note, text on page) return to Select after use.
@@ -543,6 +543,17 @@ Every app works fully on touch laptops and with precision touchpads, not only wi
 - **Closed too early?** It goes on the next time, where it stopped.
 - **One model:** Settings show the order of the models (first choice, if that does not work, …) with what each needs. When another than the first choice answers, the app says so once, with the reason, and offers the order.
 - **A failed answer** is said in words a person understands, with *Try again*; never the text of an error of a program.
+
+### 17.13 Explaining things on the page (added 2026-11-25)
+
+1. **Ways in, the same everywhere:** right-click on the page, *Explain* (`sparkles`) in the popover of a figure, table, equation or region, the selection bar, the command palette. A right-click never selects, scrolls or opens AI by itself; it opens a menu.
+2. **The menu names what is under the pointer** ("Explain Figure 3", "Explain this paragraph"), AI first, then what can be copied, then notes. With a selection under the pointer it is about the selection. At most 9 rows; a row that cannot work now is not shown.
+3. **One card** (§11.2). What code knows is there at once: the symbols of an equation, what an explanation is based on. The text streams below. Nothing that is there moves when more comes.
+4. **Honest about the picture:** "From the caption and the text. The picture itself was not looked at." with *Look at the picture*. Looking asks once per paper, in a dialog that says what is read, by which model, that nothing leaves the computer and that answers pause meanwhile; *This figure* or *All n figures*. What was seen is marked *Seen in the picture*, apart from what the paper says.
+5. **Symbols** are a small table: symbol as printed, meaning in the paper's words, unit, a chip to the place. No meaning found: "not explained in the paper", in muted text.
+6. **Units check** in words: "Units agree", "Units do not agree: left m/s, right m", "Units not known for: β". Never only a colour.
+7. **Asking a table** happens in the table view: a question box under the header; the answer is a sentence with the number, the cells used are outlined and the answer's cell is filled; clicking the sentence scrolls to the cell. The sentence says what was computed.
+8. **Simpler** and **Deeper** are quiet buttons under a finished answer; they answer again in the same card.
 
 ### 17.7 Transient things
 Hover popovers and previews close by themselves when:

@@ -2,16 +2,30 @@
 // WebView2's DevTools port, and talk to the page over the DevTools protocol.
 
 import { spawn } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/** The layout model of `shared` in a folder of the run's own, beside its data: choices of language
+ * models are kept beside the models, and a test neither uses nor changes those of a person. */
+function ownModels(shared, data) {
+  const own = `${resolve(data)}-models`;
+  mkdirSync(own, { recursive: true });
+  // A run that begins anew has no choices.
+  if (!existsSync(data)) for (const f of readdirSync(own)) if (f.endsWith(".json")) rmSync(join(own, f));
+  const [from, link] = [join(resolve(shared), "egret-medium"), join(own, "egret-medium")];
+  if (existsSync(from) && !existsSync(link)) symlinkSync(from, link, "junction");
+  return own;
+}
+
 /** Start the app. `consoleLog` collects page errors and warnings. */
 export async function launch({ exe, args, data, webview, port, out, consoleLog }) {
+  const shared = process.env.EP_MODELS_DIR;
+  const models = shared ? { EP_MODELS_DIR: ownModels(shared, data) } : {};
   const app = spawn(exe, args, {
     // Absolute: the web view takes a relative folder from the program's place, where no test clears it.
-    env: { ...process.env, EP_DATA_DIR: resolve(data), WEBVIEW2_USER_DATA_FOLDER: resolve(webview), WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port}` },
+    env: { ...process.env, ...models, EP_DATA_DIR: resolve(data), WEBVIEW2_USER_DATA_FOLDER: resolve(webview), WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port}` },
     stdio: "ignore",
   });
   let target;

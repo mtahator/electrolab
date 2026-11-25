@@ -1,0 +1,614 @@
+{
+  "command": "understanding.explain_equation",
+  "input": {
+    "$defs": {
+      "BlobRef": {
+        "description": "A file in the content-addressed store: messages carry these, never large bytes (§9.4).",
+        "properties": {
+          "hash": {
+            "$ref": "#/$defs/Hash",
+            "description": "Content hash."
+          },
+          "media_type": {
+            "$ref": "#/$defs/MediaType",
+            "description": "What the bytes are."
+          },
+          "size": {
+            "description": "Size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "ExplainDepth": {
+        "description": "How deep an explanation goes.",
+        "oneOf": [
+          {
+            "const": "simpler",
+            "description": "In plain words.",
+            "type": "string"
+          },
+          {
+            "const": "normal",
+            "description": "As usual.",
+            "type": "string"
+          },
+          {
+            "const": "deeper",
+            "description": "With the details.",
+            "type": "string"
+          }
+        ]
+      },
+      "ExplainStream": {
+        "description": "Ask for the answer to be streamed as `understanding.explaining` events.",
+        "properties": {
+          "id": {
+            "description": "Id carried by every event of this answer.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "Hash": {
+        "description": "BLAKE3 content hash (hex)",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "MediaType": {
+        "description": "A media type such as `application/pdf`.",
+        "type": "string"
+      },
+      "PageRect": {
+        "description": "A rectangle on one page.",
+        "properties": {
+          "page": {
+            "description": "1-based page number.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "x0": {
+            "description": "Left edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "x1": {
+            "description": "Right edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "y0": {
+            "description": "Top edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "y1": {
+            "description": "Bottom edge.",
+            "format": "float",
+            "type": "number"
+          }
+        },
+        "required": [
+          "page",
+          "x0",
+          "y0",
+          "x1",
+          "y1"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `understanding.explain_region`, `explain_equation` and `explain_figure`.",
+    "properties": {
+      "depth": {
+        "$ref": "#/$defs/ExplainDepth",
+        "default": "normal",
+        "description": "How deep."
+      },
+      "file": {
+        "$ref": "#/$defs/BlobRef",
+        "description": "The paper's file."
+      },
+      "object": {
+        "description": "The object, as returned by `document.objects`.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "page": {
+        "description": "1-based page.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "paper": {
+        "description": "The paper in the library (what was seen in its figures is kept with it).",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "rect": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/PageRect"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Or a place: the object it covers best, or the text in it."
+      },
+      "stream": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ExplainStream"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Stream the answer."
+      }
+    },
+    "required": [
+      "file",
+      "page"
+    ],
+    "title": "ExplainRegion",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "Basis": {
+        "description": "What an explanation was made from.",
+        "oneOf": [
+          {
+            "const": "caption",
+            "description": "The caption.",
+            "type": "string"
+          },
+          {
+            "const": "text",
+            "description": "The text itself, or the text around it.",
+            "type": "string"
+          },
+          {
+            "const": "mentions",
+            "description": "The places that mention it.",
+            "type": "string"
+          },
+          {
+            "const": "words",
+            "description": "The words inside the figure.",
+            "type": "string"
+          },
+          {
+            "const": "cells",
+            "description": "The cells of the table.",
+            "type": "string"
+          },
+          {
+            "const": "formula",
+            "description": "The formula.",
+            "type": "string"
+          },
+          {
+            "const": "picture",
+            "description": "What was seen in the picture.",
+            "type": "string"
+          }
+        ]
+      },
+      "Evidence": {
+        "description": "A passage of the paper the check used.",
+        "properties": {
+          "page": {
+            "description": "1-based page.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "quote": {
+            "description": "Verbatim text of the paper.",
+            "type": "string"
+          },
+          "y": {
+            "description": "Top of the passage on its page (points).",
+            "format": "float",
+            "type": "number"
+          }
+        },
+        "required": [
+          "page",
+          "y",
+          "quote"
+        ],
+        "type": "object"
+      },
+      "ExplainStatus": {
+        "description": "How far an explanation was checked.",
+        "oneOf": [
+          {
+            "const": "unchecked",
+            "description": "Not checked (no passages, or the check gave no clear answer).",
+            "type": "string"
+          },
+          {
+            "const": "checked",
+            "description": "The check agreed with the draft.",
+            "type": "string"
+          },
+          {
+            "const": "corrected",
+            "description": "The check corrected the draft; the text is the correction.",
+            "type": "string"
+          }
+        ]
+      },
+      "ExplainTimings": {
+        "description": "Times of one explanation, from the request.",
+        "properties": {
+          "check_ms": {
+            "description": "The check alone.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "draft_ms": {
+            "description": "Draft done.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "first_token_ms": {
+            "description": "First draft token.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total_ms": {
+            "description": "Everything.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "first_token_ms",
+          "draft_ms",
+          "check_ms",
+          "total_ms"
+        ],
+        "type": "object"
+      },
+      "ExplainedKind": {
+        "description": "What was explained.",
+        "oneOf": [
+          {
+            "const": "paragraph",
+            "description": "Text.",
+            "type": "string"
+          },
+          {
+            "const": "equation",
+            "description": "A displayed equation.",
+            "type": "string"
+          },
+          {
+            "const": "figure",
+            "description": "A figure.",
+            "type": "string"
+          },
+          {
+            "const": "table",
+            "description": "A table.",
+            "type": "string"
+          }
+        ]
+      },
+      "FigureSeen": {
+        "description": "What was seen in one figure.",
+        "properties": {
+          "at_ms": {
+            "description": "When (ms since 1970).",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "label": {
+            "description": "Its printed label.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "model": {
+            "description": "Model that looked.",
+            "type": "string"
+          },
+          "object": {
+            "$ref": "#/$defs/ObjectRef",
+            "description": "The figure."
+          },
+          "text": {
+            "description": "What was seen.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "object",
+          "text",
+          "model",
+          "at_ms"
+        ],
+        "type": "object"
+      },
+      "ObjectRef": {
+        "description": "A reference to an object in the same file.",
+        "properties": {
+          "id": {
+            "description": "The object's id.",
+            "type": "string"
+          },
+          "page": {
+            "description": "1-based page.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "id"
+        ],
+        "type": "object"
+      },
+      "Symbol": {
+        "description": "A symbol of an equation and what the paper says it means.",
+        "properties": {
+          "meaning": {
+            "description": "Its meaning, word for word from the paper; missing when the paper does not say it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "page": {
+            "description": "1-based page where the meaning stands.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "quote": {
+            "description": "The sentence it stands in.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "shown": {
+            "description": "As plain text (\"`T_in`\").",
+            "type": "string"
+          },
+          "symbol": {
+            "description": "LaTeX of the symbol, or the characters printed.",
+            "type": "string"
+          },
+          "unit": {
+            "description": "Its unit, when the paper prints one with the meaning.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "y": {
+            "description": "Top of that place (points).",
+            "format": "float",
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "symbol",
+          "shown"
+        ],
+        "type": "object"
+      },
+      "UnitsCheck": {
+        "description": "The units check of an equation.",
+        "properties": {
+          "missing": {
+            "description": "Symbols whose unit is not known.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "result": {
+            "$ref": "#/$defs/UnitsResult",
+            "description": "The result."
+          },
+          "sides": {
+            "description": "Units of the parts compared, in base units, in the order they stand (unknown ones left out).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "unread": {
+            "description": "The formula could not be read.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "result",
+          "sides",
+          "missing",
+          "unread"
+        ],
+        "type": "object"
+      },
+      "UnitsResult": {
+        "description": "Whether the units of a formula agree.",
+        "oneOf": [
+          {
+            "const": "consistent",
+            "description": "Every unit is known and they agree.",
+            "type": "string"
+          },
+          {
+            "const": "inconsistent",
+            "description": "Every unit needed is known and they do not agree.",
+            "type": "string"
+          },
+          {
+            "const": "unknown",
+            "description": "Not enough is known, or the formula could not be read.",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Output of `understanding.explain_region`, `explain_equation` and `explain_figure`.",
+    "properties": {
+      "based_on": {
+        "description": "What the explanation was made from.",
+        "items": {
+          "$ref": "#/$defs/Basis"
+        },
+        "type": "array"
+      },
+      "evidence": {
+        "description": "Places of the paper that were used.",
+        "items": {
+          "$ref": "#/$defs/Evidence"
+        },
+        "type": "array"
+      },
+      "kind": {
+        "$ref": "#/$defs/ExplainedKind",
+        "description": "What it is."
+      },
+      "label": {
+        "description": "Its printed label.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "latex": {
+        "description": "Equations: the LaTeX, when the formula model read it.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "left_out": {
+        "description": "Sentences left out because they named numbers that stand nowhere.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "model": {
+        "description": "Model that answered.",
+        "type": "string"
+      },
+      "object": {
+        "description": "The object, when it is one.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "page": {
+        "description": "1-based page.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "seen": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/FigureSeen"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Figures: what was seen in the picture."
+      },
+      "status": {
+        "$ref": "#/$defs/ExplainStatus",
+        "description": "How far it was checked."
+      },
+      "symbols": {
+        "default": [],
+        "description": "Equations: the symbols.",
+        "items": {
+          "$ref": "#/$defs/Symbol"
+        },
+        "type": "array"
+      },
+      "text": {
+        "description": "The explanation.",
+        "type": "string"
+      },
+      "timings": {
+        "$ref": "#/$defs/ExplainTimings",
+        "description": "Times."
+      },
+      "units": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/UnitsCheck"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Equations: the units check."
+      }
+    },
+    "required": [
+      "kind",
+      "page",
+      "text",
+      "status",
+      "evidence",
+      "based_on",
+      "left_out",
+      "model",
+      "timings"
+    ],
+    "title": "ObjectExplanation",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Explain an equation: meaning, symbols, units"
+}

@@ -27,6 +27,26 @@
         ],
         "type": "object"
       },
+      "ExplainDepth": {
+        "description": "How deep an explanation goes.",
+        "oneOf": [
+          {
+            "const": "simpler",
+            "description": "In plain words.",
+            "type": "string"
+          },
+          {
+            "const": "normal",
+            "description": "As usual.",
+            "type": "string"
+          },
+          {
+            "const": "deeper",
+            "description": "With the details.",
+            "type": "string"
+          }
+        ]
+      },
       "ExplainStream": {
         "description": "Ask for the answer to be streamed as `understanding.explaining` events.",
         "properties": {
@@ -66,6 +86,11 @@
           "string",
           "null"
         ]
+      },
+      "depth": {
+        "$ref": "#/$defs/ExplainDepth",
+        "default": "normal",
+        "description": "How deep."
       },
       "file": {
         "$ref": "#/$defs/BlobRef",

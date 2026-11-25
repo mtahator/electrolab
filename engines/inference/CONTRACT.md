@@ -1,6 +1,6 @@
 # Inference engine — contract
 
-Version: 0.4.0      Stability: experimental      Tier: T1
+Version: 0.5.0      Stability: experimental      Tier: T1
 Crates: `ep-inference-contract` (types), `ep-inference-core` (ports, request building, Replay), `ep-inference-adapter-llamacpp` (sidecar), `ep-inference` (facade)
 
 ## Purpose
@@ -17,6 +17,7 @@ All experimental. Errors are `CommandError::Failed { kind }` with the kinds belo
 | `inference.add_folder` | `{ path }` → `Models` (the folder is searched at once, and from now on) | create |
 | `inference.remove_folder` | `{ path }` → `Models` (nothing on disk is touched) | create |
 | `inference.choose` | `{ order?, keep_ready? }` → `Models` (the order in which models are tried, `[]`: automatic again; whether one is kept ready) | create |
+| `inference.vision_read` | `VisionRead { pictures: [{ image: BlobRef, question, data? }], consent, background, stream? }` → `VisionAnswer { texts: [string], model, total_ms }` | create |
 | `inference.status` | `null` → `Status` | read |
 | `inference.load` | `{ model? }` → `Status` (starts the runtime with that model, or the first of the order that can be used; returns when it answers) | read |
 | `inference.warm` | `null` → `Status` (makes a model ready when the user wants one kept; called when the app starts) | read |
@@ -44,21 +45,30 @@ All experimental. Errors are `CommandError::Failed { kind }` with the kinds belo
 ### One model, kept ready (founder request, 2026-11-24)
 - **One model answers every kind of work** and stays loaded, so that no answer waits for a model. It is loaded a moment after the app starts (`keep_ready`, can be switched off).
 - **Order:** the user's first choice, second choice, …; without one: the suggestion, then smaller models (three in all). Models that are gone are left out.
-- **Memory first:** before loading, the free memory of the graphics card is measured (`--list-devices` of the same build, less what other programs use — Windows promises every program nearly the whole card) and compared with what each model needs (weights, cache counted from the header, working memory). The first that fits is used, with a shorter context if that is what is missing. When none fits whole, the smallest is shared with the processor.
+- **Memory first:** before loading, the free memory of the graphics card is measured (`--list-devices` of the same build, less what other programs use — Windows promises every program nearly the whole card) and compared with what each model needs (weights, cache counted from the header, working memory). The first that fits is used, with a shorter context if that is what is missing. When none fits whole, the smallest is shared with the processor. The memory of a model that was just ended comes free late: it is measured again for a few seconds before a smaller model is taken.
 - **Next one** when a model does not start, or is slower than 3 tokens a second twice in a row. The reason is in `Status`, in the route reason and in `model.fallback`; the app says it once and offers the order.
 - **Back to the first choice:** a background answer looks again after 10 minutes and changes back when the first choice fits in the place of the running one; a change of the order does so when nobody is waiting. A person's answer never waits for a change of model.
+
+### Looking at pictures (P1.M5.INF.10, 2026-11-25)
+- `vision_read` needs `consent: true` (else `consent_needed`); pictures stay on this computer (guarantee 4). At most 60 pictures, each at most 8 MB.
+- The model is a chat model with its picture part (`mmproj-…`) found next to it; the smallest such pair. Without one: `no_vision_model`. `Models.vision?: { id, name }` says which.
+- **One model at a time:** the vision model takes the place of the answering model. The free memory is measured first; the picture part stays on the card as long as it fits there (it is the slow one), then llama.cpp decides how much of the rest; only without room for it does it run on the processor.
+- **A person's question goes first:** between pictures (and in the middle of one) the batch gives way, the answering model answers, the batch goes on. Other background work (digests) waits for the end of the batch, so the models do not change places for every picture. At the end the answering model is made ready again when the user wants one kept ready.
+- The place of a picture in the paper's words (caption) is sent as data, never as instructions.
+- Progress: `inference.vision { id, done, total, text }` after each picture (with `stream`); the text grows as `inference.token`.
 
 `Runtime { backend: cuda | vulkan | cpu | none, build }` — the llama.cpp build that will run (ADR-005: Vulkan by default, CUDA when present, CPU always; the Vulkan package also holds the CPU code, so it serves machines without a Vulkan driver, with no layers on the GPU).
 
 `Status { state: stopped | starting | ready | failed, model?, backend?, error?, wanted?, fallback?, ready_ms? }`
 
-Error kinds: `no_model` (no model file found), `no_runtime` (no llama.cpp build found), `start_failed`, `runtime_failed` (the sidecar stopped answering; it is restarted on the next call), `bad_output` (schema not met after one retry), `remote_not_allowed` (local-only data and no local backend), `cancelled`.
+Error kinds: `no_model` (no model file found), `no_runtime` (no llama.cpp build found), `start_failed`, `runtime_failed` (the sidecar stopped answering; it is restarted on the next call), `bad_output` (schema not met after one retry), `remote_not_allowed` (local-only data and no local backend), `consent_needed`, `no_vision_model`, `cancelled`.
 
 ## Events (hub)
 - `inference.token` `{ id, text }` — the next piece of a streamed answer (`stream.id` of the request). The final `LlmResponse` is the exact text.
 - `model.loading` `{ model }`, `model.loaded` `{ model, backend, ms }`, `model.unloaded` `{ model }`.
 - `model.fallback` `{ wanted, used, reason: not_enough_memory | start_failed | too_slow }` — another model than the first choice is used.
 - `route.decided` `{ task, backend, model, reason }`.
+- `inference.vision` `{ id, done, total, text }` — a picture was read.
 - `inference.models_changed` `{}` — folders, choices or models changed.
 
 ## Ports
@@ -80,6 +90,7 @@ Error kinds: `no_model` (no model file found), `no_runtime` (no llama.cpp build 
 3. The route reason is returned with every answer and published as `route.decided`.
 4. `local_only` requests never go to a remote backend (there is none in this slice; the router refuses them anyway).
 5. Cancelling a call stops the generation (the HTTP stream is closed; llama-server stops the slot).
+6. A picture is read only with consent, and only by a model on this computer.
 
 ## Budget (ADR-005, spike S3)
 - Small model ready < 5 s (S3: 1.4–3.3 s); first token (warm) < 500 ms on GPU (S3: 100–340 ms).
@@ -89,6 +100,7 @@ Error kinds: `no_model` (no model file found), `no_runtime` (no llama.cpp build 
 - A live test with the real sidecar runs when a llama.cpp build and a model are found (skipped otherwise).
 
 ## Changelog
+- 0.5.0 (2026-11-25): `vision_read`; `Models.vision`.
 - 0.4.0 (2026-11-24): one model in the user's order instead of one per task (`choose` replaces `assign`); memory measured before loading, next model when it does not fit, start or keep up; kept ready from the start of the app; background answers give way; schema answers never "think" first.
 - 0.3.0 (2026-11-24): `LlmRequest.background` (people go first); tasks `digest` and `find`.
 - 0.2.0 (2026-11-24): automatic model search, suggestion, a model per task; `search_models`, `add_folder`, `remove_folder`, `assign`.

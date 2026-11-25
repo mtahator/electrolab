@@ -1,0 +1,301 @@
+{
+  "command": "understanding.table_answer",
+  "input": {
+    "$defs": {
+      "BlobRef": {
+        "description": "A file in the content-addressed store: messages carry these, never large bytes (§9.4).",
+        "properties": {
+          "hash": {
+            "$ref": "#/$defs/Hash",
+            "description": "Content hash."
+          },
+          "media_type": {
+            "$ref": "#/$defs/MediaType",
+            "description": "What the bytes are."
+          },
+          "size": {
+            "description": "Size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "Hash": {
+        "description": "BLAKE3 content hash (hex)",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "MediaType": {
+        "description": "A media type such as `application/pdf`.",
+        "type": "string"
+      },
+      "ObjectRef": {
+        "description": "A reference to an object in the same file.",
+        "properties": {
+          "id": {
+            "description": "The object's id.",
+            "type": "string"
+          },
+          "page": {
+            "description": "1-based page.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "id"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `understanding.table_answer`.",
+    "properties": {
+      "file": {
+        "$ref": "#/$defs/BlobRef",
+        "description": "The paper's file."
+      },
+      "object": {
+        "$ref": "#/$defs/ObjectRef",
+        "description": "The table."
+      },
+      "question": {
+        "description": "The question.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "file",
+      "object",
+      "question"
+    ],
+    "title": "TableQuestion",
+    "type": "object"
+  },
+  "output": {
+    "$defs": {
+      "CellRef": {
+        "description": "A cell of the table that was used.",
+        "properties": {
+          "col": {
+            "description": "Column, 0-based.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rect": {
+            "$ref": "#/$defs/PageRect",
+            "description": "Its box on the page."
+          },
+          "role": {
+            "$ref": "#/$defs/CellRole",
+            "description": "Answer or used."
+          },
+          "row": {
+            "description": "Row, 0-based, headings counted (as in `document.table`).",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "text": {
+            "description": "What stands in it.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "row",
+          "col",
+          "text",
+          "rect",
+          "role"
+        ],
+        "type": "object"
+      },
+      "CellRole": {
+        "description": "Whether a cell is the answer or was used for it.",
+        "oneOf": [
+          {
+            "const": "answer",
+            "description": "The answer stands in it.",
+            "type": "string"
+          },
+          {
+            "const": "used",
+            "description": "It was used.",
+            "type": "string"
+          }
+        ]
+      },
+      "PageRect": {
+        "description": "A rectangle on one page.",
+        "properties": {
+          "page": {
+            "description": "1-based page number.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "x0": {
+            "description": "Left edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "x1": {
+            "description": "Right edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "y0": {
+            "description": "Top edge.",
+            "format": "float",
+            "type": "number"
+          },
+          "y1": {
+            "description": "Bottom edge.",
+            "format": "float",
+            "type": "number"
+          }
+        },
+        "required": [
+          "page",
+          "x0",
+          "y0",
+          "x1",
+          "y1"
+        ],
+        "type": "object"
+      },
+      "TableReason": {
+        "description": "Why a table does not answer.",
+        "oneOf": [
+          {
+            "const": "not_in_table",
+            "description": "It does not hold it.",
+            "type": "string"
+          },
+          {
+            "const": "not_numbers",
+            "description": "The cells are no numbers.",
+            "type": "string"
+          },
+          {
+            "const": "different_units",
+            "description": "The cells have different units.",
+            "type": "string"
+          },
+          {
+            "const": "not_two",
+            "description": "Comparing needs exactly two cells.",
+            "type": "string"
+          }
+        ]
+      },
+      "TableStatus": {
+        "description": "Whether a table answered.",
+        "oneOf": [
+          {
+            "const": "computed",
+            "description": "Taken or computed from the cells.",
+            "type": "string"
+          },
+          {
+            "const": "not_in_table",
+            "description": "The table does not give it (`reason` says why).",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Output of `understanding.table_answer`.",
+    "properties": {
+      "cells": {
+        "description": "The cells.",
+        "items": {
+          "$ref": "#/$defs/CellRef"
+        },
+        "type": "array"
+      },
+      "model": {
+        "description": "Model that understood the question.",
+        "type": "string"
+      },
+      "op": {
+        "description": "What was done: value, list, largest, smallest, average, sum, count, difference, ratio,\nchange or none.",
+        "type": "string"
+      },
+      "question": {
+        "description": "The question.",
+        "type": "string"
+      },
+      "reason": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/TableReason"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Why not."
+      },
+      "status": {
+        "$ref": "#/$defs/TableStatus",
+        "description": "Whether there is an answer."
+      },
+      "text": {
+        "description": "The answer, written by code; empty when there is none.",
+        "type": "string"
+      },
+      "total_ms": {
+        "description": "Time taken.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "unit": {
+        "description": "Its unit.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "value": {
+        "description": "The number, when the answer is one.",
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      }
+    },
+    "required": [
+      "question",
+      "text",
+      "op",
+      "cells",
+      "status",
+      "model",
+      "total_ms"
+    ],
+    "title": "TableAnswer",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "read"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Answer a question from a table's cells; the number is computed"
+}

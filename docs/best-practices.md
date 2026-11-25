@@ -114,9 +114,11 @@ tags: ai, llm, model, explain, prompt
 - do: one model, kept loaded; measure the free memory before loading another; a second choice for when it does not fit
 - do: say a failure in plain words with Try again; a part that fails does not lose the rest
 - do: look at real output with a real paper before the page is built, and again in the finished page
+- do: let code compute and write what can be computed (numbers, units, cells); the model only says what is meant, from names that exist
+- do: leave out what the model added: a number or a meaning that does not stand in what it was given
 - never: text from a paper in an instruction; local-only text to a remote backend; "checked" without a check
-- proof: `test:data_is_a_labelled_section_after_the_question` `test:local_only_never_goes_to_a_remote_backend` `test:a_wrong_draft_is_corrected_from_the_paper` `test:stop_ends_the_answer` `test:what_a_person_asks_goes_before_background_answers` `test:finding_works_without_a_model` `test:a_full_memory_means_the_next_model` `test:all_papers_of_a_library_are_sorted` `test:a_part_that_cannot_be_read_does_not_lose_the_others`
-- done: the engine's tests, `node e2e/explain.mjs` with and without a model
+- proof: `test:data_is_a_labelled_section_after_the_question` `test:local_only_never_goes_to_a_remote_backend` `test:a_wrong_draft_is_corrected_from_the_paper` `test:stop_ends_the_answer` `test:what_a_person_asks_goes_before_background_answers` `test:finding_works_without_a_model` `test:a_full_memory_means_the_next_model` `test:all_papers_of_a_library_are_sorted` `test:a_part_that_cannot_be_read_does_not_lose_the_others` `test:a_table_answers_with_its_cells` `test:a_number_from_nowhere_is_left_out` `test:an_abbreviation_is_spelled_as_the_paper_does`
+- done: the engine's tests, the golden set with the real model, `node e2e/explain.mjs` and `node e2e/objects.mjs` with and without a model
 
 ## file A file or program from outside
 tags: download, model, native, gguf, pdf, licence, security

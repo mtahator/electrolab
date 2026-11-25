@@ -1,6 +1,6 @@
 # Document engine — contract
 
-Version: 0.4.0      Stability: experimental      Tier: T1
+Version: 0.4.1      Stability: experimental      Tier: T1
 Crates: `ep-document-contract` (types), `ep-document-core` (pure logic), `ep-document-adapter-pdfium`, `ep-document-adapter-lopdf`, `ep-document-adapter-onnx`, `ep-document` (facade)
 
 ## Purpose
@@ -134,6 +134,7 @@ Raw numbers: `engines/document/core/benches-results/search-2026-11-13.jsonl`; re
 - none yet (the Greek-name table and stemming rules are code; they move to assets if they become language-specific lists).
 
 ## Changelog
+- 0.4.1 (2026-11-25): better columns of `document.table`: a heading over several columns does not join them, entries of one column that stand apart are one column; a row with words below a whole heading is not a heading.
 - 0.3.0 (2026-11-14): annotations — `annotations`, `annotations_apply`, `annotations_undo`, `annotations_redo`, `annotate` (P1.M3); page images no longer include annotations.
 - 0.2.0 (2026-11-13): `info`, `text`, `render`, `thumbnails`, `outline`, `links` with the PDFium adapter; `search` on the bus (index built from PDFium text on first use).
 - 0.1.0 (2026-11-13): `document.search` contract and core; `document.metadata` with the lopdf adapter and the facade.

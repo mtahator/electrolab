@@ -198,6 +198,8 @@ fn main() -> anyhow::Result<()> {
     }
     #[cfg(windows)]
     inference.use_machine(Arc::new(ep_os_windows::WinMachine));
+    let shown = document.clone();
+    inference.use_pictures(Arc::new(move |h| shown.render_path(h)));
     inference.register(&bus)?;
     let knowledge = ep_knowledge::Knowledge::new();
     #[cfg(windows)]

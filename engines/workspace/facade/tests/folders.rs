@@ -250,6 +250,13 @@ async fn deleting_a_folder_keeps_its_papers() {
 #[tokio::test]
 async fn a_digest_is_kept_with_its_paper_and_goes_with_it() {
     let (l, p) = lib(2).await;
+    l.ok(
+        "workspace.save_figures",
+        json!({ "paper": p[0], "data": { "seen": [] } }),
+    )
+    .await;
+    let figures = l.ok("workspace.get_figures", json!({})).await;
+    assert_eq!(figures[0]["paper"], json!(p[0]), "apart from the digests");
     for id in &p {
         l.ok(
             "workspace.save_digest",
@@ -275,6 +282,8 @@ async fn a_digest_is_kept_with_its_paper_and_goes_with_it() {
     let left = call("workspace.get_digests", json!({})).await;
     assert_eq!(left.as_array().unwrap().len(), 1);
     assert_eq!(left[0]["paper"], json!(p[1]));
+    let figures = call("workspace.get_figures", json!({})).await;
+    assert_eq!(figures, json!([]), "gone with the paper");
     let r = l
         .call(
             "workspace.save_digest",

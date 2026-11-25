@@ -268,6 +268,24 @@
           "backend"
         ],
         "type": "object"
+      },
+      "LlmVisionModel": {
+        "description": "The model that looks at pictures.",
+        "properties": {
+          "id": {
+            "description": "Stable id.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Name for people.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
       }
     },
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -316,6 +334,17 @@
       "runtime": {
         "$ref": "#/$defs/LlmRuntime",
         "description": "The runtime."
+      },
+      "vision": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/LlmVisionModel"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The model that looks at pictures, when there is one."
       }
     },
     "required": [

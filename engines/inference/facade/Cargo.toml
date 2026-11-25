@@ -12,6 +12,7 @@ ep-inference-core = { path = "../core" }
 ep-inference-adapter-llamacpp = { path = "../adapters/llamacpp" }
 ep-bus = { path = "../../../foundation/bus" }
 ep-os = { path = "../../../foundation/os" }
+ep-types = { path = "../../../foundation/types" }
 parking_lot.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -19,6 +20,7 @@ tokio.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
 futures.workspace = true
 tempfile.workspace = true
 

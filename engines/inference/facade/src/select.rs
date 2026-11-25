@@ -2,6 +2,7 @@
 //! and what could not be used before. Pure: it decides, the facade starts.
 
 use std::collections::HashSet;
+use std::time::Duration;
 
 use ep_inference_contract::{Backend, ModelKind};
 
@@ -13,6 +14,27 @@ const AUTOMATIC: usize = 3;
 pub const SHORT_CONTEXT: u32 = 6144;
 /// Memory a runtime needs besides the weights and the context.
 const WORKING: u64 = 280 << 20;
+
+/// How often, and how far apart, the memory is measured after a model was ended.
+const ROUNDS: u32 = 6;
+const ROUND: Duration = Duration::from_millis(500);
+
+/// Measure again until it is enough: the memory of a program that was ended comes free a moment later.
+/// What was measured last is given back, also when it never is enough.
+pub async fn settled<T, F>(measure: impl Fn() -> F, enough: impl Fn(&T) -> bool) -> Option<T>
+where
+    F: Future<Output = Option<T>>,
+{
+    let mut last = measure().await?;
+    for _ in 0..ROUNDS {
+        if enough(&last) {
+            break;
+        }
+        tokio::time::sleep(ROUND).await;
+        last = measure().await.unwrap_or(last);
+    }
+    Some(last)
+}
 
 /// What to start.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -102,6 +124,31 @@ mod tests {
             context: 8192,
             cache_per_token: Some(75_000),
         }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn memory_that_comes_free_late_is_waited_for() {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        let asked = AtomicU32::new(0);
+        let after = |late: u32| {
+            asked.store(0, Ordering::SeqCst);
+            let asked = &asked;
+            move || async move {
+                let n = asked.fetch_add(1, Ordering::SeqCst);
+                Some(if n < late { 900 } else { 3700 })
+            }
+        };
+        let enough = |free: &u32| *free >= 3200;
+        // Enough at once: measured once. Late: until it is there.
+        assert_eq!(settled(after(0), enough).await, Some(3700));
+        assert_eq!(asked.load(Ordering::SeqCst), 1);
+        assert_eq!(settled(after(4), enough).await, Some(3700));
+        assert_eq!(asked.load(Ordering::SeqCst), 5);
+        // Never: not for ever.
+        assert_eq!(settled(after(99), enough).await, Some(900));
+        assert_eq!(asked.load(Ordering::SeqCst), ROUNDS + 1);
+        // Not known: not asked again.
+        assert_eq!(settled(|| async { None::<u32> }, enough).await, None);
     }
 
     #[test]

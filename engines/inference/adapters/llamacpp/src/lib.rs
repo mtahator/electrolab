@@ -7,9 +7,10 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
+use base64::Engine as _;
 use ep_inference_contract::Role;
 use ep_inference_core::{
-    BackendError, Completion, InferenceBackend, IsCancelled, OnToken, Prepared,
+    BackendError, Completion, Image, InferenceBackend, IsCancelled, OnToken, Prepared,
 };
 use futures::future::BoxFuture;
 use serde_json::{Value, json};
@@ -36,6 +37,10 @@ pub struct Config {
     pub exe: PathBuf,
     /// GGUF model file.
     pub model: PathBuf,
+    /// The part that looks at pictures (GGUF), when pictures are to be read.
+    pub mmproj: Option<PathBuf>,
+    /// That part runs on the processor (the graphics memory is too small).
+    pub mmproj_on_cpu: bool,
     /// Model id reported in answers.
     pub model_id: String,
     /// Context length.
@@ -199,6 +204,17 @@ impl LlamaCppSidecar {
                     .flat_map(|d| ["-dev".into(), d.clone().into()]),
             )
             .chain(
+                c.mmproj
+                    .iter()
+                    .flat_map(|p| ["--mmproj".into(), p.clone().into_os_string()]),
+            )
+            .chain(
+                ["--no-mmproj-offload"]
+                    .into_iter()
+                    .filter(|_| c.mmproj.is_some() && c.mmproj_on_cpu)
+                    .map(Into::into),
+            )
+            .chain(
                 ["-fa", "on", "-ctk", "q8_0", "-ctv", "q8_0"]
                     .into_iter()
                     .filter(|_| c.compact)
@@ -212,15 +228,22 @@ impl LlamaCppSidecar {
     }
 
     fn body(&self, req: &Prepared) -> Value {
+        let question = req.messages.iter().rposition(|m| m.role == Role::User);
         let messages: Vec<Value> = req
             .messages
             .iter()
-            .map(|m| {
+            .enumerate()
+            .map(|(i, m)| {
                 let role = match m.role {
                     Role::System => "system",
                     Role::User => "user",
                     Role::Assistant => "assistant",
                 };
+                if question == Some(i) && !req.images.is_empty() {
+                    let mut content: Vec<Value> = req.images.iter().map(picture).collect();
+                    content.push(json!({ "type": "text", "text": m.content }));
+                    return json!({ "role": role, "content": content });
+                }
                 json!({ "role": role, "content": m.content })
             })
             .collect();
@@ -306,6 +329,15 @@ impl LlamaCppSidecar {
             None => Ok(out.done),
         }
     }
+}
+
+/// A picture as the server takes it: inside the request, never an address.
+fn picture(i: &Image) -> Value {
+    let data = base64::engine::general_purpose::STANDARD.encode(i.bytes.as_slice());
+    json!({
+        "type": "image_url",
+        "image_url": { "url": format!("data:{};base64,{data}", i.media_type) }
+    })
 }
 
 /// What was read of an answer.
@@ -413,6 +445,7 @@ mod tests {
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
     use super::*;
+    use ep_inference_contract::Message;
 
     #[test]
     fn sse_lines_are_read_defensively() {
@@ -546,6 +579,8 @@ mod tests {
         let config = Config {
             exe: file.clone(),
             model: file,
+            mmproj: None,
+            mmproj_on_cpu: false,
             model_id: "m".into(),
             context: 4096,
             gpu_layers: Some(0),
@@ -564,6 +599,7 @@ mod tests {
             schema: None,
             max_tokens: 8,
             temperature: 0.0,
+            images: vec![],
         }
     }
 
@@ -585,6 +621,27 @@ mod tests {
             arg(&specs[1], "--api-key"),
             "a new key every start"
         );
+    }
+
+    #[test]
+    fn a_picture_travels_inside_the_question() {
+        let (mut s, _) = sidecar(false);
+        s.config.mmproj = Some(PathBuf::from("eye.gguf"));
+        s.config.mmproj_on_cpu = true;
+        let spec = s.spec(1, "k");
+        assert_eq!(arg(&spec, "--mmproj"), "eye.gguf");
+        assert!(spec.args.iter().any(|a| a == "--no-mmproj-offload"));
+        let mut q = question();
+        q.messages = vec![Message::system("Look."), Message::user("What is it?")];
+        q.images = vec![Image {
+            media_type: "image/png".into(),
+            bytes: Arc::new(b"abc".to_vec()),
+        }];
+        let b = s.body(&q);
+        assert_eq!(b["messages"][0]["content"], "Look.");
+        let c = &b["messages"][1]["content"];
+        assert_eq!(c[0]["image_url"]["url"], "data:image/png;base64,YWJj");
+        assert_eq!(c[1]["text"], "What is it?");
     }
 
     #[tokio::test]

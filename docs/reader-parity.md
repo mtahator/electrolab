@@ -96,50 +96,50 @@ Legend: **P** = parity with today's reader · **+** = improvement or new in T1
 - [ ] + `write.policy` Policy and evidence rules applied; result placed as an annotation
 
 ### Explain (double-click) — M5
-- [ ] P `explain.popup` Compact popup on double-click; closes on outside click
-- [ ] P `explain.checked` First answer, then checked against the PDF and corrected if needed
-- [ ] P `explain.pages` Page buttons in the popup
+- [x] P `explain.popup` Compact popup on double-click; closes on outside click
+- [x] P `explain.checked` First answer, then checked against the PDF and corrected if needed
+- [x] P `explain.pages` Page buttons in the popup
 - [ ] P `explain.to-chat` "Ask more in the PDF chat"
 - [ ] + `explain.fast` First token < 500 ms (warm); checked < 2 s
 - [ ] + `explain.language` Explain in Persian or English — **moved to Phase 3** (English-only until then)
-- [ ] + `explain.depth` "Explain simpler / deeper"
-- [ ] + `explain.save-note` Save the explanation as a note
+- [x] + `explain.depth` "Explain simpler / deeper"
+- [x] + `explain.save-note` Save the explanation as a note
 
 ### Explain figure — M5
-- [ ] P `fig.explain` Explain a figure from the saved scan, no model switch, < 1.5 s
+- [ ] P `fig.explain` Explain a figure from the saved scan, no model switch, < 1.5 s — done but for the time: 3.4 s with its check
 - [ ] + `fig.jump` Figure jump list (M4)
 - [ ] + `fig.compare` "Compare with figure N"
 
 ### Right-click menu — M5
-- [ ] P `menu.explain-object` "Explain this paragraph / equation / figure / table / graph" from the detected object
+- [x] P `menu.explain-object` "Explain this paragraph / equation / figure / table / graph" from the detected object
 - [ ] P `menu.ask-part` "Ask about this part"
 - [ ] P `menu.lookup` "Look up selected text"
-- [ ] P `menu.comment` "Add comment"
+- [x] P `menu.comment` "Add comment"
 - [ ] P `menu.region` "Select area to ask"
-- [ ] + `menu.latex` "Copy as LaTeX"
-- [ ] + `menu.csv` "Table to CSV"
+- [x] + `menu.latex` "Copy as LaTeX"
+- [x] + `menu.csv` "Table to CSV"
 - [ ] + `menu.term-usage` "Where else is this term used" (M6)
-- [ ] + `menu.cite` "Cite"
+- [x] + `menu.cite` "Cite"
 - [ ] + `menu.experiment` "Make an experiment from this method" — shown only with the Lab installed (Phase 2)
 
 ### Equations — M4 / M5
 - [ ] P `eq.latex` Equation to LaTeX (math OCR) (M4)
 - [ ] P `eq.numbers` Equation numbers; find an equation by its number (M4)
-- [ ] P `eq.context` Context and symbol definitions (M5)
+- [x] P `eq.context` Context and symbol definitions (M5)
 - [ ] P `eq.image` Equation image (M4)
-- [ ] + `eq.symbols` Symbol table per equation (M5)
-- [ ] + `eq.dimensions` Dimensional check where units are known (M5)
+- [x] + `eq.symbols` Symbol table per equation (M5)
+- [x] + `eq.dimensions` Dimensional check where units are known (M5)
 - [ ] + `eq.notebook` "Open in notebook (SymPy)" — exports a file (M5)
 - [ ] + `eq.plot` "Plot this equation" — exports a file (M5)
 
 ### Tables — M4 / M5
-- [ ] P `table.answer` Answers computed from table rows and columns (M5)
+- [x] P `table.answer` Answers computed from table rows and columns (M5)
 - [ ] + `table.export` Export to CSV (M4)
 - [ ] + `table.view` Sortable table view (M4)
 
 ### Figures — M4 / M5 / M7
 - [ ] P `figs.index` Figure index with captions (M4)
-- [ ] P `figs.vision` "Inspect with vision": batch, with consent (M5)
+- [x] P `figs.vision` "Inspect with vision": batch, with consent (M5)
 - [ ] + `figs.data` *(1.x)* Data points from simple line and scatter plots (M7)
 
 ### Scanned pages — M4

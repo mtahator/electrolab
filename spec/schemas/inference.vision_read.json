@@ -1,0 +1,154 @@
+{
+  "command": "inference.vision_read",
+  "input": {
+    "$defs": {
+      "BlobRef": {
+        "description": "A file in the content-addressed store: messages carry these, never large bytes (§9.4).",
+        "properties": {
+          "hash": {
+            "$ref": "#/$defs/Hash",
+            "description": "Content hash."
+          },
+          "media_type": {
+            "$ref": "#/$defs/MediaType",
+            "description": "What the bytes are."
+          },
+          "size": {
+            "description": "Size in bytes.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "media_type"
+        ],
+        "type": "object"
+      },
+      "Hash": {
+        "description": "BLAKE3 content hash (hex)",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "LlmPicture": {
+        "description": "A picture and what is asked about it.",
+        "properties": {
+          "data": {
+            "description": "Words of the paper about it (its caption), sent as data.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "image": {
+            "$ref": "#/$defs/BlobRef",
+            "description": "The picture (PNG or JPEG)."
+          },
+          "question": {
+            "description": "What is asked.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "image",
+          "question"
+        ],
+        "type": "object"
+      },
+      "LlmStream": {
+        "description": "Ask for the answer to be streamed as `inference.token` events.",
+        "properties": {
+          "id": {
+            "description": "Id carried by every event of this answer.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "MediaType": {
+        "description": "A media type such as `application/pdf`.",
+        "type": "string"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Input of `inference.vision_read`.",
+    "properties": {
+      "background": {
+        "default": false,
+        "description": "Nobody is waiting: what a person asked goes first.",
+        "type": "boolean"
+      },
+      "consent": {
+        "description": "The user agreed to these pictures being read.",
+        "type": "boolean"
+      },
+      "pictures": {
+        "description": "The pictures, in the order they are read.",
+        "items": {
+          "$ref": "#/$defs/LlmPicture"
+        },
+        "type": "array"
+      },
+      "stream": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/LlmStream"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Stream the texts, and say what is done, with this id."
+      }
+    },
+    "required": [
+      "pictures",
+      "consent"
+    ],
+    "title": "VisionRead",
+    "type": "object"
+  },
+  "output": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "What was read in the pictures.",
+    "properties": {
+      "model": {
+        "description": "Model that read them.",
+        "type": "string"
+      },
+      "texts": {
+        "description": "One text per picture.",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "total_ms": {
+        "description": "Time for all of them.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "texts",
+      "model",
+      "total_ms"
+    ],
+    "title": "VisionAnswer",
+    "type": "object"
+  },
+  "permission": {
+    "data": [],
+    "destination": "device",
+    "operation": "create"
+  },
+  "stability": "experimental",
+  "streaming": false,
+  "summary": "Read pictures with a model on this computer, when the user agrees"
+}

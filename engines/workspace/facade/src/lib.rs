@@ -72,7 +72,7 @@ impl Opened {
                 Ok((gone, keep))
             })
             .map_err(sql_err)?;
-        // Their digests go too.
+        // What other engines kept with them goes too.
         let known: std::collections::HashSet<String> = self
             .db
             .read(|c| {
@@ -81,8 +81,9 @@ impl Opened {
                     .collect()
             })
             .map_err(sql_err)?;
-        for e in std::fs::read_dir(self.root.join("digests"))
+        for e in digests::Kept::ALL
             .into_iter()
+            .filter_map(|k| std::fs::read_dir(self.root.join(k.folder())).ok())
             .flatten()
             .flatten()
         {
@@ -524,6 +525,18 @@ impl Workspace {
             "Digests kept with the papers",
             Permission::read(),
             get_digests
+        );
+        reg!(
+            cmd::SAVE_FIGURES,
+            "Keep what was seen in a paper's figures with it",
+            Permission::create(),
+            save_figures
+        );
+        reg!(
+            cmd::GET_FIGURES,
+            "What was seen in the figures of papers",
+            Permission::read(),
+            get_figures
         );
         reg!(
             cmd::MOVE_COLLECTION,

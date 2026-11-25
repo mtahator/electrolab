@@ -35,7 +35,7 @@ practice: test release
 - `cargo xtask fetch-natives <name…>` and `cargo xtask fetch-models` fill `.natives/`; `cargo xtask gen` writes schemas and TypeScript bindings; `cargo xtask arch-check` checks layering.
 - Lint is `-D warnings`, clippy pedantic, unsafe forbidden; also `cargo machete` and `cargo deny check`.
 - UI: `npm run build`/`lint` in `ui/`; design tokens only (a raw colour fails the lint).
-- End-to-end: `node e2e/<suite>.mjs <reader.exe> <scratch> <out>`; suites `reader annotations screens intel library large perf explain`.
+- End-to-end: `node e2e/<suite>.mjs <reader.exe> <scratch> <out>`; one `.mjs` per suite in `e2e/` (`lib.mjs` is shared).
 - Test runs of the app set `EP_DATA_DIR` (own data, no single-instance).
 - best: recipes are complete, proven and followed — `test:practices_are_complete_and_proven`
 - best: the map stays true: paths, connections and tests it names exist — `test:project_map_is_current`
@@ -285,7 +285,7 @@ practice: engine ai file setting
 - best: a file from outside is untrusted: broken headers are errors, never crashes — `test:broken_headers_are_errors_never_crashes`
 - best: the suggestion fits the machine; the order is kept, and gone models are left out — `test:the_suggestion_fits_the_machine` `test:the_order_is_kept_and_can_be_automatic_again` `test:the_users_order_is_followed_and_gone_models_are_left_out`
 - best: one model for all work, loaded once, ready before it is asked — `test:one_model_answers_every_task_and_stays_loaded` `test:a_model_is_made_ready_before_it_is_asked` `test:the_model_stays_ready`
-- best: memory is measured, other programs count, the next model takes over and says why — `test:a_full_memory_means_the_next_model` `test:what_other_programs_use_counts` `test:a_model_that_does_not_start_gives_way_to_the_next`
+- best: memory is measured, other programs count, the next model takes over and says why — `test:a_full_memory_means_the_next_model` `test:memory_that_comes_free_late_is_waited_for` `test:what_other_programs_use_counts` `test:a_model_that_does_not_start_gives_way_to_the_next`
 - best: an answer with a schema starts at once; a cut answer gets more room — `test:sse_lines_are_read_defensively` `test:schema_is_retried_once_then_fails`
 - best: background answers give way at once — `test:a_background_answer_gives_way_to_a_person_and_is_begun_again`
 - best: tests never reach a real model by accident — `test:replay_answers_recorded_tasks_and_refuses_others`
@@ -293,7 +293,7 @@ check: `cargo test -p ep-inference-core -p ep-inference-contract -p ep-inference
 
 ## #explain Explain a selection (M5)
 tags: explain, understanding, draft, check, evidence, double-click, card
-connects: #inference #search #text #viewer #annotations
+connects: #inference #search #text #viewer #annotations #objects
 practice: ai popup command
 - Contract `engines/understanding/CONTRACT.md`; code `engines/understanding/facade/src/lib.rs`: streamed draft while the paper is searched, then a check that says OK or corrects. Prompts are the measured ones of spike S3.
 - Status is honest: checked, corrected or unchecked. Quotes are kept only when verbatim on their page.
@@ -302,9 +302,32 @@ practice: ai popup command
 - best: every quote stands on its page, word for word — `test:quotes_are_verbatim`
 - best: Stop stops the model, not only the card — `test:cancelling_explain_cancels_the_model` `test:stop_ends_the_answer`
 - best: no model: a double-click stays quiet, the button explains — `test:no_model_is_quiet_then_clear`
+- An abbreviation begins with the paper's own words (`engines/understanding/core/src/abbreviations.rs`): the model's check let wrong expansions pass (golden set, 2026-11-25).
+- best: an abbreviation stands for what the paper says — `test:an_abbreviation_is_spelled_as_the_paper_does` `test:nothing_is_made_up`
+- Golden set with the real models: `fixtures/golden/explain.toml`, ignored test `the_golden_set`.
 - best: the card never covers its word — `test:card_does_not_cover_the_word`
 - best: the model process ends with the app — `test:model_process_ends_with_the_app`
 check: `cargo test -p ep-understanding` · `node e2e/explain.mjs <reader.exe> <scratch> <out>`
+
+## #objects Explain a figure, table, equation or paragraph; the right-click menu (M5)
+tags: right click, context menu, figure, table, equation, symbols, units, ask a table, vision, picture, consent, simpler, deeper, golden
+connects: #explain #inference #labels #equations #viewer
+practice: ai popup command
+- Contract `engines/understanding/CONTRACT.md` (objects on the page); code `engines/understanding/facade/src/objects.rs` and `equations.rs`, `figures.rs`, `tables.rs` beside it; pure parts in `engines/understanding/core/src/` (table, symbols, latex, formula, units, numbers, abbreviations, written). Prompts: `engines/understanding/facade/assets/explain.toml`.
+- The window: `ui/reader/src/viewer/Viewer.tsx` (menu), `ui/reader/src/intel/objects.ts` (what is under the pointer), `ui/reader/src/assistant/explain.ts`, `ui/reader/src/intel/TableView.tsx`. Rules: design language §17.13.
+- Code computes, the model says what is meant: a table question becomes a plan of names that exist; symbols, units and numbers are checked by code.
+- Looking at pictures: `engines/inference/facade/src/vision.rs`; the answering model leaves the card for it and comes back.
+- best: a table's answer comes from its cells and names them — `test:a_table_answers_with_its_cells` `test:what_cannot_be_computed_is_refused` `test:a_table_answers_from_its_cells` `test:sorting_keeps_the_marks`
+- best: a number that does not stand in what the model was given takes its sentence with it — `test:a_number_from_nowhere_is_left_out`
+- best: an abbreviation in an answer is the paper's — `test:abbreviations_stand_for_what_the_paper_says` `test:an_answer_says_what_the_paper_says`
+- best: no raw LaTeX in an answer, also while it streams — `test:formulas_are_shown_as_letters` `test:a_formula_that_has_begun_waits_for_its_end`
+- best: a meaning is the paper's, word for word — `test:a_meaning_from_the_model_is_kept_only_when_it_stands_in_the_paper` `test:a_where_sentence_gives_every_symbol` `test:a_star_makes_another_symbol` `test:a_word_is_no_symbol_of_an_equation`
+- best: units agree only when every term is known — `test:units_that_agree_and_units_that_do_not` `test:what_is_not_known_is_not_judged`
+- best: nothing is said where the paper says nothing — `test:nothing_is_made_up_where_the_paper_says_nothing`
+- best: a picture is looked at with consent, asked once a paper, and kept — `test:pictures_are_looked_at_with_consent_and_kept` `test:an_early_end_loses_nothing` `test:looking_needs_a_yes` `test:asked_once_a_paper`
+- best: the menu is about what is under the pointer, short, and without AI rows when there is no model — `test:the_menu_is_about_what_is_under_the_pointer` `test:short_menus_at_once` `test:no_ai_rows_without_a_model`
+- best: simpler and deeper answer in the same card — `test:simpler_and_deeper_in_the_same_card` `test:simpler_and_deeper_add_to_what_the_model_is_told`
+check: `cargo test -p ep-understanding-core -p ep-understanding` · `node e2e/objects.mjs <reader.exe> <scratch> <out>`
 
 ## #pitfalls Things that cost time
 tags: pitfall, bug, lesson, gotcha

@@ -19,7 +19,7 @@ pub use library::*;
 pub use notes::*;
 
 /// Contract version; experimental until a second host uses it (Draft 2.2 §8.3).
-pub const VERSION: &str = "0.6.0";
+pub const VERSION: &str = "0.7.0";
 
 /// Project folder format written by this version (ADR-010).
 pub const PROJECT_FORMAT: u32 = 1;
@@ -56,6 +56,10 @@ pub mod commands {
     pub const SAVE_DIGEST: &str = "workspace.save_digest";
     /// Digests kept.
     pub const GET_DIGESTS: &str = "workspace.get_digests";
+    /// Keep what was seen in a paper's figures.
+    pub const SAVE_FIGURES: &str = "workspace.save_figures";
+    /// What was seen in the figures of papers.
+    pub const GET_FIGURES: &str = "workspace.get_figures";
     /// Move a folder into another one.
     pub const MOVE_COLLECTION: &str = "workspace.move_collection";
     /// Put groups of papers into folders.

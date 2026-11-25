@@ -135,7 +135,8 @@ if (llm) {
     await s.until(`document.querySelector(".ask") ? true : null`, 4000);
     await s.until(`document.querySelector(".ask-summaries .spinner") ? null : true`, 60000);
     // The first search loads the model: what the words find is there long before.
-    const question = real ? "chart of carbon saving against NPV for the different technologies" : "table with the motor power of the coffee grinder";
+    // A question that a short summary answers: the model sees the summaries alone when it chooses papers.
+    const question = real ? "chart of carbon saving against NPV for the different technologies" : "cleaning the burrs of the coffee grinder";
     const t0 = Date.now();
     await askFor(question);
     await s.until(`document.querySelector(".ask-place") ? true : null`, 10000);
@@ -159,7 +160,7 @@ if (llm) {
       check("a_question_in_another_language_finds_it_too", persian?.slice(0, 3).some((x) => /^Figure (6|11)\b/.test(x)), { persian });
     }
     // Stop ends it, and what was found stays.
-    await askFor("energy and power");
+    await askFor(real ? "energy and power" : "safety of the coffee grinder");
     await s.until(`document.querySelector(".ask-place") ? true : null`, 10000);
     await click(withText(".ask-box button", "Stop"));
     const stopped = await s.until(`/Stopped/.test(document.querySelector(".ask-status")?.textContent ?? "") ? true : null`, 3000);

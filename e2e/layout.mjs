@@ -27,6 +27,8 @@ const webview = join(scratch, "layout-webview");
 rmSync(data, { recursive: true, force: true });
 rmSync(webview, { recursive: true, force: true });
 delete process.env.EP_LLM_DIR;
+// The question for the layout model is one of the parts: there is none.
+delete process.env.EP_MODELS_DIR;
 const papers = [join(root, "fixtures/documents/product-manual.pdf"), join(root, ".fixtures/papers/arxiv-2111.12066v2.pdf")];
 const s = await launchApp({ exe, args: papers, data, webview, port: 9390, out, consoleLog: [] });
 const key = async (k, code, vk, modifiers = 0) => {
@@ -37,6 +39,11 @@ const click = (sel, text) => s.js(`(() => { const e = [...document.querySelector
 const bar = (label) => click(`.topbar [aria-label^="${label}"]`);
 const has = (sel, ms = 4000) => s.until(`document.querySelector(${JSON.stringify(sel)}) ? true : null`, ms);
 const gone = (sel) => s.until(`document.querySelector(${JSON.stringify(sel)}) ? null : true`, 3000);
+/** A right-click on the page, as the mouse does it. */
+const rightClick = async () => {
+  const at = await s.js(`(() => { const r = document.querySelector(".pane.focused .scroller").getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+  for (const type of ["mousePressed", "mouseReleased"]) await s.send("Input.dispatchMouseEvent", { type, ...at, button: "right", clickCount: 1 });
+};
 const selectWords = () =>
   s.js(`(() => { const w = [...document.querySelectorAll(".pane.focused .text-layer span[data-page]")].find((e) => { const r = e.getBoundingClientRect(); return r.top > 120 && r.bottom < innerHeight - 60 && r.width > 10; });
     if (!w) return false; const r = document.createRange(); r.selectNodeContents(w); const g = getSelection(); g.removeAllRanges(); g.addRange(r);
@@ -70,6 +77,7 @@ const PARTS = {
     },
     close: async () => (await escape(), s.js("getSelection().removeAllRanges()")),
   },
+  page_menu: { open: async () => (await rightClick(), has(".ep-menu")), close: escape },
   settings: { open: async () => (await key(",", "Comma", 188, 2), has(".ep-dialog .settings")), close: escape },
   shortcuts: {
     open: async () => {

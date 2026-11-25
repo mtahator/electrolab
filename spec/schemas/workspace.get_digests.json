@@ -9,7 +9,7 @@
       }
     },
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "description": "Input of `workspace.get_digests`.",
+    "description": "Input of `workspace.get_digests` and `workspace.get_figures`.",
     "properties": {
       "papers": {
         "default": null,
@@ -29,7 +29,7 @@
   "output": {
     "$defs": {
       "PaperDigest": {
-        "description": "A digest of a paper. Output of `workspace.get_digests`, input of `workspace.save_digest`.",
+        "description": "A digest of a paper. Output of `workspace.get_digests`, input of `workspace.save_digest`\n(and, for what was seen in its figures, of `get_figures` and `save_figures`).",
         "properties": {
           "data": {
             "description": "The digest, as the engine that made it wrote it."

@@ -4,10 +4,11 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
-description = "Understanding engine contract: explain a selection (see CONTRACT.md)"
+description = "Understanding engine contract: explaining a paper (see CONTRACT.md)"
 
 [dependencies]
 ep-types = { path = "../../../foundation/types" }
+ep-document-contract = { path = "../../document/contract" }
 serde.workspace = true
 schemars.workspace = true
 

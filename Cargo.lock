@@ -1411,6 +1411,7 @@ dependencies = [
  "ep-inference-contract",
  "ep-inference-core",
  "ep-os",
+ "ep-types",
  "futures",
  "parking_lot 0.13.0",
  "serde",
@@ -1424,6 +1425,7 @@ dependencies = [
 name = "ep-inference-adapter-llamacpp"
 version = "0.1.0"
 dependencies = [
+ "base64 0.23.1",
  "ep-inference-contract",
  "ep-inference-core",
  "ep-os",
@@ -1439,6 +1441,7 @@ dependencies = [
 name = "ep-inference-contract"
 version = "0.1.0"
 dependencies = [
+ "ep-types",
  "schemars 1.2.3",
  "serde",
  "serde_json",
@@ -1617,12 +1620,16 @@ dependencies = [
  "ep-document-contract",
  "ep-inference",
  "ep-inference-contract",
+ "ep-os",
  "ep-types",
  "ep-understanding-contract",
+ "ep-understanding-core",
  "parking_lot 0.13.0",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
+ "toml 0.8.2",
  "tracing",
 ]
 
@@ -1630,9 +1637,18 @@ dependencies = [
 name = "ep-understanding-contract"
 version = "0.1.0"
 dependencies = [
+ "ep-document-contract",
  "ep-types",
  "schemars 1.2.3",
  "serde",
+]
+
+[[package]]
+name = "ep-understanding-core"
+version = "0.1.0"
+dependencies = [
+ "regex",
+ "unicode-normalization",
 ]
 
 [[package]]

@@ -1,5 +1,9 @@
 //! Tables from the words inside a table box (P1.M4.TAB.1–2): rows by vertical position, columns
-//! by the gaps that run through every row, header rows, units and numeric values, CSV.
+//! by the gaps that run through (almost) every row, header rows, units and numeric values, CSV.
+//!
+//! A heading over several columns, or one long entry, crosses a gap that the other rows have; so a
+//! few rows may cross it. Words of one entry stand close together; two numbers next to each other
+//! are two entries even when they are close.
 
 use std::sync::LazyLock;
 
@@ -75,6 +79,166 @@ fn csv_field(s: &str) -> String {
     }
 }
 
+/// Words of a row that belong together: first and last word.
+fn phrases(row: &[Word], h: f32) -> Vec<(usize, usize)> {
+    let mut out: Vec<(usize, usize)> = Vec::new();
+    for (i, w) in row.iter().enumerate() {
+        if let Some(p) = out.last_mut() {
+            let last = &row[p.1];
+            let both = value(&last.text).is_some() && value(&w.text).is_some();
+            // Between two numbers even a narrow gap is one between columns.
+            let near = if both { h * 0.18 } else { h * 0.72 };
+            if w.rect.x0 - last.rect.x1 < near {
+                p.1 = i;
+                continue;
+            }
+        }
+        out.push((i, i));
+    }
+    out
+}
+
+/// The middle of every gap between columns, from left to right.
+fn separators(rows: &[Vec<Word>], h: f32) -> Vec<(f32, f32)> {
+    type Row<'a> = (&'a Vec<Word>, Vec<(usize, usize)>);
+    let many: Vec<Row> = rows
+        .iter()
+        .map(|r| (r, phrases(r, h)))
+        .filter(|(_, p)| p.len() > 1)
+        .collect();
+    let crossing = match many.len() {
+        0..=3 => 0,
+        4..=6 => 1,
+        n => n * 15 / 100,
+    };
+    let span = |r: &[Word], p: (usize, usize)| (r[p.0].rect.x0, r[p.1].rect.x1);
+    let mut xs: Vec<f32> = many
+        .iter()
+        .flat_map(|(r, p)| {
+            p.iter().flat_map(|p| {
+                let (a, b) = span(r, *p);
+                [a, b]
+            })
+        })
+        .collect();
+    xs.sort_by(f32::total_cmp);
+    xs.dedup();
+    let mut free: Vec<(f32, f32)> = Vec::new();
+    let mut open = false;
+    for w in xs.windows(2) {
+        let m = f32::midpoint(w[0], w[1]);
+        let covered = many
+            .iter()
+            .filter(|(r, p)| {
+                p.iter().any(|p| {
+                    let (a, b) = span(r, *p);
+                    a < m && m < b
+                })
+            })
+            .count();
+        if covered <= crossing {
+            match free.last_mut() {
+                Some(f) if open => f.1 = w[1],
+                _ => free.push((w[0], w[1])),
+            }
+        }
+        open = covered <= crossing;
+    }
+    free.into_iter()
+        .filter(|(a, b)| {
+            let m = f32::midpoint(*a, *b);
+            let (mut gaps, mut numbers) = (Vec::new(), 0);
+            for (r, p) in &many {
+                let left = p.iter().rfind(|p| r[p.1].rect.x1 <= m);
+                let right = p.iter().find(|p| r[p.0].rect.x0 >= m);
+                let crossed = p.iter().any(|p| {
+                    let (a, b) = span(r, *p);
+                    a < m && m < b
+                });
+                let (Some(l), Some(q), false) = (left, right, crossed) else {
+                    continue;
+                };
+                gaps.push(r[q.0].rect.x0 - r[l.1].rect.x1);
+                numbers +=
+                    usize::from(value(&r[l.1].text).is_some() && value(&r[q.0].text).is_some());
+            }
+            if gaps.is_empty() || (many.len() > 2 && gaps.len() < 2) {
+                return false;
+            }
+            let wide = if numbers * 2 >= gaps.len() {
+                h * 0.18
+            } else {
+                h * 0.6
+            };
+            b - a >= h * 0.18 && median(gaps) >= wide
+        })
+        .collect()
+}
+
+/// Words with their column, and how many columns there are. Neighbouring columns that are never
+/// filled in the same row are one (entries of one column that stand apart).
+fn join_columns(
+    rows: Vec<Vec<Word>>,
+    cuts: &[(f32, f32)],
+    h: f32,
+) -> (Vec<Vec<(usize, Word)>>, usize) {
+    let column = |x: f32| {
+        cuts.iter()
+            .filter(|(a, b)| x > f32::midpoint(*a, *b))
+            .count()
+    };
+    let mut out: Vec<Vec<(usize, Word)>> = rows
+        .into_iter()
+        .map(|r| {
+            let mut at = vec![0; r.len()];
+            for (first, last) in phrases(&r, h) {
+                let gaps: Vec<f32> = (first..last)
+                    .map(|i| r[i + 1].rect.x0 - r[i].rect.x1)
+                    .collect();
+                let usual = median(gaps.clone());
+                let mut start = first;
+                // A phrase over a gap stays whole (a heading of several columns), unless it is
+                // itself wider apart there.
+                for i in first..last {
+                    let (a, b) = (r[i].rect.x1, r[i + 1].rect.x0);
+                    let here = cuts.iter().any(|(x0, x1)| a < *x1 && b > *x0);
+                    if here && gaps.len() > 1 && b - a > usual * 1.3 {
+                        at[start..=i].fill(column(begin(&r, start, i, h)));
+                        start = i + 1;
+                    }
+                }
+                at[start..=last].fill(column(begin(&r, start, last, h)));
+            }
+            at.into_iter().zip(r).collect()
+        })
+        .collect();
+    let mut n = cuts.len() + 1;
+    let mut c = 0;
+    while c + 1 < n {
+        let filled = |row: &[(usize, Word)], c: usize| row.iter().any(|(at, _)| *at == c);
+        let both = out.iter().any(|r| filled(r, c) && filled(r, c + 1));
+        let first = out.iter().filter(|r| filled(r, c)).count();
+        let second = out.iter().filter(|r| filled(r, c + 1)).count();
+        if both && first > 0 && second > 0 {
+            c += 1;
+            continue;
+        }
+        for (at, _) in out.iter_mut().flatten() {
+            if *at > c {
+                *at -= 1;
+            }
+        }
+        n -= 1;
+    }
+    (out, n)
+}
+
+/// Where a phrase stands: the middle of it, or of its beginning when it is long.
+fn begin(r: &[Word], first: usize, last: usize, h: f32) -> f32 {
+    let (a, b) = (r[first].rect.x0, r[last].rect.x1);
+    f32::midpoint(a, b.min(a + h * 4.0))
+}
+
 /// A table from the words inside `object.rect`.
 #[must_use]
 #[allow(clippy::too_many_lines)] // rows, columns, cells, headers, units, CSV in one pass
@@ -105,30 +269,26 @@ pub fn table(pt: &PageText, object: &DocObject) -> Table {
             _ => rows.push(vec![w]),
         }
     }
-    // Columns: gaps in the union of word extents across all rows.
-    let mut spans: Vec<(f32, f32)> = ws.iter().map(|w| (w.rect.x0, w.rect.x1)).collect();
-    spans.sort_by(|a, b| a.0.total_cmp(&b.0));
-    // Column gaps are wider than the space between words (about a quarter of the line height).
-    let gap = (h * 0.8).max(4.0);
-    let mut cols: Vec<(f32, f32)> = Vec::new();
-    for (a, b) in spans {
-        match cols.last_mut() {
-            Some(c) if a <= c.1 + gap => c.1 = c.1.max(b),
-            _ => cols.push((a, b)),
-        }
-    }
-    if cols.is_empty() {
-        cols.push((object.rect.x0, object.rect.x1));
-    }
-    let col_of = |w: &Word| {
-        let cx = f32::midpoint(w.rect.x0, w.rect.x1);
-        cols.iter()
-            .position(|c| cx >= c.0 - gap && cx <= c.1 + gap)
-            .unwrap_or(0)
-    };
-    let mut grid: Vec<Vec<Cell>> = Vec::new();
-    for mut r in rows {
+    for r in &mut rows {
         r.sort_by(|a, b| a.rect.x0.total_cmp(&b.rect.x0));
+    }
+    let cuts = separators(&rows, h);
+    let (rows, n) = join_columns(rows, &cuts, h);
+    let cols: Vec<(f32, f32)> = (0..n)
+        .map(|c| {
+            let own = rows.iter().flatten().filter(|(at, _)| *at == c);
+            let (a, b) = own.fold((f32::MAX, f32::MIN), |(a, b), (_, w)| {
+                (a.min(w.rect.x0), b.max(w.rect.x1))
+            });
+            if a <= b {
+                (a, b)
+            } else {
+                (object.rect.x0, object.rect.x1)
+            }
+        })
+        .collect();
+    let mut grid: Vec<Vec<Cell>> = Vec::new();
+    for r in rows {
         let mut cells: Vec<Cell> = cols
             .iter()
             .map(|c| Cell {
@@ -143,8 +303,8 @@ pub fn table(pt: &PageText, object: &DocObject) -> Table {
                 },
             })
             .collect();
-        for w in &r {
-            let cell = &mut cells[col_of(w)];
+        for (at, w) in &r {
+            let cell = &mut cells[*at];
             if !cell.text.is_empty() {
                 cell.text.push(' ');
             }
@@ -152,7 +312,7 @@ pub fn table(pt: &PageText, object: &DocObject) -> Table {
             cell.rect.y0 = cell.rect.y0.min(w.rect.y0);
             cell.rect.y1 = cell.rect.y1.max(w.rect.y1);
         }
-        let (y0, y1) = r.iter().fold((f32::MAX, f32::MIN), |(a, b), w| {
+        let (y0, y1) = r.iter().fold((f32::MAX, f32::MIN), |(a, b), (_, w)| {
             (a.min(w.rect.y0), b.max(w.rect.y1))
         });
         for c in &mut cells {
@@ -170,8 +330,24 @@ pub fn table(pt: &PageText, object: &DocObject) -> Table {
         !filled.is_empty()
             && filled.iter().filter(|c| c.value.is_some()).count() * 2 >= filled.len()
     };
+    // A heading without gaps needs no second row, unless that row has no name of its own
+    // (the rest of the heading) or holds units.
+    let whole = grid
+        .first()
+        .is_some_and(|r| r.iter().all(|c| !c.text.is_empty()));
+    let data = |row: &Vec<Cell>| {
+        whole
+            && row
+                .first()
+                .is_some_and(|c| !c.text.is_empty() && !c.text.starts_with(['(', '[']))
+    };
     let header_rows = if grid.iter().any(&numeric) {
-        u32::try_from(grid.iter().take_while(|r| !numeric(r)).count().min(3)).unwrap_or(0)
+        let rows = grid
+            .iter()
+            .enumerate()
+            .take_while(|(i, r)| !numeric(r) && (*i == 0 || !data(r)))
+            .count();
+        u32::try_from(rows.min(3)).unwrap_or(0)
     } else {
         u32::from(!grid.is_empty())
     };
@@ -219,21 +395,71 @@ mod tests {
         assert_eq!(value("PINN"), None);
     }
 
-    #[test]
-    fn grid_header_units_csv() {
-        let p = page(
-            4,
-            &[
-                ("Model      Error (K)     Time [s]", 100.0, 100.0, 10.0),
-                ("PINN       0.42          12", 100.0, 114.0, 10.0),
-                ("LSTM, v2   0.87          9.5", 100.0, 128.0, 10.0),
-            ],
-        );
+    fn read(lines: &[(&str, f32)]) -> Vec<Vec<String>> {
+        let lines: Vec<(&str, f32, f32, f32)> =
+            lines.iter().map(|(t, y)| (*t, 100.0, *y, 10.0)).collect();
+        let p = page(1, &lines);
         let obj = DocObject {
-            id: "p4-table-1".into(),
+            id: "p1-table-1".into(),
             kind: ObjectKind::Table,
             rect: PageRect {
-                page: 4,
+                page: 1,
+                x0: 90.0,
+                y0: 95.0,
+                x1: 600.0,
+                y1: 400.0,
+            },
+            label: None,
+            number: None,
+            text: None,
+            caption_rect: None,
+            score: 1.0,
+            order: 0,
+        };
+        table(&p, &obj)
+            .rows
+            .iter()
+            .map(|r| r.iter().map(|c| c.text.clone()).collect())
+            .collect()
+    }
+
+    #[test]
+    fn a_heading_over_columns_does_not_join_them() {
+        let t = read(&[
+            ("Model      Burgers with two values      Advection", 100.0),
+            ("           nu=0.1       nu=0.01        beta=0.1", 114.0),
+            ("U-Net      0.1548       0.2222         0.0897", 128.0),
+            ("DeepONet   0.0687       0.1758         0.0194", 142.0),
+            ("FNO        0.0171       0.0492         0.0125", 156.0),
+            ("ResNet     0.0383       0.0843         0.0413", 170.0),
+            ("Other      0.0061       0.0180         0.0120", 184.0),
+        ]);
+        assert_eq!(t[2], ["U-Net", "0.1548", "0.2222", "0.0897"], "{t:?}");
+        assert!(
+            t[0].contains(&"Burgers with two values".to_string()),
+            "{t:?}"
+        );
+    }
+
+    #[test]
+    fn entries_of_one_column_that_stand_apart_are_one_column() {
+        let t = read(&[
+            ("Parameter         Value    Description", 100.0),
+            ("layers        2            Number of layers", 114.0),
+            ("width         256          Size of a layer", 128.0),
+            ("rate          0.0003       Learning rate", 142.0),
+        ]);
+        assert!(t.iter().all(|r| r.len() == 3), "{t:?}");
+        assert_eq!(t[2], ["width", "256", "Size of a layer"]);
+    }
+
+    /// A table where the lines of a page stand.
+    fn object(page: u32) -> DocObject {
+        DocObject {
+            id: format!("p{page}-table-1"),
+            kind: ObjectKind::Table,
+            rect: PageRect {
+                page,
                 x0: 90.0,
                 y0: 95.0,
                 x1: 400.0,
@@ -245,7 +471,35 @@ mod tests {
             caption_rect: None,
             score: 1.0,
             order: 0,
-        };
+        }
+    }
+
+    #[test]
+    fn a_row_with_words_below_a_whole_heading_is_not_a_heading() {
+        let words = page(
+            1,
+            &[
+                ("Parameter         Value", 100.0, 100.0, 10.0),
+                ("Optimizer         Adam", 100.0, 114.0, 10.0),
+                ("Learning rate     0.001", 100.0, 128.0, 10.0),
+                ("Batch size        2048", 100.0, 142.0, 10.0),
+            ],
+        );
+        let t = table(&words, &object(1));
+        assert_eq!(t.header_rows, 1, "{}", t.csv);
+    }
+
+    #[test]
+    fn grid_header_units_csv() {
+        let p = page(
+            4,
+            &[
+                ("Model      Error (K)     Time [s]", 100.0, 100.0, 10.0),
+                ("PINN       0.42          12", 100.0, 114.0, 10.0),
+                ("LSTM, v2   0.87          9.5", 100.0, 128.0, 10.0),
+            ],
+        );
+        let obj = object(4);
         let t = table(&p, &obj);
         assert_eq!(t.rows.len(), 3);
         assert_eq!(

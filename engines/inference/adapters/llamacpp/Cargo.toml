@@ -7,6 +7,7 @@ publish.workspace = true
 description = "Inference engine adapter: llama.cpp llama-server as a loopback sidecar (ADR-005)"
 
 [dependencies]
+base64.workspace = true
 ep-inference-contract = { path = "../../contract" }
 ep-inference-core = { path = "../../core" }
 futures.workspace = true

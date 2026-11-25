@@ -31,6 +31,17 @@ pub struct Prepared {
     pub max_tokens: u32,
     /// Sampling temperature.
     pub temperature: f32,
+    /// Pictures that belong to the last question.
+    pub images: Vec<Image>,
+}
+
+/// A picture.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Image {
+    /// `image/png` or `image/jpeg`.
+    pub media_type: String,
+    /// Its bytes.
+    pub bytes: Arc<Vec<u8>>,
 }
 
 /// Build what the model sees (guarantee 2: data is its own labelled section, never an instruction).
@@ -61,6 +72,7 @@ pub fn prepare(req: &LlmRequest) -> Prepared {
         schema: req.schema.clone(),
         max_tokens: req.limits.max_tokens,
         temperature: req.limits.temperature,
+        images: vec![],
     }
 }
 
